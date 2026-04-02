@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: RecorderService
+Signal-Recorder: RecorderService
 Conductor와 VodEngine을 감싸는 비즈니스 로직 레이어.
 API 라우터에서 직접 엔진을 호출하지 않고 이 서비스를 통해 접근한다.
 """

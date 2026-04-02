@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: Stream API Router
+Signal-Recorder: Stream API Router
 라이브 채널 관리 및 녹화 제어 엔드포인트.
 """
 

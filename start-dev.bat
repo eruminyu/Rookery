@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 > nul
-echo [INFO] Chzzk-Recorder-Pro 개발 서버 시작...
+echo [INFO] Signal-Recorder 개발 서버 시작...
 
 cd /d "%~dp0"
 

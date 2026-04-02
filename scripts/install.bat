@@ -1,5 +1,5 @@
 @echo off
-echo [INFO] Installing Chzzk-Recorder-Pro Dependencies...
+echo [INFO] Installing Signal-Recorder Dependencies...
 
 cd /d "%~dp0\.."
 

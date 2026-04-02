@@ -1,4 +1,4 @@
-# Chzzk-Recorder-Pro
+# Signal-Recorder
 
 ![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg)
@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Platforms](https://img.shields.io/badge/Platforms-Chzzk%20%7C%20TwitCasting%20%7C%20Twitter%20Spaces-blueviolet.svg)
 
-**Chzzk-Recorder-Pro**는 치지직(Chzzk), TwitCasting, Twitter(X) Spaces 라이브 스트리밍 녹화 및 VOD 다운로드를 위한 강력한 올인원 솔루션입니다.
+**Signal-Recorder**는 치지직(Chzzk), TwitCasting, Twitter(X) Spaces 라이브 스트리밍 녹화 및 VOD 다운로드를 위한 강력한 올인원 솔루션입니다.
 안정적인 녹화 파이프라인, 직관적인 웹 대시보드, 실시간 채팅 아카이빙, 그리고 Discord 봇 연동 기능을 제공합니다.
 
 ---
@@ -78,7 +78,7 @@
 
 > **Python 설치 불필요!** Python 인터프리터가 내장되어 있어 더블클릭만으로 바로 실행됩니다.
 
-1. [Releases 페이지](https://github.com/eruminyu/Chzzk_downloader/releases)에서 최신 `chzzk-recorder-pro.exe` 다운로드
+1. [Releases 페이지](https://github.com/eruminyu/Signal-Recorder/releases)에서 최신 `signal-recorder.exe` 다운로드
 2. 파일 더블클릭 → 서버 자동 시작
 3. 브라우저에서 `http://localhost:8000` 접속
 
@@ -93,7 +93,7 @@
 OS 감지부터 의존성 설치, 빌드, systemd 등록까지 전부 자동으로 처리합니다.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash
 ```
 
 **자동 처리 목록:**
@@ -106,7 +106,7 @@ curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scri
 
 > 💡 **서버가 시작되지 않거나 이후 재실행할 때:**
 > ```bash
-> ~/chzzk-recorder-pro/start.sh
+> ~/signal-recorder/start.sh
 > ```
 
 > 📖 상세 가이드: [Linux 설치 가이드](./docs/linux-guide.md)
@@ -118,7 +118,7 @@ curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scri
 Docker가 없는 서버에서도 OK. Docker Engine 설치까지 포함합니다.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scripts/install-docker.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install-docker.sh | bash
 ```
 
 **자동 처리 목록:**
@@ -146,8 +146,8 @@ Python 3.10+, Node.js 18+, `ffmpeg` (6.x 이상)가 사전 설치되어 있어�
 
 ```bash
 # 저장소 클론
-git clone https://github.com/eruminyu/Chzzk_downloader.git
-cd Chzzk_downloader
+git clone https://github.com/eruminyu/Signal-Recorder.git
+cd Signal-Recorder
 
 # 프론트엔드 빌드
 cd frontend && npm ci && npm run build
@@ -178,7 +178,7 @@ cd backend && python run.py
 연령 제한 방송을 녹화하려면 네이버 로그인 쿠키가 필요합니다.
 1. 웹 브라우저에서 네이버 로그인 후 개발자 도구(F12) → Application → Cookies를 엽니다.
 2. `NID_AUT`와 `NID_SES` 값을 복사합니다.
-3. Chzzk-Recorder-Pro 설정 페이지(Settings) → 인증 탭에서 해당 값을 입력하고 저장합니다.
+3. Signal-Recorder 설정 페이지(Settings) → 인증 탭에서 해당 값을 입력하고 저장합니다.
 
 ### 2. TwitCasting 인증
 TwitCasting 채널 감시 및 아카이브 다운로드에 TwitCasting 계정 인증이 필요합니다.
@@ -236,18 +236,18 @@ Twitter Spaces 캡처 및 다운로드를 위해 트위터 계정 쿠키 파일�
 ## 🔄 업데이트 방법
 
 ### 🪟 Windows
-[Releases 페이지](https://github.com/eruminyu/Chzzk_downloader/releases)에서 새 버전의 exe를 다운로드하여 기존 파일에 덮어쓰기하세요.
+[Releases 페이지](https://github.com/eruminyu/Signal-Recorder/releases)에서 새 버전의 exe를 다운로드하여 기존 파일에 덮어쓰기하세요.
 설정(`.env`)과 녹화 파일은 그대로 유지됩니다.
 
 ### 🐧 Linux Native
 설치 스크립트가 기존 설치를 감지하면 자동으로 업데이트 모드로 동작합니다.
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash
 ```
 
 ### 🐳 Docker
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scripts/update-docker.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/update-docker.sh | bash
 ```
 
 ---
@@ -303,7 +303,7 @@ Archive 탭의 다운로드 기능은 내부적으로 `bestaudio` 포맷으로 �
 ## 📂 디렉토리 구조
 
 ```
-Chzzk-Recorder-Pro/
+Signal-Recorder/
 ├── backend/
 │   ├── app/
 │   │   ├── api/        # REST API 엔드포인트

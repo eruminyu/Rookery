@@ -7,7 +7,7 @@
 
 ## 개요
 
-Chzzk Recorder Pro는 치지직 외에 **TwitCasting**과 **Twitter Spaces** 라이브를 자동 감지하고 녹화할 수 있다.
+Signal Recorder는 치지직 외에 **TwitCasting**과 **Twitter Spaces** 라이브를 자동 감지하고 녹화할 수 있다.
 
 | 플랫폼 | 감지 방법 | 스트림 추출 | 출력 형식 |
 |--------|----------|------------|----------|
@@ -20,7 +20,7 @@ Chzzk Recorder Pro는 치지직 외에 **TwitCasting**과 **Twitter Spaces** 라
 
 ### 공통
 
-- 서버가 정상 실행 중이어야 함 (`sudo systemctl status chzzk-recorder` 또는 `start.sh`)
+- 서버가 정상 실행 중이어야 함 (`sudo systemctl status signal-recorder` 또는 `start.sh`)
 - WebUI 접속 가능 상태: `http://localhost:8000` (또는 서버 IP:8000)
 
 ### TwitCasting 전제조건
@@ -52,7 +52,7 @@ Chzzk Recorder Pro는 치지직 외에 **TwitCasting**과 **Twitter Spaces** 라
 
 추출 후 저장 경로 예시:
 ```
-/home/user/chzzk-recorder-pro/cookies/twitter_cookies.txt
+/home/user/signal-recorder/cookies/twitter_cookies.txt
 ```
 
 **채널 ID (`@username` 핸들):**
@@ -84,7 +84,7 @@ chmod a+rx /usr/local/bin/yt-dlp
    - **저장** 클릭 → "설정이 저장되었습니다" 토스트 확인
 3. **Twitter Spaces** 섹션:
    - `쿠키 파일 경로` 입력 (Netscape 형식 .txt 파일의 서버 절대 경로)
-   - 예: `/home/user/chzzk-recorder-pro/cookies/twitter_cookies.txt`
+   - 예: `/home/user/signal-recorder/cookies/twitter_cookies.txt`
    - **저장** 클릭
 
 ---
@@ -111,7 +111,7 @@ chmod a+rx /usr/local/bin/yt-dlp
 
 ```bash
 # 서버에서
-tail -f ~/chzzk-recorder-pro/logs/service.log | grep -i twitcast
+tail -f ~/signal-recorder/logs/service.log | grep -i twitcast
 ```
 
 라이브 방송 시작 시 아래 로그가 출력되어야 함:
@@ -122,7 +122,7 @@ tail -f ~/chzzk-recorder-pro/logs/service.log | grep -i twitcast
 
 **녹화 파일 확인:**
 ```bash
-ls -lh ~/chzzk-recorder-pro/recordings/
+ls -lh ~/signal-recorder/recordings/
 # → [TwitCasting채널명] 제목_YYYYMMDD_HHMMSS.ts 형식의 파일 생성 확인
 ```
 
@@ -144,7 +144,7 @@ ls -lh ~/chzzk-recorder-pro/recordings/
 **라이브 감지 확인:**
 
 ```bash
-tail -f ~/chzzk-recorder-pro/logs/service.log | grep -i twitter
+tail -f ~/signal-recorder/logs/service.log | grep -i twitter
 ```
 
 Space 시작 시 아래 로그가 순서대로 출력되어야 함:
@@ -165,7 +165,7 @@ Space가 종료되면 캡처된 m3u8 URL로 자동 다운로드가 시작된다.
 
 **녹화 파일 확인:**
 ```bash
-ls -lh ~/chzzk-recorder-pro/recordings/
+ls -lh ~/signal-recorder/recordings/
 # → [KalserianT] Space제목_YYYYMMDD_HHMMSS.m4a 형식
 ```
 
@@ -180,7 +180,7 @@ ls -lh ~/chzzk-recorder-pro/recordings/
 **증상**: 채널 카드가 항상 오프라인으로 표시
 **확인**:
 ```bash
-grep "TwitCasting" ~/chzzk-recorder-pro/logs/service.log | tail -20
+grep "TwitCasting" ~/signal-recorder/logs/service.log | tail -20
 ```
 - `API 응답 401` → Client ID/Secret 오류. Settings에서 재입력
 - `API 요청 실패` → 네트워크 문제 또는 TwitCasting API 서버 다운
@@ -190,7 +190,7 @@ grep "TwitCasting" ~/chzzk-recorder-pro/logs/service.log | tail -20
 **증상**: 채널 추가 후 감지 안 됨, 항상 오프라인으로 표시
 **확인**:
 ```bash
-grep "twitter_spaces\|TwitterSpaces" ~/chzzk-recorder-pro/logs/service.log | tail -20
+grep "twitter_spaces\|TwitterSpaces" ~/signal-recorder/logs/service.log | tail -20
 ```
 - `쿠키 파일이 설정되지 않았거나 없습니다` → Settings에서 쿠키 파일 경로 확인
 - `auth_token/ct0를 찾을 수 없습니다` → 쿠키 파일에 `auth_token`, `ct0` 항목 없음. 브라우저에서 재추출
@@ -210,27 +210,27 @@ Twitter 배포 시 QUERY_ID가 변경될 수 있다. 증상: `400 Bad Request` �
 which yt-dlp        # 경로 확인
 pip install yt-dlp  # 가상환경 안에 설치
 # 또는 venv 환경에서:
-~/chzzk-recorder-pro/.venv/bin/pip install yt-dlp
+~/signal-recorder/.venv/bin/pip install yt-dlp
 ```
 
 ### 감시 루프 확인
 
 모든 플랫폼이 감지가 안 된다면 감시 루프 상태를 확인:
 ```bash
-grep "감시 오류\|감시 시작\|방송 시작" ~/chzzk-recorder-pro/logs/service.log | tail -30
+grep "감시 오류\|감시 시작\|방송 시작" ~/signal-recorder/logs/service.log | tail -30
 ```
 
 ### 로그 실시간 모니터링
 
 ```bash
 # 전체 로그
-tail -f ~/chzzk-recorder-pro/logs/service.log
+tail -f ~/signal-recorder/logs/service.log
 
 # 에러만
-tail -f ~/chzzk-recorder-pro/logs/service-error.log
+tail -f ~/signal-recorder/logs/service-error.log
 
 # 특정 채널
-tail -f ~/chzzk-recorder-pro/logs/service.log | grep "채널ID"
+tail -f ~/signal-recorder/logs/service.log | grep "채널ID"
 ```
 
 ---

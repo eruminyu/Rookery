@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: Archive API Router
+Signal-Recorder: Archive API Router
 TwitCasting 아카이브 목록 조회 및 아카이브 다운로드 엔드포인트.
 X Spaces m3u8 URL 조회 및 다운로드 엔드포인트 포함.
 """

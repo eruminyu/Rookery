@@ -18,7 +18,7 @@ Linux 환경에서는 세 가지 방식으로 설치할 수 있습니다:
 OS 감지 → 의존성 설치 → 빌드 → venv 설정 → systemd 등록까지 전부 자동으로 처리합니다.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash
 ```
 
 **자동으로 처리되는 것들:**
@@ -28,9 +28,9 @@ curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scri
 - ✅ Python 가상환경(.venv) 생성 및 의존성 설치
 - ✅ systemd 서비스 등록 (선택, 부팅 시 자동 실행)
 
-> **설치 경로 변경:** 기본 설치 경로는 `~/chzzk-recorder-pro` 입니다.
+> **설치 경로 변경:** 기본 설치 경로는 `~/signal-recorder` 입니다.
 > ```bash
-> INSTALL_DIR=/opt/chzzk-recorder curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scripts/install.sh | bash
+> INSTALL_DIR=/opt/signal-recorder curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash
 > ```
 
 ---
@@ -40,7 +40,7 @@ curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scri
 Docker가 없는 서버에도 사용 가능합니다. Docker Engine 설치까지 자동으로 처리합니다.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scripts/install-docker.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install-docker.sh | bash
 ```
 
 **자동으로 처리되는 것들:**
@@ -68,8 +68,8 @@ sudo apt-get install -y python3.12 python3.12-venv ffmpeg git
 
 ```bash
 # 저장소 클론
-git clone https://github.com/eruminyu/Chzzk_downloader.git
-cd Chzzk_downloader
+git clone https://github.com/eruminyu/Signal-Recorder.git
+cd Signal-Recorder
 
 # 프론트엔드 빌드
 cd frontend
@@ -96,18 +96,18 @@ python run.py
 
 ### 백그라운드 실행 (systemd)
 
-`/etc/systemd/system/chzzk-recorder.service` 생성:
+`/etc/systemd/system/signal-recorder.service` 생성:
 
 ```ini
 [Unit]
-Description=Chzzk Recorder Pro
+Description=Signal Recorder
 After=network-online.target
 
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/home/ubuntu/Chzzk_downloader/backend
-ExecStart=/home/ubuntu/Chzzk_downloader/.venv/bin/python run.py
+WorkingDirectory=/home/ubuntu/Signal-Recorder/backend
+ExecStart=/home/ubuntu/Signal-Recorder/.venv/bin/python run.py
 Restart=on-failure
 RestartSec=10
 
@@ -117,9 +117,9 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable chzzk-recorder
-sudo systemctl start chzzk-recorder
-sudo systemctl status chzzk-recorder
+sudo systemctl enable signal-recorder
+sudo systemctl start signal-recorder
+sudo systemctl status signal-recorder
 ```
 
 ---
@@ -158,23 +158,23 @@ sudo firewall-cmd --reload
 
 ```bash
 # 1. systemd 서비스 중지 및 제거
-sudo systemctl stop chzzk-recorder
-sudo systemctl disable chzzk-recorder
-sudo rm -f /etc/systemd/system/chzzk-recorder.service
+sudo systemctl stop signal-recorder
+sudo systemctl disable signal-recorder
+sudo rm -f /etc/systemd/system/signal-recorder.service
 sudo systemctl daemon-reload
 
 # 2. 설치 디렉토리 삭제
-rm -rf ~/chzzk-recorder-pro
+rm -rf ~/signal-recorder
 
 # 3. 재설치
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash
 ```
 
 > ⚠️ **포트가 이미 사용 중이라는 오류가 나는 경우**
 > systemd 서비스가 이미 8000 포트를 점유하고 있는 상태입니다.
 > 위의 1번 단계(서비스 중지)만 실행 후 재시도하세요.
 > ```bash
-> sudo systemctl stop chzzk-recorder
+> sudo systemctl stop signal-recorder
 > ```
 
 ---
@@ -186,6 +186,6 @@ curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scri
 | `python3.12` 없음 | `sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt install python3.12` |
 | `ffmpeg` 명령 없음 | `sudo apt install ffmpeg` |
 | 포트 접속 불가 | 방화벽 확인, `sudo ufw allow 8000/tcp` |
-| `address already in use` 오류 | `sudo systemctl stop chzzk-recorder` 후 재실행 |
+| `address already in use` 오류 | `sudo systemctl stop signal-recorder` 후 재실행 |
 | Permission denied | `chown -R $USER:$USER ./recordings ./data ./logs` |
 | Docker 그룹 권한 오류 | 로그아웃 후 재로그인 (또는 `newgrp docker`) |

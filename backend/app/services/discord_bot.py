@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: Discord Bot 서비스
+Signal-Recorder: Discord Bot 서비스
 User-Hosted Bot으로 원격에서 녹화 상태 확인 및 제어.
 
 사용자가 DISCORD_BOT_TOKEN을 설정에 입력하면 자동 구동된다.
@@ -212,7 +212,7 @@ class DiscordBotService:
                 sys_info = f"OS: {platform.system()} {platform.release()}"
 
             embed = discord.Embed(
-                title="📊 Chzzk-Recorder-Pro 상태",
+                title="📊 Signal-Recorder 상태",
                 color=discord.Color.green() if recording_count > 0 else discord.Color.grey(),
             )
             embed.add_field(name="감시 채널", value=str(len(channels)), inline=True)

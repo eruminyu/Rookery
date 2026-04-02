@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: 데스크톱 실행 진입점
+Signal-Recorder: 데스크톱 실행 진입점
 
 PyInstaller로 빌드된 .exe 실행 시:
   1. Python 3.12+ 및 FFmpeg 의존성 자동 감지
@@ -122,7 +122,7 @@ def _run_dependency_check() -> bool:
         False: 의존성 미충족 (종료)
     """
     print("=" * 60)
-    print("  Chzzk-Recorder-Pro 의존성 검사")
+    print("  Signal-Recorder 의존성 검사")
     print("=" * 60)
 
     all_ok = True
@@ -286,7 +286,7 @@ def _run_tray(url: str, stop_event: threading.Event) -> None:
         icon = pystray.Icon(
             "ChzzkRecorderPro",
             image,
-            "Chzzk-Recorder-Pro",
+            "Signal-Recorder",
             menu=pystray.Menu(
                 pystray.MenuItem("브라우저 열기", on_open_browser, default=True),
                 pystray.Menu.SEPARATOR,

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────
-# Chzzk-Recorder-Pro systemd 서비스 등록 스크립트
+# Signal-Recorder systemd 서비스 등록 스크립트
 # 사용: sudo bash scripts/setup_service.sh [설치경로] [실행사용자]
-# 예시: sudo bash scripts/setup_service.sh /opt/chzzk-recorder myuser
+# 예시: sudo bash scripts/setup_service.sh /opt/signal-recorder myuser
 # ─────────────────────────────────────────────────────────────
 set -e
 
-INSTALL_DIR="${1:-/opt/chzzk-recorder}"
+INSTALL_DIR="${1:-/opt/signal-recorder}"
 RUN_USER="${2:-$(logname 2>/dev/null || echo 'ubuntu')}"
-SERVICE_NAME="chzzk-recorder"
+SERVICE_NAME="signal-recorder"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}@.service"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -24,8 +24,8 @@ fi
 log_info "서비스 파일 복사 중: $SERVICE_FILE"
 # 설치 경로와 실제 경로로 치환
 sed \
-    -e "s|/opt/chzzk-recorder|$INSTALL_DIR|g" \
-    "$SCRIPT_DIR/chzzk-recorder.service" > "$SERVICE_FILE"
+    -e "s|/opt/signal-recorder|$INSTALL_DIR|g" \
+    "$SCRIPT_DIR/signal-recorder.service" > "$SERVICE_FILE"
 
 log_info "systemd 데몬 리로드..."
 systemctl daemon-reload

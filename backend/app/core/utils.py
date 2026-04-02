@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: 공통 유틸리티
+Signal-Recorder: 공통 유틸리티
 중복 방지를 위한 공용 헬퍼 함수 모음.
 """
 

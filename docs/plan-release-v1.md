@@ -1,7 +1,7 @@
 # v1.0.0 릴리즈 배포 계획
 
 ## 목적
-Chzzk-Recorder-Pro v1.0.0을 GitHub에 첫 정식 릴리즈한다.
+Signal-Recorder v1.0.0을 GitHub에 첫 정식 릴리즈한다.
 README 보완, 누락 파일 추가, Windows exe 빌드, GitHub Release 생성까지 처리.
 
 ## 변경 파일 목록
@@ -28,7 +28,7 @@ README 보완, 누락 파일 추가, Windows exe 빌드, GitHub Release 생성�
 
 ### 3단계: 빌드
 - 프론트엔드 빌드 (`npm ci && npm run build`)
-- PyInstaller 빌드 (`pyinstaller chzzk_recorder.spec --clean`)
+- PyInstaller 빌드 (`pyinstaller signal_recorder.spec --clean`)
 - exe 실행 테스트
 
 ### 4단계: 릴리즈

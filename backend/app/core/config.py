@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: 설정 관리 모듈
+Signal-Recorder: 설정 관리 모듈
 pydantic-settings 기반으로 환경변수 및 .env 파일에서 설정을 로드한다.
 """
 
@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     )
 
     # ── 앱 메타 ──────────────────────────────────────────
-    app_name: str = "Chzzk-Recorder-Pro"
+    app_name: str = "Signal-Recorder"
     debug: bool = False
 
     # ── FFmpeg ───────────────────────────────────────────

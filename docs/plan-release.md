@@ -2,7 +2,7 @@
 
 ## 개요
 
-기능 개발이 완료된 **Chzzk-Recorder-Pro**를 최종 사용자가 쉽게 설치하고 사용할 수 있도록 패키징한다.
+기능 개발이 완료된 **Signal-Recorder**를 최종 사용자가 쉽게 설치하고 사용할 수 있도록 패키징한다.
 프론트엔드(React)와 백엔드(FastAPI)를 별도로 실행하는 개발 환경과 달리, 배포 시에는 **백엔드가 프론트엔드 정적 파일을 서빙**하는 통합 구조를 채택한다.
 
 ## 배포 대상 플랫폼
@@ -91,7 +91,7 @@ Docker를 사용하지 않는 리눅스 환경(LXC 컨테이너, 저사양 VPS �
 4. **프론트엔드 빌드**: Release Asset에 미리 빌드된 정적 파일 포함하여 배포 *(권장)*
 
 ### 서비스 등록 (`setup_service.sh`)
-- `systemd` 서비스 파일 생성 (`/etc/systemd/system/chzzk-recorder.service`)
+- `systemd` 서비스 파일 생성 (`/etc/systemd/system/signal-recorder.service`)
 - 부팅 시 자동 실행, 로그 관리(`journalctl`) 지원
 - **범용성**: Systemd를 사용하는 대부분의 최신 리눅스 배포판(Ubuntu, Debian, CentOS 7+, Fedora, Arch)에서 호환됨.
 
@@ -110,7 +110,7 @@ Docker를 사용하지 않는 리눅스 환경(LXC 컨테이너, 저사양 VPS �
 2. Git 태그 생성: `git tag -a v1.0.0 -m "Release v1.0.0"`
 3. GitHub Release 페이지에 다음 Asset 첨부:
    - `ChzzkRecorder-v1.0.0-windows-x64.zip` (`.exe` + 내장 바이너리)
-   - `chzzk-recorder-v1.0.0-linux.tar.gz` (설치 스크립트 포함)
+   - `signal-recorder-v1.0.0-linux.tar.gz` (설치 스크립트 포함)
    - `CHANGELOG.md` 업데이트 내용 릴리즈 노트에 반영
 
 ### CHANGELOG 관리
@@ -134,12 +134,12 @@ Docker를 사용하지 않는 리눅스 환경(LXC 컨테이너, 저사양 VPS �
 ### Step 3: Windows 패키징
 - [x] `backend/run.py` 수정: 실행 시 브라우저 자동 오픈 로직 추가 (`--desktop` 플래그)
 - [x] `pystray` 연동: 시스템 트레이 아이콘 구현 (종료, 브라우저 열기)
-- [x] `chzzk_recorder.spec` 파일 작성 (데이터 파일, `ffmpeg.exe`, `streamlink`, 정적 파일 포함 설정, onedir 방식)
+- [x] `signal_recorder.spec` 파일 작성 (데이터 파일, `ffmpeg.exe`, `streamlink`, 정적 파일 포함 설정, onedir 방식)
 - [ ] `.exe` 빌드 및 클린 윈도우 환경 테스트
 
 ### Step 4: Linux 스크립트
 - [x] `scripts/install.sh` 작성 (`streamlink` 사전 요구사항 확인 포함)
-- [x] `scripts/chzzk-recorder.service` 템플릿 작성
+- [x] `scripts/signal-recorder.service` 템플릿 작성
 - [x] `scripts/setup_service.sh` 작성
 
 ### Step 5: 릴리즈

@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: Settings API Router
+Signal-Recorder: Settings API Router
 시스템 설정 및 인증 쿠키 관리 엔드포인트.
 """
 

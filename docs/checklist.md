@@ -1,4 +1,4 @@
-# Chzzk-Recorder-Pro 개발 체크리스트
+# Signal-Recorder 개발 체크리스트
 
 ## 2026-03-30: 라이브 감지 직후 녹화 실패 & 재시도 불가 버그 수정
 
@@ -712,3 +712,9 @@
 - FFmpeg 오류 자동 재시작 로직 (`ERROR` 상태)은 `_stop_recording` 경로를 통하지 않으므로 영향 없음
 - `stop_manual_recording`의 `return pipe.get_status()`는 로컬 변수 `pipe` 사용으로 안전
 - `docs/plan-recording-sse-fix.md`, `docs/done-recording-sse-fix.md` 작성
+
+## 2026-04-02: 프로젝트 리브랜딩 (Signal-Recorder)
+
+- [x] 프로젝트 명칭을 Chzzk_downloader / Chzzk-Recorder-Pro 에서 Signal-Recorder로 일괄 변경 (DMCA 리스크 완화)
+- [x] UI, README, 서비스 파일 이름 교체 완료
+- [x] Executable 바이너리 명칭 교체 (Signal_Recorder.spec)

@@ -1,9 +1,9 @@
 services:
-  chzzk-recorder:
+  signal-recorder:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: chzzk-recorder-pro
+    container_name: signal-recorder
     restart: unless-stopped
     ports:
       - "${PORT:-8000}:8000"

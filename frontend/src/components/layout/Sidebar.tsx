@@ -201,7 +201,7 @@ export function Sidebar() {
             {/* ── 하단 버전 ─── */}
             <div className="p-4 border-t border-zinc-800">
                 <div className="text-xs text-zinc-600 text-center">
-                    v0.1.0 • Chzzk Recorder Pro
+                    v0.1.0 • Signal Recorder
                 </div>
             </div>
 

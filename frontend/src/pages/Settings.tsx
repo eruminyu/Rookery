@@ -1144,7 +1144,7 @@ export default function Settings() {
                                     maxLength={32}
                                     value={titleInput}
                                     onChange={(e) => setTitleInput(e.target.value)}
-                                    placeholder="Chzzk Recorder Pro"
+                                    placeholder="Signal Recorder"
                                     className="flex-1 bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none"
                                     style={{ borderColor: titleInput !== pageTitle ? 'var(--primary)' : '' }}
                                 />
@@ -1191,7 +1191,7 @@ export default function Settings() {
                         </div>
 
                         <button
-                            onClick={() => { resetAll(); setTitleInput('Chzzk Recorder Pro'); }}
+                            onClick={() => { resetAll(); setTitleInput('Signal Recorder'); }}
                             className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                         >
                             <RotateCcw className="w-4 h-4" />

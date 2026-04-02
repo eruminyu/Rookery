@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: 멀티 플랫폼 엔진 공통 인터페이스
+Signal-Recorder: 멀티 플랫폼 엔진 공통 인터페이스
 Platform Enum, LiveStatus TypedDict, PlatformEngine Protocol을 정의한다.
 """
 

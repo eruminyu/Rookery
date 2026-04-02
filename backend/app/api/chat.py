@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: Chat Logs API Router
+Signal-Recorder: Chat Logs API Router
 채팅 아카이빙 로그 파일 목록 조회, 메시지 조회, 다운로드 엔드포인트.
 """
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════
-#  Chzzk Recorder Pro — Linux Native 설치 스크립트
+#  Signal Recorder — Linux Native 설치 스크립트
 #  사용법 (원라이너):
-#    curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scripts/install.sh | bash
+#    curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash
 #
 #  지원 OS: Ubuntu 20.04+, Debian 11+, CentOS/RHEL 8+, Fedora 36+, Arch Linux
 # ═══════════════════════════════════════════════════════════════
@@ -17,8 +17,8 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-REPO_URL="https://github.com/eruminyu/Chzzk_downloader.git"
-INSTALL_DIR="${INSTALL_DIR:-$HOME/chzzk-recorder-pro}"
+REPO_URL="https://github.com/eruminyu/Signal-Recorder.git"
+INSTALL_DIR="${INSTALL_DIR:-$HOME/signal-recorder}"
 REQUIRED_PYTHON_MINOR=10   # 3.10+
 
 # ── 출력 헬퍼 ─────────────────────────────────────────────────
@@ -281,7 +281,7 @@ create_launcher() {
   LAUNCHER="$INSTALL_DIR/start.sh"
   cat > "$LAUNCHER" <<EOF
 #!/usr/bin/env bash
-# Chzzk Recorder Pro 실행 스크립트
+# Signal Recorder 실행 스크립트
 cd "$(dirname "\$(realpath "\$0")")/backend"
 exec "../.venv/bin/python" run.py "\$@"
 EOF
@@ -300,13 +300,13 @@ install_service() {
   fi
 
   # 이미 서비스가 등록되어 있으면 재등록 질문 없이 자동 재시작
-  if systemctl is-active --quiet chzzk-recorder 2>/dev/null; then
+  if systemctl is-active --quiet signal-recorder 2>/dev/null; then
     info "기존 서비스 감지 — 업데이트 후 자동 재시작합니다."
     sudo systemctl daemon-reload
-    sudo systemctl restart chzzk-recorder
+    sudo systemctl restart signal-recorder
     SERVICE_REGISTERED=true
     info "서비스 재시작 완료 ✓"
-    info "서비스 상태: sudo systemctl status chzzk-recorder"
+    info "서비스 상태: sudo systemctl status signal-recorder"
     return 0
   fi
 
@@ -314,11 +314,11 @@ install_service() {
   # 신규 설치: curl | bash 파이프 환경에서는 stdin을 /dev/tty로 강제 연결
   read -rp "$(echo -e "${YELLOW}[?]${NC} systemd 서비스로 등록하시겠습니까? (부팅 시 자동 실행) [y/N]: ")" REPLY </dev/tty
   if [[ "$REPLY" =~ ^[Yy]$ ]]; then
-    SERVICE_FILE="/etc/systemd/system/chzzk-recorder.service"
+    SERVICE_FILE="/etc/systemd/system/signal-recorder.service"
     sudo tee "$SERVICE_FILE" > /dev/null <<EOF
 [Unit]
-Description=Chzzk Recorder Pro - Live Stream Recorder
-Documentation=https://github.com/eruminyu/Chzzk_downloader
+Description=Signal Recorder - Live Stream Recorder
+Documentation=https://github.com/eruminyu/Signal-Recorder
 After=network-online.target
 Wants=network-online.target
 
@@ -336,11 +336,11 @@ StandardError=append:$INSTALL_DIR/logs/service-error.log
 WantedBy=multi-user.target
 EOF
     sudo systemctl daemon-reload
-    sudo systemctl enable chzzk-recorder
-    sudo systemctl start chzzk-recorder
+    sudo systemctl enable signal-recorder
+    sudo systemctl start signal-recorder
     SERVICE_REGISTERED=true
     info "systemd 서비스 등록 및 시작 완료 ✓"
-    info "서비스 상태: sudo systemctl status chzzk-recorder"
+    info "서비스 상태: sudo systemctl status signal-recorder"
   else
     info "서비스 등록을 건너뜁니다."
   fi
@@ -364,9 +364,9 @@ print_done() {
   fi
   echo ""
   echo -e "  ${BOLD}▶ 서비스 관리 (설치한 경우):${NC}"
-  echo -e "    sudo systemctl status chzzk-recorder"
-  echo -e "    sudo systemctl stop   chzzk-recorder"
-  echo -e "    sudo systemctl restart chzzk-recorder"
+  echo -e "    sudo systemctl status signal-recorder"
+  echo -e "    sudo systemctl stop   signal-recorder"
+  echo -e "    sudo systemctl restart signal-recorder"
   echo ""
   echo -e "  ${BOLD}▶ 로그 확인:${NC}"
   echo -e "    tail -f ${CYAN}$INSTALL_DIR/logs/service.log${NC}"
@@ -397,7 +397,7 @@ main() {
     info "systemd 서비스로 실행 중입니다. 별도 실행을 건너뜁니다."
   else
     step "서버 시작"
-    info "Chzzk Recorder Pro 를 시작합니다..."
+    info "Signal Recorder 를 시작합니다..."
     exec "$INSTALL_DIR/start.sh"
   fi
 }

@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: 녹화 파이프라인 모듈
+Signal-Recorder: 녹화 파이프라인 모듈
 FFmpegPipeline: FFmpeg 직접 실행 (Legacy, VOD용)
 YtdlpLivePipeline: yt-dlp subprocess 기반 라이브 녹화 (Chzzk/TwitCasting)
 """

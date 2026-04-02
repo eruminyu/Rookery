@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: X Spaces 엔진
+Signal-Recorder: X Spaces 엔진
 비공식 GraphQL API + 쿠키 인증으로 Space 라이브 상태를 확인하고,
 라이브 중일 때 dynamic_playlist.m3u8 URL을 캡처하여 반환한다.
 

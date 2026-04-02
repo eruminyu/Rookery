@@ -1,5 +1,5 @@
 @echo off
-echo [INFO] Starting Chzzk-Recorder-Pro...
+echo [INFO] Starting Signal-Recorder...
 
 cd /d "%~dp0\.."
 

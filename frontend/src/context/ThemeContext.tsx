@@ -21,7 +21,7 @@ export const THEMES: ThemePreset[] = [
     { id: "red", label: "레드", primary: "#EF4444", dark: "#DC2626" },
 ];
 
-const DEFAULT_TITLE = "Chzzk Recorder Pro";
+const DEFAULT_TITLE = "Signal Recorder";
 const DEFAULT_CUSTOM_COLOR = "#6366F1"; // 기본 커스텀 색 (인디고)
 const STORAGE_KEYS = {
     theme: "chzzk_theme",

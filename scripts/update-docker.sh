@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════
-#  Chzzk Recorder Pro — Docker 업데이트 스크립트
+#  Signal Recorder — Docker 업데이트 스크립트
 #  사용법 (원라이너):
-#    curl -fsSL https://raw.githubusercontent.com/eruminyu/Chzzk_downloader/main/scripts/update-docker.sh | bash
+#    curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/update-docker.sh | bash
 #
 #  또는 설치 디렉토리에서 직접 실행:
-#    ~/chzzk-recorder-pro/scripts/update-docker.sh
+#    ~/signal-recorder/scripts/update-docker.sh
 # ═══════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -16,7 +16,7 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-INSTALL_DIR="${INSTALL_DIR:-$HOME/chzzk-recorder-pro}"
+INSTALL_DIR="${INSTALL_DIR:-$HOME/signal-recorder}"
 
 info()  { echo -e "${GREEN}[✔]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
@@ -112,7 +112,7 @@ print_done() {
 
 main() {
   echo ""
-  echo -e "${CYAN}${BOLD}  Chzzk Recorder Pro — Docker 업데이트${NC}"
+  echo -e "${CYAN}${BOLD}  Signal Recorder — Docker 업데이트${NC}"
   echo ""
   detect_compose
   check_install

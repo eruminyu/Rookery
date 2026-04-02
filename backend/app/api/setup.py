@@ -1,5 +1,5 @@
 """
-Chzzk-Recorder-Pro: 초기 설정 API
+Signal-Recorder: 초기 설정 API
 최초 실행 감지 및 마법사 완료 처리를 담당한다.
 
 [설계 원칙]
