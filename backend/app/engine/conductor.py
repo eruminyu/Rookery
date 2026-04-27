@@ -208,6 +208,22 @@ class Conductor:
         logger.info(f"[{composite_key}] 태그 변경: {tags}")
         self._save_persistence()
 
+    def remove_tag_from_all_channels(self, tag_name: str) -> bool:
+        """모든 채널에서 특정 태그를 일괄 제거한다."""
+        modified_any = False
+        for composite_key, task in self._channels.items():
+            if tag_name in task.tags:
+                task.tags.remove(tag_name)
+                modified_any = True
+        
+        if modified_any:
+            logger.info(f"모든 채널에서 태그 삭제: {tag_name}")
+            self._save_persistence()
+            
+        return modified_any
+
+
+
     async def toggle_auto_record(self, composite_key: str) -> bool:
         """채널의 자동 녹화 설정을 토글한다.
 

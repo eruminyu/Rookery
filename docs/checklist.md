@@ -718,3 +718,10 @@
 - [x] 프로젝트 명칭을 Chzzk_downloader / Chzzk-Recorder-Pro 에서 Signal-Recorder로 일괄 변경 (DMCA 리스크 완화)
 - [x] UI, README, 서비스 파일 이름 교체 완료
 - [x] Executable 바이너리 명칭 교체 (Signal_Recorder.spec)
+
+## 2026-04-27: 태그 업데이트 500 에러(AttributeError) 수정 및 구조 개선
+
+- [x] `backend/app/engine/conductor.py`: `remove_tag_from_all_channels` 메서드 추가
+- [x] `backend/app/services/recorder.py`: `set_channel_tags` 및 `remove_tag_from_all_channels` 파사드 메서드 추가
+- [x] `backend/app/api/tags.py`: 라우터가 직접 `conductor._channels`에 접근하던 캡슐화 위반 구조 개선 및 에러 해결
+

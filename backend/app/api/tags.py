@@ -48,16 +48,7 @@ async def delete_tag(tag_name: str):
     # 모든 채널에서도 해당 태그 제거
     from app.main import get_recorder_service
     service = get_recorder_service()
-    conductor = service.conductor
-    
-    modified_any = False
-    for composite_key, task in conductor._channels.items():
-        if tag_name in task.tags:
-            task.tags.remove(tag_name)
-            modified_any = True
-            
-    if modified_any:
-        conductor._save_persistence()
+    service.remove_tag_from_all_channels(tag_name)
         
     return {"status": "ok", "deleted": tag_name}
 
@@ -73,7 +64,7 @@ async def update_channel_tags(channel_id: str, req: UpdateChannelTagsRequest):
     composite_key = _to_composite_key(channel_id)
     
     try:
-        service.conductor.set_channel_tags(composite_key, req.tags)
+        service.set_channel_tags(composite_key, req.tags)
         return {"status": "ok", "tags": req.tags}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

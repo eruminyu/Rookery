@@ -90,6 +90,16 @@ class RecorderService:
         """채널 폴링 주기를 무시하고 즉시 스캔을 트리거한다."""
         self._conductor.trigger_scan_now(composite_key)
 
+    def set_channel_tags(self, composite_key: str, tags: list[str]) -> None:
+        """특정 채널의 태그를 변경한다."""
+        self._conductor.set_channel_tags(composite_key, tags)
+
+    def remove_tag_from_all_channels(self, tag_name: str) -> bool:
+        """모든 채널에서 특정 태그를 일괄 제거한다."""
+        return self._conductor.remove_tag_from_all_channels(tag_name)
+
+
+
     # ── 라이브 녹화 ──────────────────────────────────────
 
     async def start_recording(self, channel_id: str) -> dict:
