@@ -244,6 +244,19 @@ export interface StatsResponse {
     recent_sessions: LiveSession[];
 }
 
+// ── System / Update Types ───────────────────────────────
+
+export interface UpdateInfo {
+    current_version: string;
+    latest_version: string;
+    has_update: boolean;
+    release_notes: string;
+    published_at: string;
+    download_url: string;
+    checked_at: string | null;
+    environment: "windows-exe" | "docker" | "linux-native";
+}
+
 // ── API Functions ───────────────────────────────────────
 
 export const api = {
@@ -442,6 +455,16 @@ export const api = {
     },
     updateChannelTags: async (channel_id: string, tags: string[]) => {
         const res = await client.patch<{ status: string; tags: string[] }>(`/tags/channel/${encodeURIComponent(channel_id)}`, { tags });
+        return res.data;
+    },
+
+    // System & Update
+    getUpdateStatus: async (): Promise<UpdateInfo> => {
+        const res = await client.get<UpdateInfo>("/system/update");
+        return res.data;
+    },
+    checkUpdateNow: async (): Promise<UpdateInfo> => {
+        const res = await client.post<UpdateInfo>("/system/update/check");
         return res.data;
     },
 

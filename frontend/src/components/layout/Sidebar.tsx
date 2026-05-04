@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Download, Settings, Tv, Menu, X, MessageSquare, BarChart2, Radio, Bell, CheckCircle, AlertCircle, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, Download, Settings, Tv, Menu, X, MessageSquare, BarChart2, Radio, Bell, CheckCircle, AlertCircle, AlertTriangle, Gift } from "lucide-react";
 import { clsx } from "clsx";
 import { useTheme } from "../../context/ThemeContext";
 import { useVod } from "../../contexts/VodContext";
 import { useToast } from "../../components/ui/Toast";
+import { api, UpdateInfo } from "../../api/client";
 
 export function Sidebar() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
+    const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
     const notifRef = useRef<HTMLDivElement>(null);
 
     const { pageTitle, iconUrl } = useTheme();
@@ -16,6 +18,13 @@ export function Sidebar() {
     const { history, markAllRead } = useToast();
 
     const unreadCount = history.filter(h => !h.read).length;
+
+    // 업데이트 정보 로드
+    useEffect(() => {
+        api.getUpdateStatus()
+            .then(info => setUpdateInfo(info))
+            .catch(err => console.error("업데이트 정보 로드 실패:", err));
+    }, []);
 
     // 모달 외부 클릭 시 닫기
     useEffect(() => {
@@ -200,8 +209,21 @@ export function Sidebar() {
 
             {/* ── 하단 버전 ─── */}
             <div className="p-4 border-t border-zinc-800">
-                <div className="text-xs text-zinc-600 text-center">
-                    v0.1.0 • Signal Recorder
+                <div className="flex flex-col items-center justify-center gap-1">
+                    <div className="text-xs text-zinc-600 font-medium">
+                        Signal Recorder
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-zinc-500 font-mono">
+                            v{updateInfo?.current_version || "..."}
+                        </span>
+                        {updateInfo?.has_update && (
+                            <NavLink to="/settings" className="flex items-center gap-1 px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded-md hover:bg-green-500/30 transition-colors">
+                                <Gift className="w-3 h-3" />
+                                <span className="text-[10px] font-bold">Update</span>
+                            </NavLink>
+                        )}
+                    </div>
                 </div>
             </div>
 

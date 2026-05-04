@@ -724,4 +724,16 @@
 - [x] `backend/app/engine/conductor.py`: `remove_tag_from_all_channels` 메서드 추가
 - [x] `backend/app/services/recorder.py`: `set_channel_tags` 및 `remove_tag_from_all_channels` 파사드 메서드 추가
 - [x] `backend/app/api/tags.py`: 라우터가 직접 `conductor._channels`에 접근하던 캡슐화 위반 구조 개선 및 에러 해결
+
+## 2026-04-27: 자동 업데이트 알림 및 실행 가이드 시스템 구축
+
+- [x] **단일 버전 파편화 해소**: `app/version.py` 신설하여 `__version__ = "1.1.2"` 중앙 집중 관리
+- [x] **GitHub API 연동**: `UpdaterService` (백그라운드 데몬) 추가, 24시간마다 릴리즈 확인 후 디스코드 알림 발송
+- [x] **환경별 맞춤 업데이트 (`/api/system/update`)**: Windows, Docker, Linux 구별하여 환경 반환
+- [x] **대시보드 UI**: 사이드바 하단 배지 및 설정 내 '시스템' 탭 신설, 안전성을 위해 팝업에서 다운로드 링크 및 복사 명령어 가이드 제공
+
+## 2026-05-04: v1.1.2 배포 (Release)
+- [x] 버전 범프 (v1.1.1 -> v1.1.2)
+- [x] GitHub 원격 레포지토리 푸시 완료
+- [x] PyInstaller 활용 `SignalRecorder.exe` 빌드 및 GitHub Release 등록
 

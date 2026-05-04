@@ -24,6 +24,8 @@ from app.engine.auth import AuthManager
 from app.engine.conductor import Conductor
 from app.services.recorder import RecorderService
 from app.services.discord_bot import DiscordBotService
+from app.engine.updater import UpdaterService
+from app.version import __version__
 
 # API Routers
 from app.api.stream import router as stream_router
@@ -36,9 +38,17 @@ from app.api.platforms import router as platforms_router
 from app.api.archive import router as archive_router
 from app.api.tags import router as tags_router
 from app.api.events import router as events_router
+from app.api.system import router as system_router
 
 # ── 전역 인스턴스 ────────────────────────────────────────
 _recorder_service: RecorderService | None = None
+_updater_service: UpdaterService | None = None
+
+def get_updater_service() -> UpdaterService:
+    """UpdaterService 인스턴스를 반환한다. (DI용)"""
+    if _updater_service is None:
+        raise RuntimeError("UpdaterService가 초기화되지 않았습니다.")
+    return _updater_service
 
 
 def get_recorder_service() -> RecorderService:
@@ -51,7 +61,7 @@ def get_recorder_service() -> RecorderService:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """애플리케이션 시작/종료 라이프사이클 관리."""
-    global _recorder_service
+    global _recorder_service, _updater_service
 
     settings = get_settings()
     logger.info(f"🚀 {settings.app_name} 시작 중...")
@@ -84,6 +94,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     discord_bot = DiscordBotService(recorder_service=_recorder_service)
     await discord_bot.start()
 
+    # 업데이트 알리미 시작
+    _updater_service = UpdaterService(discord_bot=discord_bot)
+    await _updater_service.start()
+
     # Conductor와 VodEngine에 Discord Bot 연결 (순환 참조 방지를 위해 나중에 설정)
     conductor._discord_bot = discord_bot
     _recorder_service._vod_engine._discord_bot = discord_bot
@@ -97,6 +111,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # ── 종료 ──
     logger.info(f"🛑 {settings.app_name} 종료 중...")
+    if _updater_service:
+        await _updater_service.stop()
     if discord_bot:
         await discord_bot.stop()
     if conductor:
@@ -141,7 +157,7 @@ STATIC_DIR = _resolve_static_dir()
 app = FastAPI(
     title="Signal-Recorder",
     description="다중 플랫폼 스트리밍 및 VOD 전문 녹화 솔루션",
-    version="0.1.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
@@ -165,12 +181,7 @@ app.include_router(platforms_router)
 app.include_router(archive_router)
 app.include_router(tags_router)
 app.include_router(events_router)
-app.include_router(chat_router)
-app.include_router(stats_router)
-app.include_router(setup_router)
-app.include_router(platforms_router)
-app.include_router(archive_router)
-app.include_router(tags_router)
+app.include_router(system_router)
 
 
 # ── 헬스 체크 ────────────────────────────────────────────
@@ -192,7 +203,7 @@ async def health_check():
     return {
         "status": "ok",
         "app": settings.app_name,
-        "version": "0.1.0",
+        "version": __version__,
         "authenticated": bool(settings.nid_aut and settings.nid_ses),
     }
 

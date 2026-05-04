@@ -27,8 +27,11 @@ import {
     Upload,
     Trash2,
     CheckCircle2,
+    Gift,
+    Terminal,
 } from "lucide-react";
-import { api, Settings as SettingsType, BrowseDirsResponse, DirEntry } from "../api/client";
+import { api, Settings as SettingsType, BrowseDirsResponse, DirEntry, UpdateInfo } from "../api/client";
+import { UpdateModal } from "../components/ui/UpdateModal";
 import { useToast } from "../components/ui/Toast";
 import { useConfirm } from "../components/ui/ConfirmModal";
 import { getErrorMessage } from "../utils/error";
@@ -95,7 +98,7 @@ function Select({
 
 // ── 탭 정의 ──────────────────────────────────────────────
 
-type TabId = "general" | "download" | "auth" | "notifications" | "appearance" | "info";
+type TabId = "general" | "download" | "auth" | "notifications" | "appearance" | "info" | "system";
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
     { id: "general",       label: "일반",   icon: "⚙️" },
@@ -103,6 +106,7 @@ const TABS: { id: TabId; label: string; icon: string }[] = [
     { id: "auth",          label: "인증",   icon: "🔑" },
     { id: "notifications", label: "알림",   icon: "🔔" },
     { id: "appearance",    label: "외관",   icon: "🎨" },
+    { id: "system",        label: "시스템", icon: "💻" },
     { id: "info",          label: "정보",   icon: "ℹ️" },
 ];
 
@@ -188,6 +192,41 @@ export default function Settings() {
     const [titleInput, setTitleInput] = useState(pageTitle);
     const iconInputRef = useRef<HTMLInputElement>(null);
     const colorPickerRef = useRef<HTMLInputElement>(null);
+
+    // System & Update
+    const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+    const [checkingUpdate, setCheckingUpdate] = useState(false);
+    const [showUpdateModal, setShowUpdateModal] = useState(false);
+
+    const loadUpdateStatus = async () => {
+        try {
+            const res = await api.getUpdateStatus();
+            setUpdateInfo(res);
+        } catch (err) {
+            console.error("업데이트 정보 로드 실패", err);
+        }
+    };
+
+    useEffect(() => {
+        loadUpdateStatus();
+    }, []);
+
+    const handleCheckUpdate = async () => {
+        setCheckingUpdate(true);
+        try {
+            const res = await api.checkUpdateNow();
+            setUpdateInfo(res);
+            if (res.has_update) {
+                toast.success("새로운 버전이 있습니다!");
+            } else {
+                toast.success("최신 버전을 사용 중입니다.");
+            }
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, "업데이트 확인에 실패했습니다."));
+        } finally {
+            setCheckingUpdate(false);
+        }
+    };
 
     const isTabDirty = (tabId: TabId) => {
         if (!settings) return false;
@@ -501,6 +540,9 @@ export default function Settings() {
                         {tab.label}
                         {isTabDirty(tab.id) && (
                             <span className="w-2 h-2 rounded-full bg-orange-500 absolute top-2 right-2 animate-pulse" />
+                        )}
+                        {tab.id === "system" && updateInfo?.has_update && (
+                            <span className="w-2 h-2 rounded-full bg-green-500 absolute top-2 right-2 animate-pulse" />
                         )}
                     </button>
                 ))}
@@ -1200,6 +1242,63 @@ export default function Settings() {
                     </div>
                 )}
 
+                {/* ══════════════════ 시스템 탭 ══════════════════ */}
+                {activeTab === "system" && (
+                    <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 space-y-5">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                <Terminal className="w-5 h-5 text-emerald-500" />
+                                시스템 관리 및 업데이트
+                            </h3>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="bg-zinc-950 p-4 rounded-lg border border-zinc-800 flex items-center justify-between">
+                                <div>
+                                    <h4 className="text-sm font-medium text-white mb-1">현재 버전</h4>
+                                    <p className="text-xs text-zinc-400 font-mono">v{updateInfo?.current_version || "..."}</p>
+                                </div>
+                                <div className="text-right">
+                                    <h4 className="text-sm font-medium text-white mb-1">최신 릴리즈</h4>
+                                    <p className="text-xs text-zinc-400 font-mono">{updateInfo?.latest_version ? `v${updateInfo.latest_version}` : "확인 중..."}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleCheckUpdate}
+                                    disabled={checkingUpdate}
+                                    className="flex-1 bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <RefreshCcw className={`w-4 h-4 ${checkingUpdate ? 'animate-spin' : ''}`} />
+                                    {checkingUpdate ? "확인 중..." : "업데이트 확인"}
+                                </button>
+                                
+                                {updateInfo?.has_update && (
+                                    <button
+                                        onClick={() => setShowUpdateModal(true)}
+                                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-lg font-bold transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2"
+                                    >
+                                        <Gift className="w-4 h-4 animate-bounce" />
+                                        v{updateInfo.latest_version} 업데이트 하기
+                                    </button>
+                                )}
+                            </div>
+
+                            {updateInfo?.has_update && updateInfo?.release_notes && (
+                                <div className="mt-6">
+                                    <h4 className="text-sm font-medium text-emerald-400 mb-2 flex items-center gap-2">
+                                        <Gift className="w-4 h-4" /> 릴리즈 노트
+                                    </h4>
+                                    <div className="bg-zinc-950 border border-emerald-900/50 p-4 rounded-lg overflow-y-auto max-h-60 scrollbar-thin scrollbar-thumb-zinc-700 whitespace-pre-wrap text-sm text-zinc-300 font-mono leading-relaxed">
+                                        {updateInfo.release_notes}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* ══════════════════ 정보 탭 ══════════════════ */}
                 {activeTab === "info" && (
                     <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800">
@@ -1247,6 +1346,14 @@ export default function Settings() {
                 )}
 
             </div>
+
+            {/* Update Modal */}
+            {showUpdateModal && updateInfo && (
+                <UpdateModal 
+                    info={updateInfo} 
+                    onClose={() => setShowUpdateModal(false)} 
+                />
+            )}
         </div>
     );
 }
