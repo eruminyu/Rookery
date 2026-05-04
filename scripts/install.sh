@@ -18,7 +18,14 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 REPO_URL="https://github.com/eruminyu/Signal-Recorder.git"
-INSTALL_DIR="${INSTALL_DIR:-$HOME/signal-recorder}"
+
+if [ -z "${INSTALL_DIR:-}" ]; then
+  if [ -d "$HOME/chzzk-recorder-pro" ]; then
+    INSTALL_DIR="$HOME/chzzk-recorder-pro"
+  else
+    INSTALL_DIR="$HOME/signal-recorder"
+  fi
+fi
 REQUIRED_PYTHON_MINOR=10   # 3.10+
 
 # ── 출력 헬퍼 ─────────────────────────────────────────────────
