@@ -736,4 +736,8 @@
 - [x] 버전 범프 (v1.1.1 -> v1.1.2)
 - [x] GitHub 원격 레포지토리 푸시 완료
 - [x] PyInstaller 활용 `SignalRecorder.exe` 빌드 및 GitHub Release 등록
+
+## 2026-05-07: 순환 참조(Circular Import) 핫픽스
+- [x] `backend/app/api/system.py`에서 `get_updater_service` 모듈 레벨 임포트로 인한 순환 참조 버그(FastAPI 기동 실패) 수정
+  - 라우터 엔드포인트(`get_update_status`, `check_update_now`) 내부 지연 임포트(Lazy Import)로 변경하여 해결
 

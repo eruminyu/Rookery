@@ -6,8 +6,6 @@ import sys
 from pathlib import Path
 from fastapi import APIRouter
 
-from app.main import get_updater_service
-
 router = APIRouter(prefix="/api/system", tags=["System"])
 
 def _detect_environment() -> str:
@@ -26,6 +24,7 @@ def _detect_environment() -> str:
 @router.get("/update")
 async def get_update_status():
     """업데이트 상태 및 환경 정보를 반환한다."""
+    from app.main import get_updater_service
     updater = get_updater_service()
     info = updater.get_cached_info()
     
@@ -37,6 +36,7 @@ async def get_update_status():
 @router.post("/update/check")
 async def check_update_now():
     """강제로 업데이트를 즉시 확인한다."""
+    from app.main import get_updater_service
     updater = get_updater_service()
     info = await updater.check_update_now()
     
