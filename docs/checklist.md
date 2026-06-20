@@ -24,6 +24,7 @@
   - 검색어 하이라이팅, 로그 레벨별(INFO, WARN, ERROR, DEBUG) 색상 구분, 100/500/1000/전체 라인 수 제한, 5초 주기 자동 새로고침(Auto Refresh) 및 자동 스크롤(Auto Scroll) 기능 제공.
 - [x] `backend/app/version.py`:
   - 테스트 서버에서 업데이트 알림 기능 동작 확인을 위해 임시로 `__version__ = "1.1.0"`으로 낮춤.
+  - 이후 `__version__ = "1.1.4"`로 다시 업데이트 완료.
 - [x] `backend/tests/test_logs_api.py` [NEW]:
   - 로그 조회 API의 보안성(Path Traversal 차단) 및 기능성 검증을 위한 pytest 테스트 작성 (100% 통과).
 
