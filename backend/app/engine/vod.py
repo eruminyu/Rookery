@@ -359,13 +359,23 @@ class VodEngine:
                     logger.info(f"[{task_id}] 다운로드 취소됨 (예외 처리): {task.url}")
                 else:
                     import traceback
+                    tb_str = traceback.format_exc()
+                    error_msg = str(e)
+
+                    # 치지직 최신 VOD 처리 중 에러 (sourceURL 누락) 빠른 실패 처리
+                    if "sourceURL" in error_msg or "sourceURL" in tb_str:
+                        logger.warning(f"[{task_id}] 아직 치지직 서버에서 처리 중인 VOD입니다. 빠른 실패 처리함.")
+                        task.error_message = "아직 네이버 치지직 서버에서 VOD 처리 중입니다. 방송 종료 후 1~2시간 뒤에 다시 시도해주세요."
+                        task.state = VodDownloadState.ERROR
+                        self._save_history()
+                        return
 
                     # 이벤트 루프가 종료 중이면 재시도하지 않음
                     loop = asyncio.get_event_loop()
                     if not loop.is_running():
                         logger.info(f"[{task_id}] 이벤트 루프 종료 중, 재시도 중단")
                         task.state = VodDownloadState.ERROR
-                        task.error_message = str(e)
+                        task.error_message = error_msg
                         return
 
                     task.retry_count += 1
