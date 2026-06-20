@@ -336,8 +336,8 @@ WorkingDirectory=$INSTALL_DIR/backend
 ExecStart=$INSTALL_DIR/.venv/bin/python run.py
 Restart=on-failure
 RestartSec=10
-StandardOutput=append:$INSTALL_DIR/logs/service.log
-StandardError=append:$INSTALL_DIR/logs/service-error.log
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

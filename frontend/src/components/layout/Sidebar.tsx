@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Download, Settings, Tv, Menu, X, MessageSquare, BarChart2, Radio, Bell, CheckCircle, AlertCircle, AlertTriangle, Gift } from "lucide-react";
+import { LayoutDashboard, Download, Settings, Tv, Menu, X, MessageSquare, BarChart2, Radio, Bell, CheckCircle, AlertCircle, AlertTriangle, Gift, Terminal } from "lucide-react";
 import { clsx } from "clsx";
 import { useTheme } from "../../context/ThemeContext";
 import { useVod } from "../../contexts/VodContext";
@@ -60,6 +60,7 @@ export function Sidebar() {
             items: [
                 { name: "Statistics", to: "/stats", icon: BarChart2 },
                 { name: "Settings", to: "/settings", icon: Settings },
+                { name: "System Logs", to: "/system-logs", icon: Terminal },
             ]
         }
     ];

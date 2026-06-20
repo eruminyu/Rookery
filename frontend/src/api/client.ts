@@ -257,6 +257,21 @@ export interface UpdateInfo {
     environment: "windows-exe" | "docker" | "linux-native";
 }
 
+// ── System Logs Types ───────────────────────────────────
+
+export interface SystemLogFile {
+    filename: string;
+    size_bytes: number;
+    modified_at: string;
+}
+
+export interface SystemLogResponse {
+    filename: string;
+    content: string;
+    total_lines: number;
+    lines_returned: number;
+}
+
 // ── API Functions ───────────────────────────────────────
 
 export const api = {
@@ -484,4 +499,16 @@ export const api = {
     },
     getChatDownloadUrl: (file_id: string): string =>
         `${API_BASE_URL}/chat/files/${file_id}/download`,
+
+    // System Logs
+    getSystemLogFiles: async (): Promise<SystemLogFile[]> => {
+        const res = await client.get<SystemLogFile[]>("/system/logs");
+        return res.data;
+    },
+    getSystemLogContent: async (filename: string, lines?: number): Promise<SystemLogResponse> => {
+        const res = await client.get<SystemLogResponse>(`/system/logs/${filename}`, {
+            params: lines !== undefined ? { lines } : {},
+        });
+        return res.data;
+    },
 };

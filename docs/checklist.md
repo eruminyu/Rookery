@@ -1,5 +1,34 @@
 # Signal-Recorder 개발 체크리스트
 
+## 2026-06-20: Daily Rolling Logger 도입 및 WebUI 시스템 로그 뷰어 개발
+
+### 배경
+- 실서버에서 systemd 서비스 등록 시 `StandardOutput=append:logs/service.log` 설정으로 인해 모든 표준 콘솔 출력이 리다이렉션되어 1.8GB에 달하는 거대한 `service.log`가 쌓이고 로테이션이 되지 않던 문제 해결.
+- WebUI 상에서 로그를 직접 파싱하여 날짜별로 볼 수 있는 독립 로그 뷰어 구축.
+
+### 수정 내용
+- [x] `backend/app/core/logger.py`:
+  - `logging.FileHandler`를 `logging.handlers.TimedRotatingFileHandler`로 교체하여 매일 자정 단위 롤링(`service.log.YYYY-MM-DD` 형식) 및 7일간 백업 보존 처리.
+  - 로그 파일 기본 명칭을 `service.log`로 통일하고 실행 환경에 관계없이 프로젝트 루트 `logs/` 절대 경로 하위에 생성되도록 처리.
+- [x] `backend/app/api/system.py`:
+  - GET `/api/system/logs`: `logs/` 폴더 내 `service.log*` 파일들의 메타데이터(크기, 수정 시간) 목록을 정렬하여 반환하는 API 추가.
+  - GET `/api/system/logs/{filename:path}`: 특정 로그 파일의 최근 N줄(기본 1000줄) 또는 전체 컨텐츠를 읽어 반환하는 API 추가 (Path Traversal 방지 보안 가드 탑재).
+- [x] `scripts/install.sh`:
+  - systemd 서비스 파일 작성 템플릿의 `StandardOutput/StandardError` 지정을 `append` 파일 출력에서 `journal`로 변경하여 파이썬 롤링 로거의 독점 제어권 확보 및 락 충돌 방지.
+- [x] `frontend/src/api/client.ts`:
+  - `SystemLogFile`, `SystemLogResponse` 인터페이스 및 `getSystemLogFiles`, `getSystemLogContent` API 요청 메소드 추가.
+- [x] `frontend/src/App.tsx` & `Sidebar.tsx`:
+  - `/system-logs` 라우트 등록 및 사이드바 내 "System Logs" 터미널 아이콘 메뉴 추가.
+- [x] `frontend/src/pages/SystemLogs.tsx` [NEW]:
+  - `ChatLogs.tsx`와 일관된 2열 좌우 분할 구조의 다크 터미널 룩앤필 로그 뷰어 컴포넌트 신규 작성.
+  - 검색어 하이라이팅, 로그 레벨별(INFO, WARN, ERROR, DEBUG) 색상 구분, 100/500/1000/전체 라인 수 제한, 5초 주기 자동 새로고침(Auto Refresh) 및 자동 스크롤(Auto Scroll) 기능 제공.
+- [x] `backend/app/version.py`:
+  - 테스트 서버에서 업데이트 알림 기능 동작 확인을 위해 임시로 `__version__ = "1.1.0"`으로 낮춤.
+- [x] `backend/tests/test_logs_api.py` [NEW]:
+  - 로그 조회 API의 보안성(Path Traversal 차단) 및 기능성 검증을 위한 pytest 테스트 작성 (100% 통과).
+
+---
+
 ## 2026-03-30: 라이브 감지 직후 녹화 실패 & 재시도 불가 버그 수정
 
 ### 버그

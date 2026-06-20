@@ -71,10 +71,23 @@ def setup_logger(
 
     # ── 파일 핸들러 (선택) ───────────────────────────────
     if log_dir:
+        from logging.handlers import TimedRotatingFileHandler
+        
         log_path = Path(log_dir)
+        if not log_path.is_absolute():
+            # 상대 경로인 경우 프로젝트 루트 기준으로 해석
+            # backend/app/core/logger.py 기준 상위 3단계가 프로젝트 루트
+            project_root = Path(__file__).resolve().parents[3]
+            log_path = project_root / log_path
+            
         log_path.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.FileHandler(
-            log_path / f"{name}.log",
+        
+        # service.log 로 통일하고 TimedRotatingFileHandler 적용 (매일 자정 롤링, 7일간 보존)
+        file_handler = TimedRotatingFileHandler(
+            log_path / "service.log",
+            when="midnight",
+            interval=1,
+            backupCount=7,
             encoding="utf-8",
         )
         file_handler.setFormatter(fmt)

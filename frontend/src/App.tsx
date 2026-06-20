@@ -11,6 +11,7 @@ import ArchivePage from "./pages/Archive";
 import Settings from "./pages/Settings";
 import ChatLogs from "./pages/ChatLogs";
 import Stats from "./pages/Stats";
+import SystemLogs from "./pages/SystemLogs";
 import { CommandPalette } from "./components/ui/CommandPalette";
 
 // Data Router 환경 안에서 렌더링되는 루트 레이아웃.
@@ -62,6 +63,7 @@ const router = createBrowserRouter([
                     { path: "chat", element: <ChatLogs /> },
                     { path: "stats", element: <Stats /> },
                     { path: "settings", element: <Settings /> },
+                    { path: "system-logs", element: <SystemLogs /> },
                 ],
             },
         ],
