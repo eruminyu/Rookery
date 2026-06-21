@@ -1,5 +1,19 @@
 # Signal-Recorder 개발 체크리스트
 
+## 2026-06-21: 치지직 VOD ABR_HLS 다운로드 KeyError 오류 해결
+
+### 배경
+- 치지직 VOD(다시보기)의 `ABR_HLS`(DASH MPD 재생 목록) 개편에 따라 `yt-dlp`가 동영상 및 오디오 구조를 파싱할 때 `KeyError: 'sourceURL'` 및 `KeyError: 'media'`가 발생하는 현상 해결.
+- 기존에 1시간 이내 영상의 처리 지연 문제로 오인하여 추가했던 "빠른 실패" 임시 코드를 제거하고, 근본적인 규격 차이를 해결하기 위한 동적 멍키패치를 적용.
+
+### 수정 내용
+- [x] `backend/app/engine/vod.py`:
+  - 파일 최상단(모듈 레벨)에 `yt_dlp.extractor.common.InfoExtractor._parse_mpd_periods`를 가로채는 멍키패치 코드 추가.
+  - 파싱 중 `<Initialization>` 태그에 `sourceURL` 속성이 없거나 `<SegmentURL>` 태그에 `media` 속성이 없을 경우 각각 빈 문자열 `""`을 동적으로 추가하여 `yt-dlp` DASH 파서의 `KeyError` 회피.
+  - `_run_download` 내부의 오진단된 `sourceURL` 빠른 실패 처리 로직(대기안내 및 즉시 에러 전환)을 제거하여 근본적 정상 다운로드 파이프라인 작동 보장.
+- [x] `backend/tests/test_vod.py`:
+  - 멍키패치 적용 후에도 mock 기반의 기존 VOD 다운로드 유닛 테스트 21개가 이상 없이 100% 통과함을 검증.
+
 ## 2026-06-20: Daily Rolling Logger 도입 및 WebUI 시스템 로그 뷰어 개발
 
 ### 배경

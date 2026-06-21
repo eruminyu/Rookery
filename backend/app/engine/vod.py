@@ -20,6 +20,28 @@ from app.core.config import get_settings
 from app.core.logger import logger
 from app.engine.auth import AuthManager
 
+# ── yt-dlp DASH MPD 파서 멍키패치 ──────────────────────────────
+# 치지직 VOD(ABR_HLS 방식) 다운로드 시 Initialization의 sourceURL 및 SegmentURL의 media 속성이
+# 누락되어 발생하는 KeyError를 방지하기 위해 동적으로 속성을 보완한다.
+try:
+    import yt_dlp.extractor.common as common
+    original_parse_mpd_periods = common.InfoExtractor._parse_mpd_periods
+
+    def patched_parse_mpd_periods(self, mpd_doc, *args, **kwargs):
+        for elem in mpd_doc.iter():
+            if elem.tag.endswith('}Initialization') or elem.tag == 'Initialization':
+                if 'sourceURL' not in elem.attrib:
+                    elem.attrib['sourceURL'] = ''
+            elif elem.tag.endswith('}SegmentURL') or elem.tag == 'SegmentURL':
+                if 'media' not in elem.attrib:
+                    elem.attrib['media'] = ''
+        return original_parse_mpd_periods(self, mpd_doc, *args, **kwargs)
+
+    common.InfoExtractor._parse_mpd_periods = patched_parse_mpd_periods
+    logger.info("✅ yt-dlp DASH MPD 파서 멍키패치 적용 완료")
+except Exception as e:
+    logger.error(f"❌ yt-dlp DASH MPD 파서 멍키패치 적용 실패: {e}")
+
 if TYPE_CHECKING:
     from app.services.discord_bot import DiscordBotService
 
@@ -361,14 +383,6 @@ class VodEngine:
                     import traceback
                     tb_str = traceback.format_exc()
                     error_msg = str(e)
-
-                    # 치지직 최신 VOD 처리 중 에러 (sourceURL 누락) 빠른 실패 처리
-                    if "sourceURL" in error_msg or "sourceURL" in tb_str:
-                        logger.warning(f"[{task_id}] 아직 치지직 서버에서 처리 중인 VOD입니다. 빠른 실패 처리함.")
-                        task.error_message = "아직 네이버 치지직 서버에서 VOD 처리 중입니다. 방송 종료 후 1~2시간 뒤에 다시 시도해주세요."
-                        task.state = VodDownloadState.ERROR
-                        self._save_history()
-                        return
 
                     # 이벤트 루프가 종료 중이면 재시도하지 않음
                     loop = asyncio.get_event_loop()
