@@ -11,12 +11,13 @@ export const client = axios.create({
 
 // ── Types ───────────────────────────────────────────────
 
-export type Platform = "chzzk" | "twitcasting" | "x_spaces";
+export type Platform = "chzzk" | "twitcasting" | "x_spaces" | "youtube";
 
 export const PLATFORM_LABELS: Record<Platform, string> = {
     chzzk: "치지직",
     twitcasting: "TwitCasting",
     x_spaces: "X Spaces",
+    youtube: "YouTube",
 };
 
 export interface Channel {
@@ -130,6 +131,7 @@ export interface PlatformStatus {
     chzzk: { enabled: boolean; authenticated: boolean };
     twitcasting: { enabled: boolean; authenticated: boolean };
     x_spaces: { enabled: boolean; authenticated: boolean; cookie_file_set: boolean };
+    youtube: { enabled: boolean; authenticated: boolean };
 }
 
 export interface TwitcastingSettingsUpdate {

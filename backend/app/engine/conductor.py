@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from app.services.discord_bot import DiscordBotService
     from app.engine.twitcasting import TwitcastingEngine
     from app.engine.x_spaces import XSpacesEngine
+    from app.engine.youtube import YoutubeLiveEngine
 
 
 @dataclass
@@ -91,6 +92,7 @@ class Conductor:
         self._chzzk_engine = ChzzkLiveEngine(auth=self._auth)
         self._twitcasting_engine: Optional[TwitcastingEngine] = None
         self._x_spaces_engine: Optional[XSpacesEngine] = None
+        self._youtube_engine: Optional[YoutubeLiveEngine] = None
         self._channels: dict[str, ChannelTask] = {}
         self._running = False
         import sys as _sys
@@ -129,6 +131,11 @@ class Conductor:
                 from app.engine.x_spaces import XSpacesEngine
                 self._x_spaces_engine = XSpacesEngine()
             return self._x_spaces_engine
+        elif platform == Platform.YOUTUBE:
+            if self._youtube_engine is None:
+                from app.engine.youtube import YoutubeLiveEngine
+                self._youtube_engine = YoutubeLiveEngine()
+            return self._youtube_engine
         else:
             raise ValueError(f"지원하지 않는 플랫폼: {platform}")
 

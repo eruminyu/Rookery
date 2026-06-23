@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.core.utils import (
     extract_twitcasting_id,
     extract_x_id,
+    extract_youtube_id,
     update_env_file as _update_env_file,
 )
 from app.engine.base import Platform
@@ -31,7 +32,7 @@ router = APIRouter(prefix="/api/platforms", tags=["Platforms"])
 class AddPlatformChannelRequest(BaseModel):
     """멀티 플랫폼 채널 추가 요청."""
 
-    platform: str = Field(..., description="플랫폼 (chzzk, twitcasting, twitter_spaces)")
+    platform: str = Field(..., description="플랫폼 (chzzk, twitcasting, x_spaces, youtube)")
     channel_id: str = Field(..., description="채널 ID (플랫폼별 사용자 ID)")
     auto_record: bool = Field(True, description="방송 시작 시 자동 녹화 여부")
 
@@ -55,7 +56,7 @@ async def add_platform_channel(req: AddPlatformChannelRequest):
     except ValueError:
         raise HTTPException(
             status_code=400,
-            detail=f"지원하지 않는 플랫폼: '{req.platform}'. 사용 가능: chzzk, twitcasting, x_spaces",
+            detail=f"지원하지 않는 플랫폼: '{req.platform}'. 사용 가능: chzzk, twitcasting, x_spaces, youtube",
         )
 
     # 플랫폼 인증 설정 확인
@@ -72,6 +73,8 @@ async def add_platform_channel(req: AddPlatformChannelRequest):
         channel_id = extract_twitcasting_id(channel_id)
     elif platform == Platform.X_SPACES:
         channel_id = extract_x_id(channel_id)
+    elif platform == Platform.YOUTUBE:
+        channel_id = extract_youtube_id(channel_id)
 
     service = get_recorder_service()
     return service.add_platform_channel(
@@ -150,6 +153,10 @@ async def get_platform_status():
             "enabled": True,
             "authenticated": bool(settings.x_cookie_file),
             "cookie_file_set": bool(settings.x_cookie_file),
+        },
+        "youtube": {
+            "enabled": True,
+            "authenticated": True,
         },
     }
 

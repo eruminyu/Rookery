@@ -1,5 +1,36 @@
 # Signal-Recorder 개발 체크리스트
 
+## 2026-06-23: YouTube 라이브 방송 감지 및 녹화 기능 추가
+
+### 배경
+- 사용자가 YouTube 라이브 방송도 감지하고 녹화할 수 있는 기능을 요청함.
+- 기존 Chzzk, TwitCasting, X Spaces에 이어 네 번째 플랫폼인 YouTube를 정식 지원하도록 확장함.
+- 기존 플랫폼 동작의 무결성(하위 호환성)을 100% 보장하는 비침습적 설계를 원칙으로 작업함.
+
+### 수정 내용
+- [x] `backend/app/engine/base.py`:
+  - `Platform` Enum에 `YOUTUBE = "youtube"` 추가.
+- [x] `backend/app/core/utils.py`:
+  - 유튜브 주소 또는 식별자(@username, UC...)에서 고유 식별자를 정확히 추출하고 정규화하는 `extract_youtube_id(value: str) -> str` 신설.
+- [x] `backend/app/engine/youtube.py` [NEW]:
+  - `YoutubeLiveEngine` 신설.
+  - 1차 감지: 가벼운 HTML Scraping으로 `"isLive": true` 및 라이브 관련 스크립트 메타데이터 탐색.
+  - 2차 감지: HTML 로딩 차단 및 429 등에 대비하여 `yt-dlp --simulate -j` 기반의 메타데이터 조회 백업 기능 구현.
+- [x] `backend/app/engine/conductor.py`:
+  - `Conductor._get_engine()` 메소드에 `Platform.YOUTUBE` 분기 바인딩 추가 및 싱글톤 인스턴스 지연 생성 구현.
+- [x] `backend/app/api/platforms.py`:
+  - `AddPlatformChannelRequest` 스키마 및 채널 추가 API 라우터에 유튜브 플랫폼 매핑 추가.
+  - 플랫폼별 엔진 활성화 조회 엔드포인트에 `youtube` 추가.
+- [x] `frontend/src/api/client.ts`:
+  - `Platform` 타입에 `"youtube"` 추가 및 `PLATFORM_LABELS`와 `PlatformStatus`에 매핑 추가.
+- [x] `frontend/src/pages/Dashboard.tsx`:
+  - 채널 등록 드롭다운 컴포넌트에 `YouTube` 옵션 및 전용 색상 테마(Red 계열) 추가.
+  - 채널 추가 시 유튜브 식별자 입력 가이드라인(핸들 `@username` 또는 채널 ID `UC...`)을 플레이스홀더로 보완.
+- [x] `backend/tests/test_youtube_engine.py` [NEW]:
+  - 유튜브 ID 파싱 및 실제 채널(@GoogleDeepMind) 모니터링 연동의 무결성을 검증하기 위한 pytest 테스트 작성 (100% 통과).
+- [x] 전체 회귀 테스트 검증:
+  - 82개 전체 테스트 케이스가 오류 없이 통과하는 것을 확인하여 기존 기능(치지직, 트윗캐스팅 등)의 완전한 동작 보존을 검증함.
+
 ## 2026-06-21: 치지직 VOD ABR_HLS 다운로드 KeyError 오류 해결
 
 ### 배경

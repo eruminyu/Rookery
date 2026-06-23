@@ -92,6 +92,38 @@ def extract_x_id(value: str) -> str:
     return value
 
 
+def extract_youtube_id(value: str) -> str:
+    """유튜브 URL 또는 순수 채널 ID/핸들에서 고유 식별자만 추출한다.
+
+    지원 형식:
+        - https://www.youtube.com/@username
+        - https://www.youtube.com/@username/live
+        - https://www.youtube.com/channel/UC-9-kyTE8y5JhEl5xWd-R4A
+        - @username
+        - UC-9-kyTE8y5JhEl5xWd-R4A
+    """
+    value = value.strip().rstrip("/")
+    
+    # 1) channel/UC... 형식 주소 파싱
+    if "youtube.com/channel/" in value:
+        path = value.split("youtube.com/channel/", 1)[1]
+        value = path.split("/")[0].split("?")[0]
+    # 2) youtube.com/@username 형식 주소 파싱
+    elif "youtube.com/@" in value:
+        path = value.split("youtube.com/@", 1)[1]
+        value = "@" + path.split("/")[0].split("?")[0]
+    # 3) @username 핸들이나 UC... 채널 ID가 직접 들어온 경우
+    elif value.startswith("@"):
+        pass
+    elif value.startswith("UC") and len(value) == 24:
+        pass
+    # @가 없는데 일반 핸들 이름으로 추정되는 경우 자동으로 @ 붙여주기
+    elif not value.startswith("UC"):
+        value = "@" + value
+        
+    return value
+
+
 def clean_filename(name: str, max_length: int = 150) -> str:
     """파일명에서 사용할 수 없는 특수문자를 제거한다.
 

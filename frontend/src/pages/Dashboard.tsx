@@ -14,6 +14,7 @@ const PLATFORM_BADGE_STYLES: Record<Platform, string> = {
     chzzk: "bg-purple-500/20 text-purple-300 border-purple-500/30",
     twitcasting: "bg-orange-500/20 text-orange-300 border-orange-500/30",
     x_spaces: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+    youtube: "bg-red-500/20 text-red-300 border-red-500/30",
 };
 
 export default function Dashboard() {
@@ -88,8 +89,8 @@ export default function Dashboard() {
     }, []);
 
     const isPlatformEnabled = (p: Platform): boolean => {
-        if (!platformStatus) return p === "chzzk";
-        if (p === "chzzk") return true;
+        if (!platformStatus) return p === "chzzk" || p === "youtube";
+        if (p === "chzzk" || p === "youtube") return true;
         if (p === "twitcasting") return platformStatus.twitcasting.enabled;
         if (p === "x_spaces") return platformStatus.x_spaces.enabled;
         return false;
@@ -319,7 +320,8 @@ export default function Dashboard() {
                                 >
                                     <span className={`inline-block w-2 h-2 rounded-full ${
                                         selectedPlatform === "chzzk" ? "bg-purple-400" :
-                                        selectedPlatform === "twitcasting" ? "bg-orange-400" : "bg-cyan-400"
+                                        selectedPlatform === "twitcasting" ? "bg-orange-400" :
+                                        selectedPlatform === "youtube" ? "bg-red-500" : "bg-cyan-400"
                                     }`} />
                                     <span className="hidden sm:inline-block">{PLATFORM_LABELS[selectedPlatform]}</span>
                                     <ChevronDown className="w-3 h-3 text-zinc-500" />
@@ -345,7 +347,8 @@ export default function Dashboard() {
                                                     <span className={`inline-block w-2 h-2 rounded-full ${
                                                         !enabled ? "bg-zinc-700" :
                                                         p === "chzzk" ? "bg-purple-400" :
-                                                        p === "twitcasting" ? "bg-orange-400" : "bg-cyan-400"
+                                                        p === "twitcasting" ? "bg-orange-400" :
+                                                        p === "youtube" ? "bg-red-500" : "bg-cyan-400"
                                                     }`} />
                                                     <span className="flex-1">{PLATFORM_LABELS[p]}</span>
                                                     {!enabled && (
@@ -364,7 +367,11 @@ export default function Dashboard() {
                                 type="text"
                                 value={newChannelId}
                                 onChange={(e) => setNewChannelId(e.target.value)}
-                                placeholder={selectedPlatform === "chzzk" ? "채널 ID..." : "채널 ID..."}
+                                placeholder={
+                                    selectedPlatform === "chzzk" ? "치지직 채널 ID..." :
+                                    selectedPlatform === "youtube" ? "핸들(@username) 또는 채널 ID..." :
+                                    selectedPlatform === "x_spaces" ? "X 유저네임..." : "채널 ID..."
+                                }
                                 className="w-full sm:w-48 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-green-500 min-w-0"
                             />
                             <button

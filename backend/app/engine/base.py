@@ -16,6 +16,7 @@ class Platform(str, Enum):
     CHZZK = "chzzk"
     TWITCASTING = "twitcasting"
     X_SPACES = "x_spaces"
+    YOUTUBE = "youtube"
 
 
 class LiveStatus(TypedDict, total=False):
