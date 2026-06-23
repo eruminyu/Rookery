@@ -1,5 +1,18 @@
 # Signal-Recorder 개발 체크리스트
 
+## 2026-06-23: 특수문자가 포함된 채널 삭제 오류 해결 (v1.1.7)
+
+### 배경
+- 치지직 또는 유튜브 플랫폼에 슬래시(`/`)나 쿼리 스트링(`?v=...`)이 포함된 잘못된 주소를 등록했을 때, 감시 실패 로그가 무한히 발생하면서도 채널 목록에서 삭제되지 않는 오류가 발견됨.
+- 원인: 프론트엔드가 백엔드 API `/stream/channels/{channel_id}` 등을 호출할 때 날것의 주소 형태로 날려 쿼리 스트링 부분이 쿼리 파라미터로 잘려나가 백엔드가 등록된 키를 찾지 못함.
+
+### 수정 내용
+- [x] `frontend/src/api/client.ts`:
+  - `removeChannel`, `toggleAutoRecord`, `startRecording`, `stopRecording` 및 멀티 플랫폼 API의 `removePlatformChannel`, `togglePlatformAutoRecord` 등 경로 파라미터로 `channel_id`를 전달하는 모든 엔드포인트 호출 부에 `encodeURIComponent(channel_id)` 처리를 추가함.
+  - 이로써 특수문자가 섞인 채널 데이터도 정상적으로 인코딩되어 백엔드 단에 안전하게 디코딩 전달되므로 100% 정상 삭제가 작동함.
+- [x] 회귀 테스트 검증:
+  - 82개 기존 및 유튜브 테스트가 영향 없이 100% 성공 통과하는 것을 점검 완료.
+
 ## 2026-06-23: YouTube 라이브 방송 감지 및 녹화 기능 추가
 
 ### 배경

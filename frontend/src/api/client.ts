@@ -290,21 +290,21 @@ export const api = {
         return res.data;
     },
     removeChannel: async (channel_id: string) => {
-        const res = await client.delete(`/stream/channels/${channel_id}`);
+        const res = await client.delete(`/stream/channels/${encodeURIComponent(channel_id)}`);
         return res.data;
     },
     toggleAutoRecord: async (channel_id: string) => {
-        const res = await client.patch(`/stream/channels/${channel_id}/auto-record`);
+        const res = await client.patch(`/stream/channels/${encodeURIComponent(channel_id)}/auto-record`);
         return res.data;
     },
 
     // Recording
     startRecording: async (channel_id: string) => {
-        const res = await client.post(`/stream/record/${channel_id}/start`);
+        const res = await client.post(`/stream/record/${encodeURIComponent(channel_id)}/start`);
         return res.data;
     },
     stopRecording: async (channel_id: string) => {
-        const res = await client.post(`/stream/record/${channel_id}/stop`);
+        const res = await client.post(`/stream/record/${encodeURIComponent(channel_id)}/stop`);
         return res.data;
     },
     stopAllRecordings: async () => {
@@ -418,11 +418,11 @@ export const api = {
         return res.data;
     },
     removePlatformChannel: async (platform: Platform, channel_id: string) => {
-        const res = await client.delete(`/platforms/channels/${platform}/${channel_id}`);
+        const res = await client.delete(`/platforms/channels/${platform}/${encodeURIComponent(channel_id)}`);
         return res.data;
     },
     togglePlatformAutoRecord: async (platform: Platform, channel_id: string) => {
-        const res = await client.patch(`/platforms/channels/${platform}/${channel_id}/auto-record`);
+        const res = await client.patch(`/platforms/channels/${platform}/${encodeURIComponent(channel_id)}/auto-record`);
         return res.data;
     },
     scanNow: async (compositeKey?: string) => {
