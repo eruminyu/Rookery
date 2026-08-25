@@ -5,13 +5,13 @@ Signal-Recorder: Stats API Router
 
 from __future__ import annotations
 
-import json
 import shutil
 from pathlib import Path
 
 from fastapi import APIRouter
 
 from app.core.config import get_settings
+from app.store.repositories import LiveHistoryRepository, VodRepository
 
 router = APIRouter(prefix="/api/stats", tags=["Stats"])
 
@@ -39,14 +39,11 @@ async def get_stats():
     if conductor is not None:
         live_history = conductor.get_live_history()
     else:
-        # 서버 미초기화 상태에서도 파일 직접 읽기 폴백
-        history_path = Path("data/live_history.json")
-        if history_path.exists():
-            try:
-                with open(history_path, "r", encoding="utf-8") as f:
-                    live_history = json.load(f)
-            except Exception:
-                live_history = []
+        # 서버 미초기화 상태에서도 저장소에서 직접 읽는다.
+        try:
+            live_history = LiveHistoryRepository().list_sessions()
+        except Exception:
+            live_history = []
 
     # 채널별 집계
     channel_live: dict[str, dict] = {}
@@ -103,14 +100,10 @@ async def get_stats():
 
     # ── VOD 이력 집계 ─────────────────────────────────
 
-    vod_history: list[dict] = []
-    vod_history_path = Path("data/vod_history.json")
-    if vod_history_path.exists():
-        try:
-            with open(vod_history_path, "r", encoding="utf-8") as f:
-                vod_history = json.load(f)
-        except Exception:
-            vod_history = []
+    try:
+        vod_history: list[dict] = VodRepository().list_all()
+    except Exception:
+        vod_history = []
 
     completed_vod = [v for v in vod_history if v.get("state") == "completed"]
     vod_total_size = 0  # VOD 이력에는 file_size 없음

@@ -52,13 +52,9 @@ class TestConductor:
     """Conductor 클래스 테스트"""
 
     @pytest.fixture
-    def isolated_conductor(self, tmp_path):
-        """persistence 파일을 임시 경로로 격리한 Conductor"""
-        conductor = Conductor()
-        conductor._persistence_path = tmp_path / "channels.json"
-        # 기존 채널 제거 (persistence에서 로드된 것들)
-        conductor._channels.clear()
-        return conductor
+    def isolated_conductor(self):
+        """빈 임시 저장소를 쓰는 Conductor (conftest의 isolated_database가 격리한다)."""
+        return Conductor()
 
     def test_initial_state(self, isolated_conductor):
         """초기 상태 확인"""
@@ -210,57 +206,66 @@ class TestConductor:
         assert "thumbnail_url" in channel_status
         assert "profile_image_url" in channel_status
 
-    def test_persistence_save_and_load(self, tmp_path):
-        """채널 데이터 저장/로드"""
-        persistence_file = tmp_path / "channels.json"
-
-        # 1. isolated_conductor를 사용하지 않고 직접 생성
+    def test_persistence_save_and_load(self):
+        """채널 데이터가 저장소에 남아 새 Conductor에서 복원된다."""
         conductor1 = Conductor()
-        conductor1._persistence_path = persistence_file
-        conductor1._channels.clear()  # 기존 persistence 데이터 제거
-
         conductor1.add_channel(channel_id="channel_1", auto_record=True)
         conductor1.add_channel(channel_id="channel_2", auto_record=False)
 
-        # 2. 저장 (add_channel이 자동으로 저장하므로 이미 저장됨)
-        assert persistence_file.exists()
-
-        # 3. 새 Conductor로 로드
+        # 새 인스턴스 = 앱 재시작. 생성자에서 저장소를 읽는다.
         conductor2 = Conductor()
-        conductor2._persistence_path = persistence_file
-        conductor2._channels.clear()
-        conductor2._load_persistence()
 
         key1 = Conductor.make_composite_key(Platform.CHZZK, "channel_1")
         key2 = Conductor.make_composite_key(Platform.CHZZK, "channel_2")
 
         assert conductor2.channel_count == 2
-        assert key1 in conductor2._channels
-        assert key2 in conductor2._channels
         assert conductor2._channels[key1].auto_record is True
         assert conductor2._channels[key2].auto_record is False
 
-    def test_persistence_load_nonexistent_file(self, tmp_path):
-        """존재하지 않는 파일 로드 시도 (예외 없음)"""
+    def test_persistence_empty_store(self):
+        """빈 저장소에서 시작해도 예외 없이 빈 상태가 된다."""
         conductor = Conductor()
-        conductor._persistence_path = tmp_path / "nonexistent.json"
-        conductor._channels.clear()
-
-        # 예외 발생 없이 빈 상태로 시작
-        conductor._load_persistence()
-
         assert conductor.channel_count == 0
 
-    def test_persistence_save_creates_directory(self, tmp_path):
-        """저장 시 디렉토리 자동 생성"""
-        persistence_file = tmp_path / "data" / "channels.json"
+    def test_persistence_restores_tags_and_capture_state(self):
+        """태그와 X Spaces 캡처 정보가 재시작 후에도 복원된다."""
+        conductor1 = Conductor()
+        conductor1.add_channel(
+            channel_id="someone", auto_record=True, platform=Platform.X_SPACES
+        )
+        key = Conductor.make_composite_key(Platform.X_SPACES, "someone")
+        conductor1.set_channel_tags(key, ["스페이스"])
 
-        conductor = Conductor()
-        conductor._persistence_path = persistence_file
-        conductor._channels.clear()
+        task = conductor1._channels[key]
+        task.master_url = "https://master.example/playlist.m3u8"
+        task.master_url_captured_at = "2026-01-01T00:00:00"
+        conductor1._save_capture_state(key)
 
-        conductor.add_channel(channel_id="test_channel")
-        # add_channel이 자동으로 _save_persistence() 호출
+        conductor2 = Conductor()
+        restored = conductor2._channels[key]
 
-        assert persistence_file.exists()
-        assert persistence_file.parent.exists()
+        assert restored.tags == ["스페이스"]
+        assert restored.master_url == "https://master.example/playlist.m3u8"
+
+    def test_removed_channel_does_not_come_back(self):
+        """제거한 채널이 재시작 후 되살아나면 안 된다."""
+        import asyncio
+
+        conductor1 = Conductor()
+        conductor1.add_channel(channel_id="temp_channel")
+        key = Conductor.make_composite_key(Platform.CHZZK, "temp_channel")
+        asyncio.run(conductor1.remove_channel(key))
+
+        assert Conductor().channel_count == 0
+
+    def test_live_detections_survive_restart(self):
+        """라이브 감지 통계가 재시작으로 초기화되면 안 된다."""
+        conductor1 = Conductor()
+        conductor1.add_channel(channel_id="channel_1")
+        key = Conductor.make_composite_key(Platform.CHZZK, "channel_1")
+        conductor1._history_repo.record_detection(key, day="2026-01-01")
+
+        counts = Conductor().get_live_detections()
+        # 30일 창을 벗어난 날짜라 0건이지만, 기록 자체는 저장소에 남아 있다.
+        assert isinstance(counts, dict)
+        assert conductor1._history_repo.detection_counts(days=36500)[key] == 1

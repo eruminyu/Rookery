@@ -26,6 +26,7 @@ from app.services.recorder import RecorderService
 from app.services.discord_bot import DiscordBotService
 from app.services.notifications import DiscordWebhookTransport, NotificationService
 from app.engine.updater import UpdaterService
+from app.store import close_database, get_database, migrate_json_files
 from app.version import __version__
 
 # API Routers
@@ -89,9 +90,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"⚠️ yt-dlp 확인 실패: {e}")
 
+    # ── 저장소 ───────────────────────────────────────────
+    # 다른 모든 서비스가 저장소에 의존하므로 가장 먼저 연다.
+    data_dir = resolve_data_dir()
+    database = get_database()
+    migrate_json_files(database, data_dir)
+
     # ── 알림 서비스 ──────────────────────────────────────
     # 전송 채널보다 먼저 만들어 두면 부팅 중 발생한 알림도 큐에 쌓였다가 전송된다.
-    _notification_service = NotificationService(data_dir=resolve_data_dir())
+    _notification_service = NotificationService()
 
     # 서비스 초기화
     auth = AuthManager()
@@ -143,6 +150,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await _notification_service.stop()
     if discord_bot:
         await discord_bot.stop()
+    # 저장소는 마지막에 닫는다 — 위 종료 과정에서 아직 쓰기가 발생한다.
+    close_database()
     _recorder_service = None
     _notification_service = None
     logger.info("👋 Goodbye!")

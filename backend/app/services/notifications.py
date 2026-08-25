@@ -17,17 +17,16 @@ Signal-Recorder: 알림 서비스
 from __future__ import annotations
 
 import asyncio
-import json
 import random
 import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import Optional, Protocol, runtime_checkable
 
 from app.core.config import get_settings
 from app.core.logger import logger
+from app.store.repositories import NotificationRepository
 
 # ── Discord 제약 ────────────────────────────────────────
 # 초과하면 400을 반환하며 알림이 통째로 유실되므로 전송 전에 강제한다.
@@ -324,7 +323,7 @@ class NotificationService:
         await service.stop()
     """
 
-    def __init__(self, data_dir: Path) -> None:
+    def __init__(self, repo: Optional[NotificationRepository] = None) -> None:
         self._transports: list[NotificationTransport] = []
         self._pending: list[Notification] = []
         self._wake = asyncio.Event()
@@ -332,7 +331,7 @@ class NotificationService:
         self._running = False
         self._dirty = False
         self._last_flush = 0.0
-        self._pending_path = data_dir / "pending_notifications.json"
+        self._repo = repo or NotificationRepository()
         self._stats = {"queued": 0, "delivered": 0, "dropped": 0, "expired": 0}
 
     # ── 구성 ────────────────────────────────────────────
@@ -603,7 +602,7 @@ class NotificationService:
     # ── 영속화 ──────────────────────────────────────────
 
     def _flush_pending(self, force: bool = False) -> None:
-        """미전송 알림을 디스크에 저장한다 (앱 재시작 시 복구용)."""
+        """미전송 알림을 저장소에 반영한다 (앱 재시작 시 복구용)."""
         if not self._dirty:
             return
         now = time.time()
@@ -611,13 +610,7 @@ class NotificationService:
             return
 
         try:
-            self._pending_path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = self._pending_path.with_suffix(".tmp")
-            payload = [n.to_dict() for n in self._pending]
-            tmp.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
-            tmp.replace(self._pending_path)  # 원자적 교체 — 중단 시 파일 손상 방지
+            self._repo.replace_all([n.to_dict() for n in self._pending])
             self._dirty = False
             self._last_flush = now
         except Exception as e:
@@ -625,13 +618,12 @@ class NotificationService:
 
     def _restore_pending(self) -> None:
         """이전 실행에서 전송하지 못한 알림을 복구한다."""
-        if not self._pending_path.exists():
-            return
         try:
-            data = json.loads(self._pending_path.read_text(encoding="utf-8"))
-            restored = [Notification.from_dict(item) for item in data]
+            restored = [Notification.from_dict(item) for item in self._repo.list_all()]
         except Exception as e:
             logger.error(f"미전송 알림 복구 실패: {e}")
+            return
+        if not restored:
             return
 
         ttl = max(60, get_settings().discord_notify_ttl)

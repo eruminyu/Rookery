@@ -16,7 +16,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from app.core.config import get_settings, resolve_data_dir
+from app.core.config import get_settings
 from app.core.logger import logger
 from app.engine.auth import AuthManager
 
@@ -43,6 +43,7 @@ except Exception as e:
     logger.error(f"❌ yt-dlp DASH MPD 파서 멍키패치 적용 실패: {e}")
 
 from app.services.notifications import NotificationKind
+from app.store.repositories import VodRepository
 
 if TYPE_CHECKING:
     from app.services.notifications import NotificationService
@@ -114,10 +115,12 @@ class VodEngine:
         self,
         auth: Optional[AuthManager] = None,
         notifier: Optional[NotificationService] = None,
+        repo: Optional[VodRepository] = None,
     ) -> None:
         self._auth = auth or AuthManager()
         self._tasks: dict[str, VodDownloadTask] = {}
         self._notifier = notifier
+        self._repo = repo or VodRepository()
 
 
         # 설정에서 동시 다운로드 개수 가져오기
@@ -125,8 +128,6 @@ class VodEngine:
         self._max_concurrent = settings.vod_max_concurrent
         self._semaphore = asyncio.Semaphore(self._max_concurrent)
 
-        # 상대 경로를 쓰면 실행 위치(CWD)에 따라 이력이 흩어지므로 절대 경로로 고정한다.
-        self._history_file = resolve_data_dir() / "vod_history.json"
         self._load_history()
 
     def _notify(
@@ -993,65 +994,76 @@ class VodEngine:
             "title": first_task.title,
         }
 
-    def _load_history(self) -> None:
-        """이력 파일에서 완료된 작업을 불러온다."""
-        if not self._history_file.exists():
-            return
-
+    @staticmethod
+    def _parse_dt(value: Optional[str]) -> Optional[datetime]:
+        """ISO 문자열을 datetime으로 되돌린다. 깨져 있으면 None."""
+        if not value:
+            return None
         try:
-            with open(self._history_file, "r", encoding="utf-8") as f:
-                history_data = json.load(f)
+            return datetime.fromisoformat(value)
+        except (TypeError, ValueError):
+            return None
 
-            for task_data in history_data:
-                # 완료/에러 상태의 작업만 복원
-                if task_data.get("state") in ["completed", "error"]:
-                    task = VodDownloadTask(
-                        task_id=task_data["task_id"],
-                        url=task_data["url"],
-                        title=task_data["title"],
-                        state=VodDownloadState(task_data["state"]),
-                        progress=task_data["progress"],
-                        quality=task_data.get("quality", "best"),
-                        output_dir=task_data.get("output_dir", ""),
-                        output_path=task_data.get("output_path"),
-                        error_message=task_data.get("error_message"),
-                        created_at=datetime.fromisoformat(task_data["created_at"]),
-                        started_at=datetime.fromisoformat(task_data["started_at"]) if task_data.get("started_at") else None,
-                        completed_at=datetime.fromisoformat(task_data["completed_at"]) if task_data.get("completed_at") else None,
-                    )
-                    self._tasks[task.task_id] = task
-
-            logger.info(f"VOD 다운로드 이력 로드 완료: {len(history_data)}개")
+    def _load_history(self) -> None:
+        """저장소에서 완료/에러 상태의 작업을 복원한다."""
+        try:
+            records = self._repo.list_all()
         except Exception as e:
             logger.warning(f"VOD 이력 로드 실패: {e}")
+            return
+
+        restored = 0
+        for record in records:
+            if record.get("state") not in ("completed", "error"):
+                continue
+            try:
+                task = VodDownloadTask(
+                    task_id=record["task_id"],
+                    url=record["url"],
+                    title=record.get("title"),
+                    state=VodDownloadState(record["state"]),
+                    progress=record.get("progress") or 0.0,
+                    quality=record.get("quality") or "best",
+                    output_dir=record.get("output_dir") or "",
+                    output_path=record.get("output_path"),
+                    error_message=record.get("error_message"),
+                    created_at=self._parse_dt(record.get("created_at")) or datetime.now(),
+                    started_at=self._parse_dt(record.get("started_at")),
+                    completed_at=self._parse_dt(record.get("completed_at")),
+                )
+            except Exception as e:
+                # 한 건이 깨져도 나머지 이력은 살린다.
+                logger.warning(f"VOD 이력 항목 복원 실패 ({record.get('task_id')}): {e}")
+                continue
+            self._tasks[task.task_id] = task
+            restored += 1
+
+        if restored:
+            logger.info(f"VOD 다운로드 이력 로드 완료: {restored}개")
 
     def _save_history(self) -> None:
-        """완료/에러 상태의 작업을 이력 파일에 저장한다."""
+        """완료/에러 상태의 작업을 저장소에 반영한다."""
         try:
-            self._history_file.parent.mkdir(parents=True, exist_ok=True)
-
-            history_data = []
-            for task in self._tasks.values():
-                # 완료되거나 에러가 난 작업만 저장
-                if task.state in (VodDownloadState.COMPLETED, VodDownloadState.ERROR):
-                    history_data.append({
-                        "task_id": task.task_id,
-                        "url": task.url,
-                        "title": task.title,
-                        "state": task.state.value,
-                        "progress": task.progress,
-                        "quality": task.quality,
-                        "output_dir": task.output_dir,
-                        "output_path": task.output_path,
-                        "error_message": task.error_message,
-                        "created_at": task.created_at.isoformat(),
-                        "started_at": task.started_at.isoformat() if task.started_at else None,
-                        "completed_at": task.completed_at.isoformat() if task.completed_at else None,
-                    })
-
-            with open(self._history_file, "w", encoding="utf-8") as f:
-                json.dump(history_data, f, ensure_ascii=False, indent=2)
-
-            logger.debug(f"VOD 다운로드 이력 저장 완료: {len(history_data)}개")
+            records = {
+                task.task_id: {
+                    "url": task.url,
+                    "title": task.title,
+                    "state": task.state.value,
+                    "progress": task.progress,
+                    "quality": task.quality,
+                    "output_dir": task.output_dir,
+                    "output_path": task.output_path,
+                    "error_message": task.error_message,
+                    "created_at": task.created_at.isoformat(),
+                    "started_at": task.started_at.isoformat() if task.started_at else None,
+                    "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+                }
+                for task in self._tasks.values()
+                if task.state in (VodDownloadState.COMPLETED, VodDownloadState.ERROR)
+            }
+            # 취소/삭제된 작업까지 반영해야 하므로 전체 교체한다.
+            # 완료 작업은 보통 수십 건 수준이라 비용이 문제되지 않는다.
+            self._repo.replace_all(records)
+            logger.debug(f"VOD 다운로드 이력 저장 완료: {len(records)}개")
         except Exception as e:
             logger.warning(f"VOD 이력 저장 실패: {e}")

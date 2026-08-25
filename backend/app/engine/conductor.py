@@ -9,11 +9,11 @@ from __future__ import annotations
 import asyncio
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from app.core.config import get_settings, resolve_data_dir
+from app.core.config import get_settings
 from app.core.logger import logger
 from app.engine.auth import AuthManager
 from app.engine.base import Platform
@@ -21,6 +21,7 @@ from app.engine.chat import ChatArchiver
 from app.engine.downloader import ChzzkLiveEngine
 from app.engine.pipeline import YtdlpLivePipeline, RecordingState
 from app.services.notifications import NotificationKind
+from app.store.repositories import ChannelRepository, LiveHistoryRepository
 
 if TYPE_CHECKING:
     from app.services.notifications import NotificationService
@@ -87,6 +88,8 @@ class Conductor:
         self,
         auth: Optional[AuthManager] = None,
         notifier: Optional[NotificationService] = None,
+        channel_repo: Optional[ChannelRepository] = None,
+        history_repo: Optional[LiveHistoryRepository] = None,
     ) -> None:
         settings = get_settings()
         self._auth = auth or AuthManager()
@@ -96,13 +99,10 @@ class Conductor:
         self._youtube_engine: Optional[YoutubeLiveEngine] = None
         self._channels: dict[str, ChannelTask] = {}
         self._running = False
-        _data_dir = resolve_data_dir()
-        self._persistence_path = _data_dir / "channels.json"
+        self._channel_repo = channel_repo or ChannelRepository()
+        self._history_repo = history_repo or LiveHistoryRepository()
         self._notifier = notifier
         self._event_queues: list[asyncio.Queue] = []
-        # 라이브 감지 이력: composite_key → 날짜 문자열 set (하루 1회 카운트)
-        self._live_detections: dict[str, set[str]] = {}
-        self._live_history_path = _data_dir / "live_history.json"
         # 즉시 스캔 이벤트: composite_key → asyncio.Event
         self._scan_events: dict[str, asyncio.Event] = {}
         # X 쿠키 유효성 상태
@@ -207,7 +207,14 @@ class Conductor:
         self._scan_events[composite_key] = asyncio.Event()
         logger.info(f"채널 등록: {composite_key} (auto_record={auto_record})")
 
-        self._save_persistence()
+        self._channel_repo.upsert(
+            composite_key=composite_key,
+            platform=platform.value,
+            channel_id=channel_id,
+            auto_record=auto_record,
+            tags=task.tags,
+        )
+        self._broadcast_status()
 
         # 이미 실행 중이면 즉시 감시 시작
         if self._running:
@@ -222,7 +229,8 @@ class Conductor:
             raise ValueError(f"채널 '{composite_key}'을(를) 찾을 수 없습니다.")
         task.auto_record = value
         logger.info(f"[{composite_key}] 자동 녹화 {'ON' if value else 'OFF'}")
-        self._save_persistence()
+        self._channel_repo.set_auto_record(composite_key, value)
+        self._broadcast_status()
 
     def set_channel_tags(self, composite_key: str, tags: list[str]) -> None:
         """채널의 태그를 지정한다."""
@@ -231,23 +239,23 @@ class Conductor:
             raise ValueError(f"채널 '{composite_key}'을(를) 찾을 수 없습니다.")
         task.tags = tags
         logger.info(f"[{composite_key}] 태그 변경: {tags}")
-        self._save_persistence()
+        self._channel_repo.set_tags(composite_key, tags)
+        self._broadcast_status()
 
     def remove_tag_from_all_channels(self, tag_name: str) -> bool:
         """모든 채널에서 특정 태그를 일괄 제거한다."""
         modified_any = False
-        for composite_key, task in self._channels.items():
+        for task in self._channels.values():
             if tag_name in task.tags:
                 task.tags.remove(tag_name)
                 modified_any = True
-        
+
         if modified_any:
             logger.info(f"모든 채널에서 태그 삭제: {tag_name}")
-            self._save_persistence()
-            
+            self._channel_repo.remove_tag_everywhere(tag_name)
+            self._broadcast_status()
+
         return modified_any
-
-
 
     async def toggle_auto_record(self, composite_key: str) -> bool:
         """채널의 자동 녹화 설정을 토글한다.
@@ -261,7 +269,8 @@ class Conductor:
 
         task.auto_record = not task.auto_record
         logger.info(f"[{composite_key}] 자동 녹화 {'ON' if task.auto_record else 'OFF'}")
-        self._save_persistence()
+        self._channel_repo.set_auto_record(composite_key, task.auto_record)
+        self._broadcast_status()
 
         # 이미 라이브 중인데 auto_record를 ON으로 켰고 녹화가 안 되고 있으면 즉시 시작
         if (
@@ -315,7 +324,8 @@ class Conductor:
 
         self._scan_events.pop(composite_key, None)
         logger.info(f"채널 제거: {composite_key}")
-        self._save_persistence()
+        self._channel_repo.delete(composite_key)
+        self._broadcast_status()
 
     async def start(self) -> None:
         """모든 등록된 채널의 감시를 시작한다."""
@@ -513,7 +523,8 @@ class Conductor:
         if new_m3u8:
             task.captured_m3u8_url = new_m3u8
             task.captured_m3u8_at = datetime.now().isoformat()
-            self._save_persistence()
+            self._save_capture_state(composite_key)
+            self._broadcast_status()
             logger.info(f"[{composite_key}] capture_space: m3u8 URL 캡처 완료")
 
         return {
@@ -524,30 +535,30 @@ class Conductor:
             "channel_name": status.get("channel_name"),
         }
 
-    def _save_persistence(self) -> None:
-        """채널 목록을 파일에 저장한다."""
+    def _save_capture_state(self, composite_key: str) -> None:
+        """X Spaces 캡처 URL 상태를 저장한다.
+
+        기존에는 채널 하나가 바뀔 때마다 전체 목록을 JSON으로 다시 썼다.
+        지금은 해당 행만 UPDATE 한다.
+        """
+        task = self._channels.get(composite_key)
+        if task is None:
+            return
         try:
-            self._persistence_path.parent.mkdir(parents=True, exist_ok=True)
-            data = {
-                key: {
-                    "platform": t.platform.value,
-                    "channel_id": t.channel_id,
-                    "auto_record": t.auto_record,
-                    "captured_m3u8_url": t.captured_m3u8_url,
-                    "captured_m3u8_at": t.captured_m3u8_at,
-                    "master_url": t.master_url,
-                    "master_url_captured_at": t.master_url_captured_at,
-                    "master_url_file": t.master_url_file,
-                    "tags": t.tags,
-                }
-                for key, t in self._channels.items()
-            }
-            with open(self._persistence_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-            logger.debug(f"채널 목록 저장 완료: {self._persistence_path}")
-            self.broadcast_event("status_update", self.get_all_status())
+            self._channel_repo.update_capture(
+                composite_key=composite_key,
+                captured_m3u8_url=task.captured_m3u8_url,
+                captured_m3u8_at=task.captured_m3u8_at,
+                master_url=task.master_url,
+                master_url_captured_at=task.master_url_captured_at,
+                master_url_file=task.master_url_file,
+            )
         except Exception as e:
-            logger.error(f"채널 목록 저장 실패: {e}")
+            logger.error(f"[{composite_key}] 캡처 상태 저장 실패: {e}")
+
+    def _broadcast_status(self) -> None:
+        """현재 전체 채널 상태를 SSE로 밀어낸다."""
+        self.broadcast_event("status_update", self.get_all_status())
 
     # ── SSE 이벤트 Pub-Sub ─────────────────────────────────
 
@@ -572,57 +583,42 @@ class Conductor:
                 pass
 
     def _load_persistence(self) -> None:
-        """파일에서 채널 목록을 로드한다.
-
-        레거시 포맷(키에 ':' 없음)은 Chzzk 채널로 자동 마이그레이션한다.
-        """
-        if not self._persistence_path.exists():
-            return
-
+        """저장소에서 채널 목록을 복원한다."""
         try:
-            with open(self._persistence_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            migrated = False
-            for key, config in data.items():
-                auto_record = config.get("auto_record", True)
-
-                # 레거시 키 마이그레이션 (':'없는 키 = 구버전 Chzzk)
-                if ":" not in key:
-                    logger.info(f"레거시 채널 키 마이그레이션: '{key}' → 'chzzk:{key}'")
-                    platform = Platform.CHZZK
-                    channel_id = key
-                    migrated = True
-                else:
-                    platform_str = config.get("platform", "chzzk")
-                    try:
-                        platform = Platform(platform_str)
-                    except ValueError:
-                        platform = Platform.CHZZK
-                    channel_id = config.get("channel_id", key.split(":", 1)[-1])
-
-                self.add_channel(channel_id, auto_record=auto_record, platform=platform)
-                # m3u8 캡처 URL 복원
-                composite_key_restored = self.make_composite_key(platform, channel_id)
-                restored_task = self._channels.get(composite_key_restored)
-                if restored_task:
-                    if platform.value == "x_spaces":
-                        restored_task.captured_m3u8_url = config.get("captured_m3u8_url")
-                        restored_task.captured_m3u8_at = config.get("captured_m3u8_at")
-                        restored_task.master_url = config.get("master_url")
-                        restored_task.master_url_captured_at = config.get("master_url_captured_at")
-                        restored_task.master_url_file = config.get("master_url_file")
-                    if "tags" in config:
-                        restored_task.tags = config.get("tags", [])
-
-            if migrated:
-                # 마이그레이션된 경우 새 포맷으로 즉시 저장
-                self._save_persistence()
-                logger.info("레거시 채널 데이터 마이그레이션 완료.")
-
-            logger.info(f"채널 목록 로드 완료 ({len(data)}개): {self._persistence_path}")
+            records = self._channel_repo.list_all()
         except Exception as e:
             logger.error(f"채널 목록 로드 실패: {e}")
+            return
+
+        for record in records:
+            try:
+                platform = Platform(record["platform"])
+            except ValueError:
+                logger.warning(
+                    f"알 수 없는 플랫폼 '{record['platform']}', Chzzk으로 처리합니다."
+                )
+                platform = Platform.CHZZK
+
+            composite_key = self.make_composite_key(platform, record["channel_id"])
+            task = ChannelTask(
+                channel_id=record["channel_id"],
+                platform=platform,
+                auto_record=record["auto_record"],
+                tags=list(record["tags"]),
+            )
+            # X Spaces 캡처 URL 복원
+            if platform == Platform.X_SPACES:
+                task.captured_m3u8_url = record["captured_m3u8_url"]
+                task.captured_m3u8_at = record["captured_m3u8_at"]
+                task.master_url = record["master_url"]
+                task.master_url_captured_at = record["master_url_captured_at"]
+                task.master_url_file = record["master_url_file"]
+
+            self._channels[composite_key] = task
+            self._scan_events[composite_key] = asyncio.Event()
+
+        if records:
+            logger.info(f"채널 목록 로드 완료 ({len(records)}개)")
 
     async def _monitor_channel(self, composite_key: str) -> None:
         """단일 채널의 라이브 상태를 주기적으로 확인한다."""
@@ -678,7 +674,8 @@ class Conductor:
                             f"[{composite_key}] 🎙️ Space master URL 캡처 완료 "
                             f"(space_id={task._current_space_id})"
                         )
-                        self._save_persistence()
+                        self._save_capture_state(composite_key)
+                        self._broadcast_status()
                         # 알림: master URL 캡처 + 자동 녹화 상태 안내
                         # (Master URL은 1024자를 넘을 수 있어 알림 계층에서 분할 전송한다)
                         rec_status = (
@@ -705,9 +702,12 @@ class Conductor:
                         )
 
                 # ── 라이브 감지 날짜 기록 (하루 1회, 날짜 경계 자동 처리) ──
+                # 저장소에 남기므로 재시작해도 통계가 초기화되지 않는다.
                 if status["is_live"]:
-                    today = datetime.now().strftime("%Y-%m-%d")
-                    self._live_detections.setdefault(composite_key, set()).add(today)
+                    try:
+                        self._history_repo.record_detection(composite_key)
+                    except Exception as e:
+                        logger.error(f"[{composite_key}] 라이브 감지 기록 실패: {e}")
 
                 # ── 방송 시작 감지 ──
                 if status["is_live"] and not was_live:
@@ -753,7 +753,8 @@ class Conductor:
                         task.captured_m3u8_at = None
                         task.master_url_file = None
                         task._current_space_id = None
-                        self._save_persistence()
+                        self._save_capture_state(composite_key)
+                        self._broadcast_status()
                         logger.info(f"[{composite_key}] 🎙️ Space 종료 — master URL 초기화 완료.")
                     await self._stop_recording(composite_key)
                     retry_count = 0
@@ -1211,15 +1212,13 @@ class Conductor:
     # ── 라이브 이력 관리 ─────────────────────────────────────
 
     def _save_live_history(self, composite_key: str, task: ChannelTask, pipe_status: dict) -> None:
-        """라이브 녹화 완료 이력을 JSON 파일에 저장한다."""
-        try:
-            self._live_history_path.parent.mkdir(parents=True, exist_ok=True)
-            history: list[dict] = []
-            if self._live_history_path.exists():
-                with open(self._live_history_path, "r", encoding="utf-8") as f:
-                    history = json.load(f)
+        """라이브 녹화 완료 이력을 저장한다.
 
-            history.append({
+        기존 JSON 구현은 매번 전체 파일을 읽고 다시 썼기 때문에 이력이 쌓일수록
+        녹화 종료 처리가 느려졌다. 지금은 INSERT 한 번이다.
+        """
+        try:
+            self._history_repo.add_session({
                 "composite_key": composite_key,
                 "platform": task.platform.value,
                 "channel_id": task.channel_id,
@@ -1230,22 +1229,16 @@ class Conductor:
                 "file_size_bytes": pipe_status.get("file_size_bytes", 0),
                 "output_path": pipe_status.get("output_path"),
             })
-
-            with open(self._live_history_path, "w", encoding="utf-8") as f:
-                json.dump(history, f, ensure_ascii=False, indent=2)
-
             logger.debug(f"[{composite_key}] 라이브 이력 저장 완료.")
         except Exception as e:
             logger.error(f"[{composite_key}] 라이브 이력 저장 실패: {e}")
 
     def get_live_history(self) -> list[dict]:
         """저장된 라이브 녹화 이력을 반환한다."""
-        if not self._live_history_path.exists():
-            return []
         try:
-            with open(self._live_history_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
+            return self._history_repo.list_sessions()
+        except Exception as e:
+            logger.error(f"라이브 이력 조회 실패: {e}")
             return []
 
     def get_live_detections(self) -> dict[str, int]:
@@ -1254,8 +1247,8 @@ class Conductor:
         Returns:
             { composite_key: 최근 30일 내 감지된 날짜 수 }
         """
-        cutoff = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-        return {
-            key: sum(1 for d in dates if d >= cutoff)
-            for key, dates in self._live_detections.items()
-        }
+        try:
+            return self._history_repo.detection_counts(days=30)
+        except Exception as e:
+            logger.error(f"라이브 감지 통계 조회 실패: {e}")
+            return {}

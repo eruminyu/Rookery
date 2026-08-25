@@ -18,7 +18,7 @@ services:
       # 영속성이 필요한 데이터 마운트
       # WORKDIR=/app/backend 기준 상대 경로이므로 /app/backend 하위에 마운트
       - ./recordings:/app/backend/recordings # 녹화 파일
-      - ./data:/app/backend/data # channels.json, vod_history.json 등 설정 파일
+      - ./data:/app/backend/data # signal_recorder.db (채널 목록, 녹화/VOD 이력, 태그)
       - ./logs:/app/backend/logs # 애플리케이션 로그
     # config/.env 를 /app/.env 로 심볼릭 링크 후 서버 시작
     entrypoint: [ "/bin/sh", "-c", "mkdir -p /app/config && [ ! -f /app/config/.env ] && touch /app/config/.env; ln -sf /app/config/.env /app/.env; python -m uvicorn app.main:app --host 0.0.0.0 --port 8000" ]

@@ -9,12 +9,12 @@ test_notifications.py
 """
 
 import asyncio
-import json
 import time
 
 import pytest
 
 from app.core.config import get_settings
+from app.store.repositories import NotificationRepository
 from app.services.notifications import (
     MAX_FIELD_VALUE,
     DeliveryResult,
@@ -161,8 +161,8 @@ class TestKindFiltering:
 
 @pytest.mark.asyncio
 class TestNotificationService:
-    async def test_delivers_when_transport_available(self, tmp_path, settings_reset):
-        service = NotificationService(data_dir=tmp_path)
+    async def test_delivers_when_transport_available(self, settings_reset):
+        service = NotificationService()
         transport = FakeTransport(available=True)
         service.register(transport)
         await service.start()
@@ -174,9 +174,9 @@ class TestNotificationService:
         finally:
             await service.stop(drain_timeout=0)
 
-    async def test_notify_does_not_block(self, tmp_path, settings_reset):
+    async def test_notify_does_not_block(self, settings_reset):
         """호출부가 Discord 응답을 기다리지 않아야 한다."""
-        service = NotificationService(data_dir=tmp_path)
+        service = NotificationService()
         service.register(FakeTransport(available=True))
         await service.start()
 
@@ -188,9 +188,9 @@ class TestNotificationService:
         finally:
             await service.stop(drain_timeout=0)
 
-    async def test_unavailable_transport_does_not_drop(self, tmp_path, settings_reset):
+    async def test_unavailable_transport_does_not_drop(self, settings_reset):
         """봇 재연결 중에 발생한 알림은 버려지지 않고 대기해야 한다."""
-        service = NotificationService(data_dir=tmp_path)
+        service = NotificationService()
         transport = FakeTransport(available=False)
         service.register(transport)
         await service.start()
@@ -213,8 +213,8 @@ class TestNotificationService:
         finally:
             await service.stop(drain_timeout=0)
 
-    async def test_permanent_failure_is_dropped(self, tmp_path, settings_reset):
-        service = NotificationService(data_dir=tmp_path)
+    async def test_permanent_failure_is_dropped(self, settings_reset):
+        service = NotificationService()
         service.register(FakeTransport(available=True, result=DeliveryResult.PERMANENT_FAIL))
         await service.start()
 
@@ -225,9 +225,9 @@ class TestNotificationService:
         finally:
             await service.stop(drain_timeout=0)
 
-    async def test_no_transport_means_no_queue_growth(self, tmp_path, settings_reset):
+    async def test_no_transport_means_no_queue_growth(self, settings_reset):
         """Discord를 아예 설정하지 않은 사용자에게서 큐가 무한히 자라면 안 된다."""
-        service = NotificationService(data_dir=tmp_path)
+        service = NotificationService()
         await service.start()
 
         try:
@@ -237,9 +237,9 @@ class TestNotificationService:
         finally:
             await service.stop(drain_timeout=0)
 
-    async def test_disabled_kind_is_not_queued(self, tmp_path, settings_reset):
+    async def test_disabled_kind_is_not_queued(self, settings_reset):
         settings_reset.discord_notify_events = "recording_failed"
-        service = NotificationService(data_dir=tmp_path)
+        service = NotificationService()
         transport = FakeTransport(available=False)
         service.register(transport)
         await service.start()
@@ -252,9 +252,9 @@ class TestNotificationService:
         finally:
             await service.stop(drain_timeout=0)
 
-    async def test_mention_applied_only_to_selected_kinds(self, tmp_path, settings_reset):
+    async def test_mention_applied_only_to_selected_kinds(self, settings_reset):
         settings_reset.discord_mention_events = "recording_failed"
-        service = NotificationService(data_dir=tmp_path)
+        service = NotificationService()
         transport = FakeTransport(available=True)
         service.register(transport)
         await service.start()
@@ -270,20 +270,19 @@ class TestNotificationService:
         finally:
             await service.stop(drain_timeout=0)
 
-    async def test_pending_survives_restart(self, tmp_path, settings_reset):
+    async def test_pending_survives_restart(self, settings_reset):
         """앱이 재시작돼도 미전송 알림이 이어서 전송되어야 한다."""
-        service = NotificationService(data_dir=tmp_path)
+        service = NotificationService()
         service.register(FakeTransport(available=False))
         await service.start()
         service.notify(NotificationKind.RECORDING_COMPLETED, "⏹ 녹화 완료")
         await asyncio.sleep(0.1)
         await service.stop(drain_timeout=0)
 
-        saved = json.loads((tmp_path / "pending_notifications.json").read_text(encoding="utf-8"))
-        assert len(saved) == 1
+        assert len(NotificationRepository().list_all()) == 1
 
         # 새 인스턴스 = 앱 재시작
-        revived = NotificationService(data_dir=tmp_path)
+        revived = NotificationService()
         transport = FakeTransport(available=True)
         revived.register(transport)
         await revived.start()
@@ -294,10 +293,10 @@ class TestNotificationService:
         finally:
             await revived.stop(drain_timeout=0)
 
-    async def test_expired_notifications_are_discarded(self, tmp_path, settings_reset):
+    async def test_expired_notifications_are_discarded(self, settings_reset):
         """TTL이 지난 알림은 뒷북이 되므로 전송하지 않는다."""
         settings_reset.discord_notify_ttl = 60
-        service = NotificationService(data_dir=tmp_path)
+        service = NotificationService()
         transport = FakeTransport(available=True)
         service.register(transport)
 
