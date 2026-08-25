@@ -24,6 +24,14 @@
 - **`download_space(space_url)` 서비스 메서드**: 채널 등록 없이 Space URL로 직접 다운로드
 - **`auth.py` `get_streamlink_options()`**: Streamlink 쿠키 주입 헬퍼 메서드
 
+### Changed
+- **Discord 봇 명령을 슬래시 커맨드 전용으로 전환** (기존 `!` 프리픽스 명령 제거)
+  - 프리픽스와 슬래시로 중복 구현되어 있던 핸들러 10개 제거 — 공통 로직은 이미 헬퍼로 분리되어 있어 기능 손실 없음
+  - `message_content` privileged intent 요구 제거 → Discord 개발자 포털에서 별도 활성화 불필요
+  - 빌트인 `!help` 비활성화 (`help_command=None`)
+  - **기존 사용자 영향**: `!status`, `!start` 등 프리픽스 명령이 더 이상 동작하지 않습니다. `/status`, `/start`를 사용하세요.
+
+
 ### Fixed
 - **X Spaces 종료 감지 버그**: `AudioSpaceById` `state` 미검사로 종료된 Space가 `is_live=True` 유지되던 문제
   - UserTweets 타임라인에 종료 Space가 남아 있어 space_id가 계속 발견되던 근본 원인
@@ -32,6 +40,14 @@
 - **X Spaces 다음 Space master URL 미캡처**: Space 종료 감지 시 `master_url` 등 X Spaces 전용 필드 전체 초기화
   - 미초기화로 인해 `if new_master and not task.master_url:` 조건이 항상 False
 - **`toggle_auto_record()` async 누락**: Conductor → RecorderService → API 라우터 전 계층 `await` 누락 수정
+
+### Security
+- **Discord 봇 명령 권한 검사 추가**: 기존에는 호출자·채널 검증이 전혀 없어, 봇이 초대된 서버의 누구나 남의 녹화를 시작·중단할 수 있었음
+  - `DISCORD_COMMAND_USER_IDS` / `DISCORD_COMMAND_CHANNEL_ID` 설정 추가 (설정 → 알림 탭에서도 변경 가능)
+  - 판정은 `_is_authorized()` 단일 지점에서 수행하고, `CommandTree.interaction_check`로 모든 슬래시 커맨드에 일괄 적용
+  - 미설정 시 `DISCORD_NOTIFICATION_CHANNEL_ID`를 채널 조건으로 사용하며, 그마저 없으면 모든 명령을 거부 (fail-closed)
+  - **기존 사용자 영향**: 알림 채널 밖에서 명령을 사용하던 경우 거부됩니다.
+
 
 ---
 
