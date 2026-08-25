@@ -114,6 +114,14 @@ export interface Settings {
     // Discord 설정
     discord_notification_channel_id?: string;
 
+    // 알림 설정
+    discord_webhook_configured: boolean;
+    discord_notify_events: string[];
+    discord_mention_events: string[];
+    discord_mention_target: string;
+    discord_notify_ttl: number;
+    notification_kinds: NotificationKindInfo[];
+
     // 분할 저장 경로
     split_download_dirs: boolean;
     vod_chzzk_dir: string;
@@ -175,6 +183,36 @@ export interface ChatSettingsUpdate {
 export interface DiscordSettingsUpdate {
     discord_bot_token?: string;
     discord_notification_channel_id?: string;
+    discord_webhook_url?: string;
+    discord_notify_events?: string[];
+    discord_mention_events?: string[];
+    discord_mention_target?: string;
+    discord_notify_ttl?: number;
+}
+
+/** 설정 화면에 표시할 알림 종류 (백엔드가 목록을 내려준다). */
+export interface NotificationKindInfo {
+    value: string;
+    label: string;
+}
+
+/** 알림 전송 채널의 설정/가용 상태. */
+export interface NotificationTransportStatus {
+    name: string;
+    configured: boolean;
+    available: boolean;
+}
+
+/** 알림 파이프라인 진단 결과. */
+export interface NotificationStatus {
+    available: boolean;
+    reason?: string;
+    queued?: number;
+    delivered?: number;
+    dropped?: number;
+    expired?: number;
+    pending?: number;
+    transports?: NotificationTransportStatus[];
 }
 
 // ── Chat Log Types ───────────────────────────────────────
@@ -399,6 +437,14 @@ export const api = {
     },
     updateDiscordSettings: async (data: DiscordSettingsUpdate) => {
         const res = await client.put("/settings/discord", data);
+        return res.data;
+    },
+    getNotificationStatus: async (): Promise<NotificationStatus> => {
+        const res = await client.get<NotificationStatus>("/settings/discord/status");
+        return res.data;
+    },
+    sendTestNotification: async (): Promise<{ message: string }> => {
+        const res = await client.post<{ message: string }>("/settings/discord/test");
         return res.data;
     },
     testCookies: async () => {

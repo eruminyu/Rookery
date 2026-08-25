@@ -37,6 +37,7 @@ import { useConfirm } from "../components/ui/ConfirmModal";
 import { getErrorMessage } from "../utils/error";
 import { DirInput } from "../components/ui/DirInput";
 import { useTheme, THEMES, ThemeId } from "../context/ThemeContext";
+import { NotificationsTab } from "../components/settings/NotificationsTab";
 
 // ── ToggleSwitch ─────────────────────────────────────────
 
@@ -186,6 +187,7 @@ export default function Settings() {
     const [discordBotToken, setDiscordBotToken] = useState("");
     const [discordChannelId, setDiscordChannelId] = useState("");
     const [discordSaving, setDiscordSaving] = useState(false);
+    const [notificationsDirty, setNotificationsDirty] = useState(false);
 
     // Appearance
     const { themeId, customColor, pageTitle, setTheme, setCustomColor, setPageTitle, setIconUrl, resetAll } = useTheme();
@@ -250,8 +252,8 @@ export default function Settings() {
                 return (twitcastingClientId !== "" || twitcastingClientSecret !== "") ||
                        (nidAut !== "" || nidSes !== "");
             case "notifications":
-                return chatArchiveEnabled !== settings.chat_archive_enabled ||
-                       discordChannelId !== (settings.discord_notification_channel_id || "");
+                // 알림 폼은 NotificationsTab이 자체 관리하므로 그쪽 보고를 신뢰한다.
+                return notificationsDirty;
             case "appearance":
                 return titleInput !== pageTitle;
             default:
@@ -1071,56 +1073,11 @@ export default function Settings() {
 
                 {/* ══════════════════ 알림 탭 ══════════════════ */}
                 {activeTab === "notifications" && (
-                    <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 space-y-5">
-                        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                            <MessageCircle className="w-5 h-5 text-purple-500" />
-                            Discord Bot 알림
-                        </h3>
-
-                        <div>
-                            <label className="block text-sm font-medium text-zinc-300 mb-2">Bot 토큰</label>
-                            <input
-                                type="password"
-                                value={discordBotToken}
-                                onChange={(e) => setDiscordBotToken(e.target.value)}
-                                placeholder="Bot 토큰을 입력하세요 (변경 시에만)"
-                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder:text-zinc-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-                            />
-                            <p className="text-xs text-zinc-500 mt-2">
-                                비어있으면 기존 설정 유지. Discord Developer Portal에서 발급받은 Bot 토큰을 입력하세요.
-                            </p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-zinc-300 mb-2">알림 채널 ID</label>
-                            <input
-                                type="text"
-                                value={discordChannelId}
-                                onChange={(e) => setDiscordChannelId(e.target.value)}
-                                placeholder="Discord 채널 ID를 입력하세요"
-                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder:text-zinc-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-                            />
-                            <p className="text-xs text-zinc-500 mt-2">
-                                개발자 모드 활성화 후 채널 우클릭 → ID 복사로 확인 가능합니다.
-                            </p>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-sm">
-                            <div className={`w-2 h-2 rounded-full ${settings?.discord_bot_configured ? "bg-green-500" : "bg-zinc-600"}`} />
-                            <span className="text-zinc-400">
-                                {settings?.discord_bot_configured ? "Bot 설정됨 (재시작 후 활성화)" : "Bot 미설정"}
-                            </span>
-                        </div>
-
-                        <button
-                            onClick={handleSaveDiscordSettings}
-                            disabled={discordSaving}
-                            className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-zinc-700 text-white py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                        >
-                            {discordSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            {discordSaving ? "저장 중..." : "Discord 설정 저장"}
-                        </button>
-                    </div>
+                    <NotificationsTab
+                        settings={settings}
+                        onSaved={loadSettings}
+                        onDirtyChange={setNotificationsDirty}
+                    />
                 )}
 
                 {/* ══════════════════ 외관 탭 ══════════════════ */}
