@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
+import { Radio } from "lucide-react";
 import { Layout } from "./components/layout/Layout";
 import { ToastProvider } from "./components/ui/Toast";
 import { ConfirmProvider } from "./components/ui/ConfirmModal";
@@ -29,8 +30,12 @@ function RootLayout() {
 
     if (setupState === null) {
         return (
-            <div className="fixed inset-0 flex items-center justify-center bg-chzzk-bg">
-                <div className="w-8 h-8 border-2 border-chzzk border-t-transparent rounded-full animate-spin" />
+            <div className="app-canvas fixed inset-0 flex items-center justify-center">
+                <div className="relative z-10 flex flex-col items-center">
+                    <span className="brand-mark w-12 h-12 rounded-2xl grid place-items-center mb-4"><Radio className="w-5 h-5 animate-pulse" /></span>
+                    <p className="text-sm font-semibold text-ink">Signal Recorder</p>
+                    <p className="text-[11px] text-ink-faint mt-1">워크스페이스를 준비하고 있습니다</p>
+                </div>
             </div>
         );
     }

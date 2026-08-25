@@ -79,13 +79,13 @@ export function TagManager({
             {selectedTags.map((tag) => (
                 <span
                     key={tag}
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium btn-ghost-primary border border-transparent"
                 >
                     {tag}
                     {!disabled && (
                         <button
                             onClick={() => onRemoveTag(tag)}
-                            className="hover:bg-cyan-500/20 rounded-full p-0.5 transition-colors focus:outline-none"
+                            className="hover:bg-surface-4/70 rounded-full p-0.5 transition-colors focus:outline-none"
                         >
                             <X className="w-2.5 h-2.5" />
                         </button>
@@ -97,7 +97,7 @@ export function TagManager({
             {!disabled && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-zinc-600/50 hover:border-zinc-400 hover:bg-zinc-800/50 text-zinc-500 hover:text-zinc-300 transition-colors focus:outline-none"
+                    className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-line-strong hover:border-[var(--primary)] hover:bg-surface-3 text-ink-faint hover:text-[var(--primary)] transition-colors focus:outline-none"
                     title="태그 관리"
                 >
                     <Plus className="w-3 h-3" />
@@ -106,10 +106,10 @@ export function TagManager({
 
             {/* 드롭다운 */}
             {isOpen && !disabled && (
-                <div className="absolute top-full left-0 mt-1.5 w-48 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 overflow-hidden text-sm">
-                    <div className="p-2 border-b border-zinc-800 bg-zinc-950/50">
+                <div className="absolute top-full left-0 mt-1.5 w-52 bg-surface-2 border border-line-strong rounded-[var(--radius-control)] shadow-xl z-50 overflow-hidden text-sm surface-raise">
+                    <div className="p-2 border-b border-line bg-surface-1/70">
                         <div className="relative flex items-center">
-                            <Tag className="absolute left-2 w-3.5 h-3.5 text-zinc-500" />
+                            <Tag className="absolute left-2 w-3.5 h-3.5 text-ink-faint" />
                             <input
                                 type="text"
                                 autoFocus
@@ -117,11 +117,11 @@ export function TagManager({
                                 onChange={(e) => setInputValue(e.target.value)}
                                 onKeyDown={handleKeyDown}
                                 placeholder="태그 검색 또는 생성..."
-                                className="w-full bg-transparent text-white placeholder:text-zinc-600 pl-7 pr-2 py-1 text-xs focus:outline-none"
+                                className="w-full bg-transparent text-ink placeholder:text-ink-faint pl-7 pr-2 py-1 text-xs focus:outline-none"
                             />
                         </div>
                     </div>
-                    <div className="max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 py-1">
+                    <div className="max-h-40 overflow-y-auto scrollbar-thin py-1">
                         {isExactMatchFree && (
                             <button
                                 onClick={() => {
@@ -130,7 +130,7 @@ export function TagManager({
                                     onAddTag(newTag);
                                     setInputValue("");
                                 }}
-                                className="w-full text-left px-3 py-1.5 text-xs text-cyan-400 hover:bg-zinc-800 transition-colors flex items-center gap-2"
+                                className="w-full text-left px-3 py-1.5 text-xs text-[var(--primary)] hover:bg-surface-3 transition-colors flex items-center gap-2"
                             >
                                 <Plus className="w-3.5 h-3.5" />
                                 <span>"{inputValue.trim()}" 생성</span>
@@ -143,8 +143,8 @@ export function TagManager({
                                 className={clsx(
                                     "w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center justify-between",
                                     selectedTags.includes(tag)
-                                        ? "text-cyan-400 bg-cyan-500/5"
-                                        : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                                        ? "text-[var(--primary)] bg-[var(--primary-dim)]"
+                                        : "text-ink-muted hover:bg-surface-3 hover:text-ink"
                                 )}
                             >
                                 <span className="truncate mr-2">{tag}</span>
@@ -152,7 +152,7 @@ export function TagManager({
                             </button>
                         ))}
                         {filteredAvailable.length === 0 && !isExactMatchFree && (
-                            <div className="px-3 py-2 text-xs text-zinc-500 text-center">
+                            <div className="px-3 py-2 text-xs text-ink-faint text-center">
                                 결과 없음
                             </div>
                         )}

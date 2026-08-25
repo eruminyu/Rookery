@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, Eye, MessageSquare, Play, Square, Trash2, Users, Video } from "lucide-react";
+import { AlertCircle, AlertTriangle, Eye, GripVertical, MessageSquare, Play, Square, Trash2, Users, Video } from "lucide-react";
 import { clsx } from "clsx";
 import { formatDuration } from "../../utils/format";
 import { TagManager } from "../ui/TagManager";
@@ -6,13 +6,40 @@ import { Button, Card, Switch } from "../ui/primitives";
 import { PlatformBadge, RecordingStats, type ChannelItemProps, useRecordingDuration } from "./ChannelCard";
 
 export function ChannelRow(props: ChannelItemProps) {
-    const { channel, onStartRecord, onStopRecord, onRemove, onToggleAutoRecord, isActionLoading, globalTags, onAddTag, onRemoveTag, onCreateTag } = props;
+    const { channel, onStartRecord, onStopRecord, onRemove, onToggleAutoRecord, isActionLoading, globalTags, onAddTag, onRemoveTag, onCreateTag, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, onReorderMouseMove, onReorderMouseUp, onReorderKeyDown, isDragging, isDropTarget } = props;
     const displayName = channel.channel_name || channel.channel_id;
     const platform = channel.platform || "chzzk";
     const duration = useRecordingDuration(channel);
 
     return (
-        <Card padded={false} className={clsx("overflow-hidden transition-all group flex min-h-[150px] min-w-[900px]", channel.recording?.is_recording && "animate-pulse-border")}>
+        <Card
+            padded={false}
+            className={clsx(
+                "overflow-hidden transition-all group flex min-h-[150px] min-w-[900px]",
+                channel.recording?.is_recording && "animate-pulse-border",
+                isDragging && "opacity-45",
+                isDropTarget && "ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-surface-0",
+            )}
+            data-channel-key={channel.composite_key || channel.channel_id}
+        >
+            <div
+                role="button"
+                tabIndex={0}
+                onPointerDown={onReorderPointerDown}
+                onPointerMove={onReorderPointerMove}
+                onPointerUp={onReorderPointerUp}
+                onPointerCancel={onReorderPointerUp}
+                onLostPointerCapture={onReorderPointerUp}
+                onMouseMove={onReorderMouseMove}
+                onMouseUp={onReorderMouseUp}
+                onKeyDown={onReorderKeyDown}
+                className="w-9 grid place-items-center text-ink-faint hover:text-ink hover:bg-surface-3 cursor-grab active:cursor-grabbing border-r border-line transition-colors shrink-0 touch-none select-none"
+                title="드래그하거나 방향키를 눌러 채널 순서 변경"
+                aria-label={`${displayName} 채널 순서 변경`}
+                aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
+            >
+                <GripVertical className="w-4 h-4 pointer-events-none" />
+            </div>
             <div className="relative bg-surface-0 overflow-hidden w-48 xl:w-64 shrink-0">
                 {channel.is_live && channel.thumbnail_url ? (
                     <img src={channel.thumbnail_url} alt={`${displayName} 방송 썸네일`} className="w-full h-full object-cover" loading="lazy" />

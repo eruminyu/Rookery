@@ -40,24 +40,24 @@ export function DashboardFilters({
     onStopAll,
 }: Props) {
     return (
-        <div className="flex flex-col gap-3 border-b border-line pb-4">
-            <div className="flex items-center justify-between gap-3 overflow-x-auto">
-                <div className="flex gap-2">
+        <div className="flex flex-col gap-3 p-3 sm:p-4 bg-surface-2 border border-line rounded-[var(--radius-card)] surface-raise">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div className="flex gap-1 p-1 bg-surface-3 rounded-[var(--radius-control)] overflow-x-auto">
                     {FILTERS.map((option) => (
                         <button
                             key={option.value}
                             onClick={() => onFilterChange(option.value)}
-                            className={`px-3 py-1.5 rounded-[var(--radius-control)] text-sm font-medium transition-colors whitespace-nowrap ${filter === option.value ? `bg-surface-4 ${option.selectedClass}` : "text-ink-faint hover:bg-surface-3 hover:text-ink-muted"}`}
+                            className={`px-3 py-1.5 rounded-md text-[13px] font-medium transition-all whitespace-nowrap ${filter === option.value ? `bg-surface-1 shadow-sm ${option.selectedClass}` : "text-ink-faint hover:text-ink-muted"}`}
                         >
                             {option.label}
                         </button>
                     ))}
                 </div>
 
-                <div className="flex gap-2 shrink-0">
-                    <Button icon={RefreshCw} onClick={onScanNow} className="px-3 py-1.5">즉시 스캔</Button>
-                    <Button variant="danger" icon={Square} onClick={onStopAll} disabled={recordingCount === 0} className="px-3 py-1.5">전체 중지</Button>
-                    <div className="flex bg-surface-2 border border-line rounded-[var(--radius-control)] p-1">
+                <div className="flex items-center gap-2 shrink-0 overflow-x-auto">
+                    <Button icon={RefreshCw} onClick={onScanNow} className="px-3 py-2">즉시 스캔</Button>
+                    <Button variant="danger" icon={Square} onClick={onStopAll} disabled={recordingCount === 0} className="px-3 py-2">전체 중지</Button>
+                    <div className="flex bg-surface-3 border border-line rounded-[var(--radius-control)] p-1 ml-auto">
                         <button
                             type="button"
                             onClick={() => onViewModeChange("grid")}
@@ -78,8 +78,8 @@ export function DashboardFilters({
                 </div>
             </div>
 
-            <div className="flex items-center">
-                <span className="text-xs font-semibold text-ink-faint mr-3 shrink-0">태그 필터</span>
+            <div className="flex flex-wrap items-center gap-y-2 pt-3 border-t border-line/80">
+                <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-faint mr-3 shrink-0">Tag filter</span>
                 <TagManager
                     availableTags={globalTags}
                     selectedTags={selectedTags}

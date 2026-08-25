@@ -8,6 +8,7 @@ import {
     createElement,
     forwardRef,
     type ButtonHTMLAttributes,
+    type HTMLAttributes,
     type InputHTMLAttributes,
     type ReactNode,
     type SelectHTMLAttributes,
@@ -15,15 +16,93 @@ import {
 import { clsx } from "clsx";
 import { Loader2, type LucideIcon } from "lucide-react";
 
+/* ── PageHeader ──────────────────────────────────────── */
+
+/**
+ * 페이지마다 제각각이던 제목 영역을 하나의 시각적 진입점으로 묶는다.
+ * 핵심 상태와 주요 액션을 첫 화면에서 함께 읽을 수 있게 한다.
+ */
+export function PageHeader({
+    icon,
+    eyebrow,
+    title,
+    description,
+    meta,
+    actions,
+}: {
+    icon: LucideIcon;
+    eyebrow?: string;
+    title: string;
+    description: ReactNode;
+    meta?: ReactNode;
+    actions?: ReactNode;
+}) {
+    return (
+        <header className="page-hero relative overflow-hidden border border-line rounded-[calc(var(--radius-card)+4px)] p-5 sm:p-6">
+            <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-5">
+                <div className="flex items-start gap-4 min-w-0">
+                    <span className="page-hero-icon grid place-items-center w-11 h-11 rounded-[var(--radius-card)] shrink-0">
+                        {createElement(icon, { className: "w-5 h-5" })}
+                    </span>
+                    <div className="min-w-0">
+                        {eyebrow && <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-ink-faint mb-1.5">{eyebrow}</p>}
+                        <h1 className="text-[24px] sm:text-[28px] font-bold tracking-[-0.035em] text-ink leading-none">{title}</h1>
+                        <p className="text-[13px] sm:text-[14px] text-ink-faint mt-2 max-w-2xl leading-relaxed">{description}</p>
+                        {meta && <div className="flex flex-wrap items-center gap-2 mt-3">{meta}</div>}
+                    </div>
+                </div>
+                {actions && <div className="shrink-0 xl:max-w-[52%]">{actions}</div>}
+            </div>
+        </header>
+    );
+}
+
+/* ── MetricCard ──────────────────────────────────────── */
+
+export function MetricCard({
+    icon,
+    label,
+    value,
+    detail,
+    tone = "primary",
+}: {
+    icon: LucideIcon;
+    label: string;
+    value: ReactNode;
+    detail?: ReactNode;
+    tone?: "primary" | "live" | "ok" | "warn" | "info";
+}) {
+    const color = tone === "live" ? "var(--color-live)"
+        : tone === "ok" ? "var(--color-ok)"
+        : tone === "warn" ? "var(--color-warn)"
+        : tone === "info" ? "var(--color-info)"
+        : "var(--primary)";
+
+    return (
+        <Card className="relative overflow-hidden group">
+            <span className="absolute inset-x-0 top-0 h-px opacity-70" style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <p className="text-[11px] font-medium text-ink-faint uppercase tracking-[0.08em]">{label}</p>
+                    <p className="text-2xl font-bold tracking-tight text-ink mt-2">{value}</p>
+                    {detail && <p className="text-xs text-ink-faint mt-1.5">{detail}</p>}
+                </div>
+                <span className="w-9 h-9 rounded-[var(--radius-control)] grid place-items-center" style={{ color, backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)` }}>
+                    {createElement(icon, { className: "w-[18px] h-[18px]" })}
+                </span>
+            </div>
+        </Card>
+    );
+}
+
 /* ── Card ───────────────────────────────────────────── */
 
 export function Card({
     children,
     className,
     padded = true,
-}: {
-    children: ReactNode;
-    className?: string;
+    ...props
+}: HTMLAttributes<HTMLElement> & {
     padded?: boolean;
 }) {
     return (
@@ -33,6 +112,7 @@ export function Card({
                 padded && "p-5 sm:p-6",
                 className,
             )}
+            {...props}
         >
             {children}
         </section>
@@ -252,7 +332,11 @@ export function Switch({
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
-export function Button({
+export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & {
+    variant?: ButtonVariant;
+    icon?: LucideIcon;
+    loading?: boolean;
+}>(function Button({
     children,
     variant = "secondary",
     icon,
@@ -260,11 +344,7 @@ export function Button({
     className,
     disabled,
     ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-    variant?: ButtonVariant;
-    icon?: LucideIcon;
-    loading?: boolean;
-}) {
+}, ref) {
     const base =
         "inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] " +
         "px-4 py-2.5 text-[14px] font-medium transition-colors " +
@@ -279,6 +359,7 @@ export function Button({
 
     return (
         <button
+            ref={ref}
             className={clsx(base, variants[variant], className)}
             disabled={disabled || loading}
             {...props}
@@ -291,7 +372,7 @@ export function Button({
             {children}
         </button>
     );
-}
+});
 
 /* ── Badge ──────────────────────────────────────────── */
 

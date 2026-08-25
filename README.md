@@ -1,365 +1,362 @@
 # Signal-Recorder
 
-![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg)
-![React](https://img.shields.io/badge/React-19-61DAFB.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
-![Platforms](https://img.shields.io/badge/Platforms-Chzzk%20%7C%20TwitCasting%20%7C%20Twitter%20Spaces-blueviolet.svg)
+![Version](https://img.shields.io/badge/version-1.3.0-13d9a3)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827)
+![License](https://img.shields.io/badge/license-MIT-64748B)
 
-**Signal-Recorder**는 치지직(Chzzk), TwitCasting, Twitter(X) Spaces 라이브 스트리밍 녹화 및 VOD 다운로드를 위한 강력한 올인원 솔루션입니다.
-안정적인 녹화 파이프라인, 직관적인 웹 대시보드, 실시간 채팅 아카이빙, 그리고 Discord 봇 연동 기능을 제공합니다.
+치지직, TwitCasting, X Spaces, YouTube 라이브를 한 화면에서 감시하고 자동 녹화하는 개인용 미디어 아카이빙 워크스페이스입니다. VOD 다운로드, 채팅 보관, 통계, 시스템 로그와 Discord 알림까지 하나의 웹 UI에서 관리합니다.
 
----
+> 이 프로젝트는 개인 소장 용도로 제작되었습니다. 사용자는 각 플랫폼의 약관과 저작권법을 확인하고 준수해야 합니다.
 
-## 📸 미리보기
+## 최신 UI
 
-| 대시보드 | VOD 다운로드 |
-|:---:|:---:|
-| ![대시보드](assets/screenshots/dashboard.png) | ![VOD 다운로드](assets/screenshots/vod-download.png) |
+아래 이미지는 현재 소스(v1.3.0)를 로컬에서 직접 실행해 촬영한 화면입니다.
 
----
+### Live Dashboard
 
-## ✨ 주요 기능
+![Signal-Recorder Live Dashboard](assets/screenshots/dashboard-latest.jpg)
 
-### 🎥 라이브 녹화 (Live Recording)
-- **멀티 플랫폼**: 치지직(Chzzk), TwitCasting, Twitter(X) Spaces 동시 감시 및 녹화를 지원합니다.
-- **자동 녹화**: 등록한 스트리머가 방송을 켜면 자동으로 녹화를 시작합니다.
-- **안정성**: `Fragmented MP4` 기술을 적용하여 정전이나 프로세스 강제 종료 시에도 녹화된 파일이 손상되지 않습니다.
-- **고화질**: 원본 화질(Best Quality)을 손실 없이 저장합니다.
-- **즉시 스캔**: Dashboard의 「즉시 스캔」 버튼으로 폴링 주기를 기다리지 않고 즉시 채널 상태를 확인합니다.
+### VOD Downloader
 
-### 💾 VOD 다운로드 (VOD Downloader)
-- **다양한 소스**: 치지직 다시보기/클립뿐만 아니라 YouTube 등 외부 사이트 영상도 다운로드 가능합니다.
-- **대기열 시스템**: 여러 영상을 대기열에 등록하고, 드래그 앤 드롭으로 우선순위를 변경할 수 있습니다.
-- **이어받기**: 다운로드가 중단되어도 이어서 받을 수 있습니다.
+![Signal-Recorder VOD Downloader](assets/screenshots/vod-downloader-latest.jpg)
 
-### 📥 아카이브 다운로드 (Archive)
-- **TwitCasting 과거 방송**: TwitCasting 채널의 과거 방송 목록을 조회하고 원하는 영상을 다운로드할 수 있습니다.
-- **Twitter(X) Spaces**: 캡처된 master URL 또는 m3u8 URL을 사용해 Spaces 녹음을 다운로드할 수 있습니다.
-- **Master URL 백업**: Space 감지 시 master URL을 `.txt` 파일로 자동 저장합니다. 다운로드에 실패해도 파일에서 URL을 확인해 수동으로 내려받을 수 있습니다.
+## 무엇이 달라졌나요?
 
-### 💬 채팅 아카이빙 (Chat Archiving)
-- **실시간 수집**: 라이브 녹화와 동시에 채팅 로그를 `.jsonl` 파일로 저장합니다.
-- **웹 뷰어**: 내장된 뷰어를 통해 날짜별, 채널별 채팅을 검색하고 조회할 수 있습니다.
+- 방송 제어 화면에 맞춘 다크 컨트롤룸 디자인과 반응형 사이드바
+- 공통 페이지 헤더, 상태 배지, 지표 카드, 빈 상태 및 확인 모달로 일관된 화면 구성
+- `Ctrl + K` 명령 팔레트, 앱 알림 센터, 진행 중 다운로드 요약
+- 대시보드의 카드/리스트 보기, 상태·태그 필터, 전체 즉시 스캔과 전체 중지
+- 채널 카드의 그립 핸들을 잡아 원하는 위치로 이동하는 사용자 지정 정렬
+- 마우스·터치 드래그뿐 아니라 핸들 포커스 후 방향키로도 채널 순서 변경
+- 설정을 일반, 다운로드, 인증, 알림, 외관, 시스템, 정보의 7개 탭으로 분리
+- 페이지 타이틀, 파비콘, 포인트 컬러를 브라우저별로 사용자 지정
 
-### 📊 통계 및 알림
-- **대시보드**: 총 녹화 시간, 용량, 채널별 통계를 시각적으로 확인합니다.
-- **Discord 봇**: 녹화 시작/종료, 다운로드 완료 알림 및 커맨드로 원격 제어가 가능합니다.
+> 채널 순서는 현재 브라우저의 로컬 저장소에 보관되므로 새로고침 후에도 유지됩니다. 다른 브라우저나 기기와 자동 동기화되지는 않습니다.
 
----
+## 핵심 기능
 
-## 💻 시스템 요구사항
+### 멀티 플랫폼 라이브 녹화
 
-| 항목 | 최소 사양 | 권장 사양 |
-|------|-----------|-----------|
-| OS | Windows 10+, Ubuntu 20.04+, macOS 12+ | 최신 버전 |
-| RAM | 2GB | 4GB 이상 |
-| 디스크 | 500MB (앱) + 녹화 용량 | SSD 권장 |
-| FFmpeg | 필수 (Windows: 자동 설치 지원) | 6.x 이상 |
-| Python | 3.10+ (.exe 사용 시 불필요) | **3.12.10** (`backend/.python-version`) |
-| Node.js | 18+ (개발자용만 필요) | 20+ |
+| 플랫폼 | 라이브 감시·녹화 | 부가 기능 | 준비 사항 |
+|---|:---:|---|---|
+| 치지직 | ✅ | 채팅 JSONL, VOD·클립 다운로드 | 일반 방송은 바로 사용, 연령 제한·고화질은 네이버 쿠키 권장 |
+| TwitCasting | ✅ | 과거 방송 조회·다운로드 | Client ID / Client Secret |
+| X Spaces | ✅ | master URL 자동 백업, 수동 캡처·M4A 다운로드 | Netscape 형식 X 쿠키 파일 |
+| YouTube | ✅ | 라이브 감시, yt-dlp 기반 외부 영상 다운로드 | 기본 기능은 별도 인증 없음 |
 
----
+- 등록 채널의 방송 시작을 감지해 자동 녹화
+- 채널별 자동 녹화 전환과 수동 시작·중지
+- 연결이 끊기면 설정한 횟수만큼 자동 재시도
+- 최고 화질, 1080p, 720p, 480p 선택
+- 라이브는 TS 권장, MKV 및 MP4 선택 가능
+- 녹화·치지직 VOD·외부 URL의 저장 경로를 각각 분리 가능
 
-## 🚀 설치 및 실행
+TS와 MKV는 비정상 종료 시에도 이미 받은 구간을 보존하기 쉬워 라이브 녹화에 적합합니다. MP4는 호환성이 좋지만 라이브 중단 시 손상될 수 있어 VOD에 권장합니다.
 
-사용 환경에 맞는 방법을 선택하세요:
+### VOD 다운로드 큐
 
-| 환경 | 방법 | 난이도 |
-|------|------|--------|
-| 🪟 Windows | `.exe` 실행 파일 | ⭐ 가장 쉬움 |
-| 🐧 Linux / macOS | 원라이너 스크립트 (Native) | ⭐ 가장 쉬움 |
-| 🐳 Linux / macOS | 원라이너 스크립트 (Docker) | ⭐ 가장 쉬움 |
-| ⚙️ 모든 OS | 직접 실행 (개발자용) | 🔧 고급 |
+- 치지직 VOD·클립과 yt-dlp가 지원하는 외부 영상 URL 추가
+- 여러 작업의 동시 다운로드 수, 기본 화질, 포맷, 속도 제한 설정
+- 드래그 앤 드롭으로 대기열 우선순위 변경
+- 일시정지, 재개, 취소, 실패 작업 재시도
+- 완료 파일 위치 열기 및 완료·오류 작업 일괄 정리
+- 중단된 `.part` 파일 보관 여부 선택
 
----
+### X Spaces와 아카이브
 
-### 🪟 Windows — `.exe` 실행 파일
+- X Space URL 또는 캡처된 `master_playlist.m3u8` URL로 오디오 저장
+- 감지한 master URL을 `{다운로드 경로}/x_spaces_urls/`에 텍스트 파일로 백업
+- TwitCasting 채널의 과거 방송 목록 조회 및 다운로드
+- Discord 명령을 이용한 Space 수동 캡처와 다운로드
 
-> **Python 설치 불필요!** Python 인터프리터가 내장되어 있어 더블클릭만으로 바로 실행됩니다.
+### 채팅, 통계, 로그
 
-1. [Releases 페이지](https://github.com/eruminyu/Signal-Recorder/releases)에서 최신 `signal-recorder.exe` 다운로드
-2. 파일 더블클릭 → 서버 자동 시작
-3. 브라우저에서 `http://localhost:8000` 접속
+- 녹화 중 치지직 채팅을 JSONL 파일로 자동 보관
+- 채널·날짜별 파일 탐색, 메시지 검색, 닉네임 필터, 페이지 이동과 원본 다운로드
+- 총 녹화 시간·용량, VOD 완료 수, 채널별 통계와 최근 세션 표시
+- 실시간 `service.log`와 일자별 로그 파일 조회
+- 로그 검색, 100/500/1000줄 또는 전체 조회, 5초 자동 갱신과 자동 스크롤
 
-> ⚠️ Windows Defender가 경고를 표시할 수 있습니다. **"추가 정보" → "실행"** 을 눌러 허용하세요.
-> (서명되지 않은 exe 파일에서 흔히 발생하는 현상입니다)
+### Discord 알림
 
----
+- 녹화 시작·완료·실패, 다운로드 완료 등 이벤트별 수신 설정
+- Discord Bot 또는 Webhook 단독 사용
+- Bot 장애 시 Webhook 폴백
+- 알림별 멘션 대상과 유효 시간(TTL) 설정
+- 전송 대기·성공·폐기·만료 상태 확인 및 테스트 발송
 
-### 🐧 Linux / macOS — 원라이너 (Native 설치)
+지원하는 주요 Bot 명령은 다음과 같습니다.
 
-터미널에 아래 명령어 하나를 붙여넣으세요.
-OS 감지부터 의존성 설치, 빌드, systemd 등록까지 전부 자동으로 처리합니다.
+| 프리픽스 명령 | 슬래시 명령 | 설명 |
+|---|---|---|
+| `!status` | `/status` | 현재 녹화 상태 |
+| `!list` | - | 등록 채널 목록 |
+| `!start <채널ID>` | `/start` | 녹화 시작 및 자동 녹화 활성화 |
+| `!stop <채널ID>` | `/stop` | 녹화 중지 및 자동 녹화 비활성화 |
+| `!rescan` | `/rescan` | 모든 채널 즉시 스캔 |
+| `!spaces` | `/spaces` | 캡처된 Space 목록 |
+| `!capture-space <핸들>` | `/capture-space` | Space URL 즉시 캡처 |
+| `!download-space <URL>` | `/download-space` | Space 또는 master URL 다운로드 |
+
+## 화면 구성
+
+| 화면 | 용도 |
+|---|---|
+| Live Dashboard | 채널 추가, 상태 확인, 필터, 순서 변경, 녹화 제어 |
+| VOD Downloader | 다운로드 작업 추가와 큐 관리 |
+| X Spaces | Space URL 또는 master URL 오디오 다운로드 |
+| Chat Logs | 저장된 채팅 탐색과 검색 |
+| Statistics | 녹화·저장 공간·채널별 통계 |
+| System Logs | 서비스 로그 검색과 실시간 추적 |
+| Settings | 저장 경로, 포맷, 인증, 알림, 외관, 업데이트 관리 |
+
+## 설치
+
+### Windows 실행 파일
+
+Python을 별도로 설치하지 않고 사용할 수 있는 방법입니다.
+
+1. [Releases](https://github.com/eruminyu/Signal-Recorder/releases)에서 최신 `signal-recorder.exe`를 받습니다.
+2. 실행 파일을 열고 의존성 안내를 따릅니다.
+3. 자동으로 열리는 브라우저 또는 `http://localhost:8000`에 접속합니다.
+
+Windows Defender가 서명되지 않은 실행 파일을 경고할 수 있습니다. 소스를 확인한 뒤 신뢰할 수 있을 때만 **추가 정보 → 실행**을 선택하세요.
+
+### Linux / macOS 네이티브 설치
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash
 ```
 
-**자동 처리 목록:**
-- Ubuntu / Debian / CentOS / Fedora / Arch 자동 감지
-- Python 3.12, ffmpeg, Node.js 자동 설치
-- 프론트엔드 빌드 (React → 정적 파일)
-- Python 가상환경 생성 및 의존성 설치
-- systemd 서비스 등록 (부팅 시 자동 실행, 선택)
-- 설치 완료 후 서버 자동 시작
+스크립트는 운영체제 확인, Python·Node.js·FFmpeg 준비, 프론트엔드 빌드, 가상환경 구성과 선택적 systemd 등록을 진행합니다.
 
-> 💡 **서버가 시작되지 않거나 이후 재실행할 때:**
-> ```bash
-> ~/signal-recorder/start.sh
-> ```
+```bash
+~/signal-recorder/start.sh
+```
 
-> 📖 상세 가이드: [Linux 설치 가이드](./docs/linux-guide.md)
+자세한 내용은 [Linux 설치 가이드](docs/linux-guide.md)를 참고하세요.
 
----
+### Docker
 
-### 🐳 Linux / macOS — 원라이너 (Docker)
-
-Docker가 없는 서버에서도 OK. Docker Engine 설치까지 포함합니다.
+자동 설치:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install-docker.sh | bash
 ```
 
-**자동 처리 목록:**
-- Docker Engine 미설치 시 자동 설치 (공식 `get.docker.com` 사용)
-- Docker Compose 플러그인 자동 설치
-- 저장소 클론 → 이미지 빌드 → 백그라운드 실행
-- 헬스체크로 정상 시작 확인
-
-**녹화 파일 저장 위치 변경:**
-`docker-compose.yml`의 볼륨 설정에서 호스트 경로를 원하는 경로로 변경하세요:
-```yaml
-volumes:
-  - /your/path/recordings:/app/backend/recordings  # 녹화 파일 저장 위치
-  - /your/path/data:/app/backend/data
-  - /your/path/logs:/app/backend/logs
-```
-
-> 📖 상세 가이드: [Docker 가이드](./docs/docker-guide.md)
-
----
-
-### ⚙️ 직접 실행 (개발자용)
-
-Python 3.10+, Node.js 18+, `ffmpeg` (6.x 이상)가 사전 설치되어 있어야 합니다.
-
-> **Python 버전 고정**: 개발 및 배포는 **3.12.10** 기준입니다 (`backend/.python-version`).
-> 3.12는 3.12.10을 끝으로 보안 전용 모드로 전환되어 이후 패치에는 Windows 설치 프로그램이 제공되지 않습니다.
-> 3.13 이상에서는 의존성 호환성이 검증되지 않았으니 3.12.10을 사용하세요.
+이미 Docker와 Compose가 설치되어 있다면 저장소 루트에서 직접 실행할 수 있습니다.
 
 ```bash
-# 저장소 클론
+docker compose up --build -d
+```
+
+기본 포트는 `8000`이며 `.env`의 `PORT`로 변경할 수 있습니다. 데이터는 다음 경로에 영속화됩니다.
+
+```yaml
+volumes:
+  - ./config:/app/config
+  - ./recordings:/app/backend/recordings
+  - ./data:/app/backend/data
+  - ./logs:/app/backend/logs
+```
+
+호스트 저장 경로를 바꾸려면 콜론 왼쪽 경로만 수정하세요. 자세한 내용은 [Docker 가이드](docs/docker-guide.md)를 참고하세요.
+
+## 소스에서 실행
+
+### 요구 사항
+
+| 항목 | 요구 버전·설명 |
+|---|---|
+| Python | 3.12.10 권장 (`backend/.python-version`) |
+| Node.js | 18 이상, 20 이상 권장 |
+| FFmpeg | 6 이상 |
+| yt-dlp | Python 요구 패키지에 포함되며 실행 파일을 PATH 또는 `bin/`에서 탐색 |
+| 메모리 | 2GB 이상, 여러 동시 작업은 4GB 이상 권장 |
+
+### 설치와 프로덕션 빌드
+
+```bash
 git clone https://github.com/eruminyu/Signal-Recorder.git
 cd Signal-Recorder
 
-# 프론트엔드 빌드
-cd frontend && npm ci && npm run build
-cp -r dist ../backend/app/static && cd ..
-
-# Python 환경 설정
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# Linux/macOS:
-source .venv/bin/activate
-
-pip install -r backend/requirements.txt
-
-# 서버 실행
-cd backend && python run.py
+python -m venv backend/.venv
 ```
 
-테스트를 실행하려면 개발 의존성을 추가로 설치합니다:
+Windows PowerShell:
+
+```powershell
+backend\.venv\Scripts\python -m pip install -r backend\requirements.txt
+cd frontend
+npm ci
+npm run build
+cd ..
+backend\.venv\Scripts\python -m uvicorn app.main:app --app-dir backend
+```
+
+Linux / macOS:
 
 ```bash
-pip install -r backend/requirements-dev.txt
-cd backend && python -m pytest
+backend/.venv/bin/python -m pip install -r backend/requirements.txt
+cd frontend
+npm ci
+npm run build
+cd ..
+backend/.venv/bin/python -m uvicorn app.main:app --app-dir backend
 ```
 
-브라우저에서 `http://localhost:8000` 접속
+`npm run build`의 결과는 `backend/app/static/`에 생성되며 FastAPI가 같은 포트에서 UI와 API를 함께 제공합니다.
 
-> `.bat` 파일(`scripts/start.bat`)은 이미 환경이 구성된 개발자가 빠르게 서버를 시작할 때 사용합니다.
+### 개발 모드
 
----
+터미널 두 개에서 각각 실행합니다.
 
-## ⚙️ 설정 가이드
+```powershell
+# terminal 1
+backend\.venv\Scripts\python -m uvicorn app.main:app --reload --app-dir backend
 
-### 1. 치지직 인증 (연령 제한 방송 녹화)
-연령 제한 방송을 녹화하려면 네이버 로그인 쿠키가 필요합니다.
-1. 웹 브라우저에서 네이버 로그인 후 개발자 도구(F12) → Application → Cookies를 엽니다.
-2. `NID_AUT`와 `NID_SES` 값을 복사합니다.
-3. Signal-Recorder 설정 페이지(Settings) → 인증 탭에서 해당 값을 입력하고 저장합니다.
+# terminal 2
+cd frontend
+npm run dev
+```
 
-### 2. TwitCasting 인증
-TwitCasting 채널 감시 및 아카이브 다운로드에 TwitCasting 계정 인증이 필요합니다.
-1. [TwitCasting Developer](https://twitcasting.tv/developer.php)에서 앱을 등록합니다.
-2. `ClientID`와 `ClientSecret`을 복사합니다.
-3. 설정 페이지 → 인증 탭의 TwitCasting 섹션에 입력하고 저장합니다.
+- 프론트엔드: `http://localhost:3000`
+- 백엔드와 API 문서: `http://localhost:8000`, `http://localhost:8000/docs`
+- Windows에서는 의존성 설치 후 `start-dev.bat`로 두 프로세스를 함께 열 수 있습니다.
 
-### 3. Twitter(X) Spaces 인증
-Twitter Spaces 캡처 및 다운로드를 위해 트위터 계정 쿠키 파일이 필요합니다.
+## 첫 실행 설정
 
-1. 브라우저에서 [x.com](https://x.com)에 로그인합니다.
-2. 브라우저 확장 프로그램([Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) 등)을 사용해 `x.com` 쿠키를 **Netscape 형식(`.txt`)** 파일로 내보냅니다.
-3. 설정 페이지 → 인증 탭 → Twitter(X) Spaces 섹션에서 파일을 업로드합니다.
-4. 쿠키는 주기적으로 만료됩니다. 만료 시 Discord 봇을 통해 자동 알림이 발송됩니다.
+첫 실행 시 3단계 설정 마법사가 열립니다.
 
-> 💡 **Twitter(X) Spaces 자동 감지**: 등록된 X 채널을 5분 간격으로 자동 폴링합니다. Space가 시작되면 master URL을 자동 캡처하고 Discord 알림을 보냅니다. master URL은 `.txt` 파일로도 백업되어 다운로드 실패 시 수동 복구가 가능합니다. `/capture-space` 커맨드로 즉시 수동 캡처도 지원합니다.
+1. 녹화 저장 경로, 화질, 라이브 포맷 선택
+2. 치지직 인증 쿠키 입력 또는 건너뛰기
+3. 설정 검토 후 저장
 
-> 📖 상세 가이드: [Twitter(X) Spaces 설정 가이드](./docs/x-spaces-guide.md)
+추가 인증은 **Settings → 인증**에서 구성합니다.
 
-### 4. Discord 알림 설정
-1. Discord Developer Portal에서 새 애플리케이션을 생성하고 Bot을 추가합니다.
-2. 봇 토큰(Token)을 복사합니다.
-3. 봇을 서버에 초대하고, 알림을 받을 채널 ID를 복사합니다. (디스코드 개발자 모드 켜기 필요)
-4. 설정 페이지의 Discord 섹션에 토큰과 채널 ID를 입력합니다.
+### 치지직
 
-**프리픽스 커맨드 (`!`):**
+네이버 로그인 후 브라우저 개발자 도구의 `naver.com` 쿠키에서 `NID_AUT`, `NID_SES`를 확인해 입력합니다. 쿠키는 연령 제한 방송과 로그인 기반 화질 접근에 필요할 수 있습니다.
 
-| 커맨드 | 설명 |
-|--------|------|
-| `!status` | 현재 녹화 상태 확인 |
-| `!list` | 등록된 채널 목록 조회 |
-| `!start <채널ID>` | 녹화 시작 + 자동 녹화 ON |
-| `!stop <채널ID>` | 녹화 중지 + 자동 녹화 OFF |
-| `!rescan` | 폴링 주기 무시하고 모든 채널 즉시 스캔 |
-| `!spaces` | 캡처된 Spaces master URL 목록 조회 |
-| `!capture-space <핸들>` | Twitter Spaces m3u8 URL 즉시 캡처 |
-| `!download-space <URL>` | Space URL 또는 master URL로 다운로드 시작 |
+### TwitCasting
 
-**슬래시 커맨드 (`/`):**
+[TwitCasting Developer](https://twitcasting.tv/developer.php)에서 앱을 등록하고 Client ID와 Client Secret을 입력합니다.
 
-| 커맨드 | 설명 |
-|--------|------|
-| `/start` | 채널 녹화 시작 |
-| `/stop` | 채널 녹화 중지 |
-| `/status` | 현재 녹화 상태 확인 |
-| `/rescan` | 폴링 주기 무시하고 모든 채널 즉시 스캔 |
-| `/spaces` | 캡처된 Spaces master URL 목록 조회 |
-| `/capture-space username:<핸들>` | Twitter Spaces m3u8 URL 즉시 캡처 |
-| `/download-space url:<Space URL 또는 master URL>` | Space URL 또는 master URL로 다운로드 시작 |
+### X Spaces
 
-> `/download-space`에는 `https://x.com/i/spaces/...` 형식의 Space URL과 `master_playlist.m3u8` 직접 URL 모두 지원합니다.
+`x.com`에 로그인한 브라우저의 쿠키를 Netscape 형식 `.txt` 파일로 내보내 업로드합니다. 쿠키는 만료될 수 있으므로 캡처가 실패하면 다시 발급하세요. 자세한 내용은 [X Spaces 설정 가이드](docs/x-spaces-guide.md)를 참고하세요.
 
----
+### Discord
 
-## 🔄 업데이트 방법
+Bot 토큰과 알림 채널 ID 또는 Webhook URL 중 하나를 입력합니다. 프리픽스 명령을 사용하려면 Discord Developer Portal에서 Message Content Intent를 활성화해야 합니다.
 
-### 🪟 Windows
-[Releases 페이지](https://github.com/eruminyu/Signal-Recorder/releases)에서 새 버전의 exe를 다운로드하여 기존 파일에 덮어쓰기하세요.
-설정(`.env`)과 녹화 파일은 그대로 유지됩니다.
+## 설정과 데이터
 
-### 🐧 Linux Native
-설치 스크립트가 기존 설치를 감지하면 자동으로 업데이트 모드로 동작합니다.
+서버 설정은 프로젝트 루트의 `.env`를 사용합니다. Windows 실행 파일은 실행 파일 옆 `.env`, Docker는 `config/.env`를 사용합니다. 대부분의 항목은 웹 설정 화면에서 저장할 수 있습니다.
+
+자주 사용하는 환경 변수:
+
+```dotenv
+PORT=8000
+FFMPEG_PATH=ffmpeg
+DOWNLOAD_DIR=./recordings
+LIVE_FORMAT=ts
+RECORDING_QUALITY=best
+MONITOR_INTERVAL=30
+```
+
+기본 데이터 위치:
+
+| 경로 | 내용 |
+|---|---|
+| `backend/data/signal_recorder.db` | 채널, 녹화·VOD 이력, 태그, 알림 큐 |
+| `backend/recordings/` | 기본 녹화·다운로드 파일 |
+| `backend/logs/` | 서비스 로그 |
+| `{DOWNLOAD_DIR}/x_spaces_urls/` | 캡처된 X Spaces master URL 백업 |
+
+저장 구조와 마이그레이션은 [스토리지 문서](docs/storage.md)를 참고하세요.
+
+## 테스트와 검증
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash
+python -m pip install -r backend/requirements-dev.txt
+python -m pytest -c backend/pytest.ini backend/tests
+
+cd frontend
+npm run build
 ```
 
-### 🐳 Docker
-```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/update-docker.sh | bash
-```
+멀티 플랫폼 점검 절차는 [테스트 가이드](docs/test-guide.md)를 참고하세요.
 
----
+## 프로젝트 구조
 
-## ❓ 자주 묻는 질문 (FAQ)
-
-<details>
-<summary><b>Windows Defender가 exe를 차단해요</b></summary>
-
-서명되지 않은 exe 파일에서 흔히 발생하는 현상입니다. **"추가 정보" → "실행"** 을 눌러 허용하세요.
-소스 코드는 100% 공개되어 있으므로 직접 확인할 수 있습니다.
-</details>
-
-<details>
-<summary><b>FFmpeg가 설치되어 있지 않다고 나와요</b></summary>
-
-- **Windows exe**: 첫 실행 시 FFmpeg 자동 다운로드를 안내합니다. 안내에 따라 진행하세요.
-- **Linux Native**: `install.sh`가 자동으로 설치합니다.
-- **수동 설치**: [FFmpeg 공식 사이트](https://ffmpeg.org/download.html)에서 다운로드 후, 시스템 PATH에 추가하거나 `.env`에서 `FFMPEG_PATH`를 설정하세요.
-</details>
-
-<details>
-<summary><b>포트 8000이 이미 사용 중이에요</b></summary>
-
-`.env` 파일에서 포트를 변경하세요:
-```
-PORT=8001
-```
-</details>
-
-<details>
-<summary><b>연령 제한 방송이 녹화되지 않아요</b></summary>
-
-네이버 로그인 쿠키가 필요합니다:
-1. 브라우저에서 네이버 로그인 → 개발자 도구(F12) → Application → Cookies
-2. `NID_AUT`와 `NID_SES` 값을 복사
-3. 설정 페이지에서 입력
-
-> 쿠키는 주기적으로 만료됩니다. 녹화가 안 될 때는 쿠키를 갱신해 주세요.
-</details>
-
-<details>
-<summary><b>Twitter(X) Spaces 다운로드가 빈 파일로 저장돼요</b></summary>
-
-Archive 탭의 다운로드 기능은 내부적으로 `bestaudio` 포맷으로 처리하지만, Space가 이미 종료된 지 오래되었거나 비공개 Space인 경우 CDN에서 빈 응답을 반환할 수 있습니다.
-
-- Space 종료 직후 저장된 `.txt` 백업 파일(`{저장경로}/x_spaces_urls/`)의 master URL을 직접 확인하세요.
-- 쿠키가 만료된 경우 Settings에서 쿠키 파일을 갱신하세요.
-</details>
-
----
-
-## 📂 디렉토리 구조
-
-```
+```text
 Signal-Recorder/
 ├── backend/
 │   ├── app/
-│   │   ├── api/        # REST API 엔드포인트
-│   │   ├── engine/     # 녹화 및 다운로드 코어 로직
-│   │   └── services/   # 비즈니스 로직 서비스
-│   └── data/           # 설정 및 이력 데이터 (JSON)
+│   │   ├── api/          # FastAPI 라우터
+│   │   ├── core/         # 설정, 로깅, HTTP 공통 코드
+│   │   ├── engine/       # 플랫폼 감시, 녹화, VOD 파이프라인
+│   │   ├── services/     # 녹화·Discord·알림 서비스
+│   │   └── store/        # SQLite 저장소와 마이그레이션
+│   └── tests/
 ├── frontend/
 │   └── src/
-│       ├── api/        # API 클라이언트
-│       ├── components/ # UI 컴포넌트
-│       └── pages/      # 페이지
-├── scripts/            # 설치 스크립트 (install.sh, install-docker.sh)
-└── docs/               # 프로젝트 문서
+│       ├── components/   # 대시보드, 설정, 레이아웃, 공통 UI
+│       ├── contexts/     # 다운로드 상태
+│       ├── hooks/        # 실시간 채널 스트림
+│       └── pages/        # 7개 주요 화면
+├── assets/screenshots/   # README 실행 화면
+├── docs/                 # 설치·설계·운영 문서
+└── scripts/              # 네이티브·Docker 설치 및 실행 스크립트
 ```
 
----
+## 문제 해결
 
-## 📝 라이선스
+<details>
+<summary>FFmpeg 또는 yt-dlp를 찾지 못합니다.</summary>
 
-이 프로젝트는 MIT 라이선스를 따릅니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
+FFmpeg 6 이상과 yt-dlp를 시스템 PATH에 추가하거나 프로젝트 또는 실행 파일 옆 `bin/` 폴더에 배치하세요. FFmpeg를 별도 위치에 두었다면 `.env`의 `FFMPEG_PATH`에 실행 파일 경로를 지정할 수 있습니다.
 
-### Third-party Notices
+</details>
 
-이 프로젝트는 다음 오픈소스 라이브러리를 사용합니다:
+<details>
+<summary>포트 8000이 이미 사용 중입니다.</summary>
 
-| 라이브러리 | 라이선스 | 용도 |
-|-----------|---------|------|
-| FastAPI | MIT | 백엔드 API 프레임워크 |
-| yt-dlp | Unlicense | 스트림 추출 및 다운로드 |
-| discord.py | MIT | Discord 봇 연동 |
-| chzzkpy | MIT | 치지직 API 클라이언트 |
-| React, Tailwind CSS 등 | MIT | 프론트엔드 UI |
+`.env`에서 `PORT=8001`처럼 변경합니다. Docker는 같은 값을 Compose 포트 매핑에 사용합니다.
 
-> **FFmpeg**: 본 앱에 번들되지 않으며 사용자 시스템에 별도 설치됩니다. FFmpeg의 라이선스는 빌드 구성에 따라 LGPL 또는 GPL이 적용됩니다. 자세한 내용은 [FFmpeg License](https://ffmpeg.org/legal.html)를 참조하세요.
+</details>
 
----
+<details>
+<summary>채널 카드 순서가 다른 기기에서 보이지 않습니다.</summary>
 
-## ⚠️ 주의사항 및 면책 고지 (Disclaimer)
+대시보드 정렬은 계정이나 서버가 아니라 현재 브라우저에 저장됩니다. 같은 브라우저에서는 새로고침 후 유지되지만 다른 기기·브라우저에는 별도로 정렬해야 합니다.
 
-**이 프로젝트는 개인 소장(Personal Archival) 목적으로만 제작되었습니다.**
+</details>
 
-- 본 도구를 사용하여 발생하는 모든 법적 책임은 **사용자 본인**에게 있습니다. 개발자는 어떠한 책임도 지지 않습니다.
-- 다운로드한 콘텐츠를 **무단 재배포, 공유, 상업적 이용하는 것은 저작권법 위반**입니다. 개인 소장 용도로만 사용하세요.
-- 본 도구는 각 플랫폼의 **비공개 API(private GraphQL endpoints 등)를 활용**하며, 이는 해당 플랫폼의 서비스 약관에 위배될 수 있습니다. 사용 전 반드시 약관을 확인하세요.
-- 플랫폼 인증(쿠키, API 키 등)은 **사용자가 직접 제공**하며, 해당 계정의 보안과 사용 책임은 사용자 본인에게 있습니다.
-- 각 플랫폼의 API 구조는 예고 없이 변경될 수 있으며, 이로 인해 기능이 중단될 수 있습니다.
+<details>
+<summary>연령 제한 치지직 방송을 녹화할 수 없습니다.</summary>
 
-> This tool is intended **for personal archival use only**. The developer assumes no liability for any misuse. Users are solely responsible for compliance with applicable laws and platform terms of service.
+Settings → 인증에서 `NID_AUT`, `NID_SES`를 새 값으로 저장한 뒤 검증하세요. 네이버 로그인 쿠키는 주기적으로 만료됩니다.
+
+</details>
+
+<details>
+<summary>X Spaces 다운로드 결과가 비어 있습니다.</summary>
+
+쿠키 만료 여부를 먼저 확인하고 `{DOWNLOAD_DIR}/x_spaces_urls/`에 저장된 master URL 백업으로 다시 시도하세요. 종료 후 오래되었거나 비공개인 Space는 원본 CDN에서 더 이상 제공되지 않을 수 있습니다.
+
+</details>
+
+## 라이선스와 고지
+
+[MIT License](LICENSE)로 배포됩니다.
+
+Signal-Recorder는 FFmpeg를 직접 번들하지 않습니다. FFmpeg에는 빌드 구성에 따라 LGPL 또는 GPL이 적용될 수 있으므로 [FFmpeg License](https://ffmpeg.org/legal.html)를 확인하세요.
+
+- 다운로드한 콘텐츠를 무단 재배포하거나 상업적으로 이용하지 마세요.
+- 플랫폼 인증 정보와 계정 보안은 사용자가 직접 관리해야 합니다.
+- 비공개 API와 플랫폼 구조는 예고 없이 바뀔 수 있습니다.
+- 개발자는 도구의 오용이나 서비스 약관 위반에 대한 책임을 지지 않습니다.

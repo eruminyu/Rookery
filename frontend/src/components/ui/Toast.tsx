@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         (type: ToastType, message: string) => {
             const id = `toast-${++counterRef.current}`;
             setToasts((prev) => [...prev, { id, type, message }]);
-            
+
             setHistory((prev) => {
                 const newHistory = [{ id, type, message, timestamp: new Date(), read: false }, ...prev];
                 return newHistory.slice(0, 50);
@@ -106,9 +106,9 @@ const iconMap = {
 };
 
 const colorMap = {
-    success: "border-green-500/30 bg-green-500/10 text-green-400",
-    error: "border-red-500/30 bg-red-500/10 text-red-400",
-    warning: "border-yellow-500/30 bg-yellow-500/10 text-yellow-400",
+    success: "border-ok/30 bg-ok/10 text-ok",
+    error: "border-danger/30 bg-danger/10 text-danger",
+    warning: "border-warn/30 bg-warn/10 text-warn",
 };
 
 function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
@@ -117,7 +117,7 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
     return (
         <div
             className={clsx(
-                "pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-sm shadow-lg",
+                "pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-[var(--radius-card)] border backdrop-blur-xl shadow-lg",
                 "min-w-[280px] max-w-[420px] animate-slide-in",
                 colorMap[toast.type],
             )}

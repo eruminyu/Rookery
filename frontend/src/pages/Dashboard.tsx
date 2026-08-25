@@ -1,15 +1,27 @@
-import { useEffect, useState } from "react";
-import { Radio, WifiOff } from "lucide-react";
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { GripVertical, Radio, WifiOff } from "lucide-react";
 import { api, type Channel, type PlatformStatus } from "../api/client";
 import { AddChannelForm } from "../components/dashboard/AddChannelForm";
 import { ChannelCard } from "../components/dashboard/ChannelCard";
 import { ChannelRow } from "../components/dashboard/ChannelRow";
 import { DashboardFilters, type StatusFilter, type ViewMode } from "../components/dashboard/DashboardFilters";
 import { useConfirm } from "../components/ui/ConfirmModal";
-import { EmptyState } from "../components/ui/primitives";
+import { Badge, EmptyState, PageHeader } from "../components/ui/primitives";
 import { useToast } from "../components/ui/Toast";
 import { useChannelStream } from "../hooks/useChannelStream";
 import { getErrorMessage } from "../utils/error";
+
+const CHANNEL_ORDER_STORAGE_KEY = "dashboardChannelOrder";
+const getChannelKey = (channel: Channel) => channel.composite_key || channel.channel_id;
+
+function getStoredChannelOrder(): string[] {
+    try {
+        const value = JSON.parse(localStorage.getItem(CHANNEL_ORDER_STORAGE_KEY) || "[]");
+        return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : [];
+    } catch {
+        return [];
+    }
+}
 
 export default function Dashboard() {
     const { channels, initialLoading, connectionError, fetchChannels } = useChannelStream();
@@ -19,6 +31,11 @@ export default function Dashboard() {
     const [globalTags, setGlobalTags] = useState<string[]>([]);
     const [selectedFilterTags, setSelectedFilterTags] = useState<string[]>([]);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [channelOrder, setChannelOrder] = useState<string[]>(getStoredChannelOrder);
+    const [draggedChannel, setDraggedChannel] = useState<string | null>(null);
+    const [dropTarget, setDropTarget] = useState<string | null>(null);
+    const dragSourceRef = useRef<string | null>(null);
+    const dropTargetRef = useRef<string | null>(null);
     const toast = useToast();
     const confirm = useConfirm();
 
@@ -31,7 +48,20 @@ export default function Dashboard() {
         api.getTags().then((data) => setGlobalTags(data.tags)).catch(() => {});
     }, []);
 
-    const getChannelKey = (channel: Channel) => channel.composite_key || channel.channel_id;
+    useEffect(() => {
+        // 초기 스트림 연결 전의 빈 배열로 저장된 사용자 순서를 지우지 않는다.
+        if (channels.length === 0) return;
+        const currentKeys = channels.map(getChannelKey);
+        setChannelOrder((previous) => {
+            const next = [
+                ...previous.filter((key) => currentKeys.includes(key)),
+                ...currentKeys.filter((key) => !previous.includes(key)),
+            ];
+            if (next.length === previous.length && next.every((key, index) => key === previous[index])) return previous;
+            localStorage.setItem(CHANNEL_ORDER_STORAGE_KEY, JSON.stringify(next));
+            return next;
+        });
+    }, [channels]);
 
     const handleRemoveChannel = async (channel: Channel) => {
         const displayName = channel.channel_name || channel.channel_id;
@@ -157,9 +187,97 @@ export default function Dashboard() {
         }
     };
 
+    const moveChannel = (sourceKey: string, targetKey: string) => {
+        setChannelOrder((previous) => {
+            const next = previous.filter((key) => key !== sourceKey);
+            const targetIndex = next.indexOf(targetKey);
+            next.splice(targetIndex < 0 ? next.length : targetIndex, 0, sourceKey);
+            localStorage.setItem(CHANNEL_ORDER_STORAGE_KEY, JSON.stringify(next));
+            return next;
+        });
+    };
+
+    const clearReorderState = () => {
+        dragSourceRef.current = null;
+        dropTargetRef.current = null;
+        setDraggedChannel(null);
+        setDropTarget(null);
+    };
+
+    const handleReorderPointerDown = (event: PointerEvent<HTMLElement>, channelKey: string) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        dragSourceRef.current = channelKey;
+        dropTargetRef.current = null;
+        setDraggedChannel(channelKey);
+        setDropTarget(null);
+    };
+
+    const updateReorderTarget = (clientX: number, clientY: number) => {
+        const sourceKey = dragSourceRef.current;
+        if (!sourceKey) return;
+        const hovered = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-channel-key]");
+        const targetKey = hovered?.dataset.channelKey;
+        const nextTarget = targetKey && targetKey !== sourceKey ? targetKey : null;
+        if (dropTargetRef.current === nextTarget) return;
+        dropTargetRef.current = nextTarget;
+        setDropTarget(nextTarget);
+    };
+
+    const finishReorder = () => {
+        const sourceKey = dragSourceRef.current;
+        const targetKey = dropTargetRef.current;
+        if (sourceKey && targetKey) moveChannel(sourceKey, targetKey);
+        clearReorderState();
+    };
+
+    const handleReorderPointerMove = (event: PointerEvent<HTMLElement>) => {
+        if (!dragSourceRef.current) return;
+        event.preventDefault();
+        updateReorderTarget(event.clientX, event.clientY);
+    };
+
+    const handleReorderPointerUp = (event: PointerEvent<HTMLElement>) => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        finishReorder();
+    };
+
+    const handleReorderMouseMove = (event: MouseEvent<HTMLElement>) => {
+        if (!dragSourceRef.current) return;
+        event.preventDefault();
+        updateReorderTarget(event.clientX, event.clientY);
+    };
+
+    const handleReorderMouseUp = () => finishReorder();
+
+    const handleReorderKeyDown = (event: KeyboardEvent<HTMLElement>, channelKey: string) => {
+        const direction = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1
+            : event.key === "ArrowRight" || event.key === "ArrowDown" ? 1
+            : 0;
+        if (direction === 0) return;
+        event.preventDefault();
+        setChannelOrder((previous) => {
+            const currentIndex = previous.indexOf(channelKey);
+            const targetIndex = Math.min(previous.length - 1, Math.max(0, currentIndex + direction));
+            if (currentIndex < 0 || currentIndex === targetIndex) return previous;
+            const next = [...previous];
+            [next[currentIndex], next[targetIndex]] = [next[targetIndex], next[currentIndex]];
+            localStorage.setItem(CHANNEL_ORDER_STORAGE_KEY, JSON.stringify(next));
+            return next;
+        });
+    };
+
     const liveCount = channels.filter((channel) => channel.is_live).length;
     const recordingCount = channels.filter((channel) => channel.recording?.is_recording).length;
-    const filteredChannels = channels.filter((channel) => {
+    const orderIndex = new Map(channelOrder.map((key, index) => [key, index]));
+    const orderedChannels = [...channels].sort((left, right) => (
+        (orderIndex.get(getChannelKey(left)) ?? Number.MAX_SAFE_INTEGER)
+        - (orderIndex.get(getChannelKey(right)) ?? Number.MAX_SAFE_INTEGER)
+    ));
+    const filteredChannels = orderedChannels.filter((channel) => {
         if (filter === "recording" && !channel.recording?.is_recording) return false;
         if (filter === "live" && !channel.is_live) return false;
         if (filter === "offline" && channel.is_live) return false;
@@ -179,6 +297,21 @@ export default function Dashboard() {
 
     return (
         <div className="space-y-6">
+            <PageHeader
+                icon={Radio}
+                eyebrow="Live control"
+                title="Live Dashboard"
+                description="방송 상태를 한눈에 확인하고, 녹화와 채널 우선순위를 한 화면에서 제어합니다."
+                meta={(
+                    <>
+                        <Badge tone="primary">{channels.length} monitored</Badge>
+                        <Badge tone={liveCount > 0 ? "danger" : "neutral"}>{liveCount} live</Badge>
+                        <Badge tone={recordingCount > 0 ? "ok" : "neutral"}>{recordingCount} recording</Badge>
+                    </>
+                )}
+                actions={<AddChannelForm platformStatus={platformStatus} onAdded={fetchChannels} />}
+            />
+
             {connectionError && !initialLoading && (
                 <div className="flex items-center gap-3 px-4 py-3 bg-danger/10 border border-danger/20 rounded-[var(--radius-card)] text-danger text-sm">
                     <WifiOff className="w-5 h-5 shrink-0" />
@@ -186,15 +319,7 @@ export default function Dashboard() {
                 </div>
             )}
 
-            <div className="flex flex-col gap-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h2 className="text-2xl font-bold text-ink flex items-center gap-2"><Radio className="w-6 h-6" style={{ color: "var(--primary)" }} /> Live Dashboard</h2>
-                        <p className="text-ink-faint">채널 {channels.length}개 감시 중 · <span className="text-live font-mono">{liveCount} LIVE</span> · <span className="text-ok font-mono">{recordingCount} REC</span></p>
-                    </div>
-                    <AddChannelForm platformStatus={platformStatus} onAdded={fetchChannels} />
-                </div>
-
+            <div className="flex flex-col gap-3">
                 <DashboardFilters
                     filter={filter}
                     onFilterChange={setFilter}
@@ -208,6 +333,11 @@ export default function Dashboard() {
                     onScanNow={handleScanNow}
                     onStopAll={handleStopAll}
                 />
+                {channels.length > 1 && (
+                    <p className="flex items-center gap-1.5 px-1 text-[11px] text-ink-faint">
+                        <GripVertical className="w-3.5 h-3.5" /> 그립을 끌거나 포커스 후 방향키로 표시 순서를 바꿀 수 있습니다. 순서는 이 브라우저에 저장됩니다.
+                    </p>
+                )}
             </div>
 
             <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "flex flex-col gap-3 overflow-x-auto"}>
@@ -220,7 +350,19 @@ export default function Dashboard() {
 
                 {!initialLoading && filteredChannels.map((channel) => {
                     const key = getChannelKey(channel);
-                    const props = { ...itemProps, channel, isActionLoading: actionLoading === key };
+                    const props = {
+                        ...itemProps,
+                        channel,
+                        isActionLoading: actionLoading === key,
+                        isDragging: draggedChannel === key,
+                        isDropTarget: dropTarget === key,
+                        onReorderPointerDown: (event: PointerEvent<HTMLElement>) => handleReorderPointerDown(event, key),
+                        onReorderPointerMove: handleReorderPointerMove,
+                        onReorderPointerUp: handleReorderPointerUp,
+                        onReorderMouseMove: handleReorderMouseMove,
+                        onReorderMouseUp: handleReorderMouseUp,
+                        onReorderKeyDown: (event: KeyboardEvent<HTMLElement>) => handleReorderKeyDown(event, key),
+                    };
                     return viewMode === "grid" ? <ChannelCard key={key} {...props} /> : <ChannelRow key={key} {...props} />;
                 })}
 

@@ -10,20 +10,20 @@
 
 @theme {
   /* 표면 — 낮은 번호일수록 배경에 가깝다 */
-  --color-surface-0: #0A0B0D;   /* 앱 배경 */
-  --color-surface-1: #101216;   /* 사이드바, 헤더 */
-  --color-surface-2: #16181D;   /* 카드 */
-  --color-surface-3: #1D2026;   /* 카드 위 요소, 입력창 */
-  --color-surface-4: #262A32;   /* hover 상태 */
+  --color-surface-0: #090B10;   /* 앱 배경 */
+  --color-surface-1: #0E1118;   /* 사이드바, 헤더 */
+  --color-surface-2: #141923;   /* 카드 */
+  --color-surface-3: #1B212D;   /* 카드 위 요소, 입력창 */
+  --color-surface-4: #252C3A;   /* hover 상태 */
 
   /* 테두리 — hairline은 거의 보이지 않는 구분선 */
-  --color-line: #23262E;
-  --color-line-strong: #31353F;
+  --color-line: #202633;
+  --color-line-strong: #30394A;
 
   /* 텍스트 */
-  --color-ink: #F2F4F7;         /* 제목 */
-  --color-ink-muted: #A0A6B4;   /* 본문 */
-  --color-ink-faint: #6B7280;   /* 보조 설명 */
+  --color-ink: #F5F7FB;         /* 제목 */
+  --color-ink-muted: #A6ADBC;   /* 본문 */
+  --color-ink-faint: #697386;   /* 보조 설명 */
 
   /* 상태 색 */
   --color-live: #FF4D4D;
@@ -120,6 +120,7 @@ body {
   text-rendering: optimizeLegibility;
   /* 숫자 폭을 고정해 진행률·용량이 바뀔 때 레이아웃이 떨리지 않게 한다. */
   font-variant-numeric: tabular-nums;
+  min-width: 320px;
 }
 
 code,
@@ -175,6 +176,7 @@ code,
 .nav-active {
   background-color: var(--primary-dim);
   color: var(--primary);
+  box-shadow: inset 3px 0 0 var(--primary), inset 0 0 0 1px color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 .nav-active:hover {
@@ -184,6 +186,103 @@ code,
 /* 카드 위에 얹는 미세한 상단 하이라이트 — 평평한 어두운 면에 입체감을 준다. */
 .surface-raise {
   box-shadow: var(--shadow-raise), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* 앱 전체 캔버스 — 데이터 화면의 빈 공간에도 깊이가 남도록 한다. */
+.app-canvas {
+  background:
+    radial-gradient(circle at 18% -8%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 30rem),
+    radial-gradient(circle at 92% 12%, rgba(59, 130, 246, 0.055), transparent 28rem),
+    var(--color-surface-0);
+}
+
+.app-canvas::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 72%);
+}
+
+.page-content {
+  animation: fade-in 0.28s ease-out;
+}
+
+.page-hero {
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--primary) 7%, var(--color-surface-2)), var(--color-surface-1) 58%, var(--color-surface-2));
+  box-shadow: var(--shadow-raise), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.page-hero::after {
+  content: "";
+  position: absolute;
+  width: 18rem;
+  height: 18rem;
+  right: -7rem;
+  top: -10rem;
+  border-radius: 999px;
+  background: var(--primary);
+  opacity: 0.07;
+  filter: blur(10px);
+}
+
+.page-hero-icon,
+.brand-mark {
+  color: var(--primary);
+  background: var(--primary-dim);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 24%, transparent);
+}
+
+.icon-button {
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-control);
+  color: var(--color-ink-faint);
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.icon-button:hover {
+  color: var(--color-ink);
+  background: var(--color-surface-3);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-control);
+  font-size: 0.8rem;
+  font-weight: 550;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.nav-icon {
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 8px;
+  background: var(--color-surface-2);
+  color: var(--color-ink-faint);
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.nav-item:hover .nav-icon {
+  color: var(--color-ink-muted);
+  background: var(--color-surface-4);
+}
+
+.nav-icon-active {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 /* 강조색 배경 버튼 */

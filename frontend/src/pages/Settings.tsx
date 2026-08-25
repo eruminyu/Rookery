@@ -19,6 +19,7 @@ import { InfoTab } from "../components/settings/InfoTab";
 import { NotificationsTab } from "../components/settings/NotificationsTab";
 import { SystemTab } from "../components/settings/SystemTab";
 import { useConfirm } from "../components/ui/ConfirmModal";
+import { Badge, PageHeader } from "../components/ui/primitives";
 import { useToast } from "../components/ui/Toast";
 
 type TabId = "general" | "download" | "auth" | "notifications" | "appearance" | "system" | "info";
@@ -122,22 +123,28 @@ export default function Settings() {
 
     return (
         <div className="space-y-6">
-            <header>
-                <h2 className="text-2xl font-bold text-ink flex items-center gap-2">
-                    <SettingsIcon className="w-6 h-6" style={{ color: "var(--primary)" }} />
-                    Settings
-                </h2>
-                <p className="text-ink-faint">애플리케이션 설정을 관리합니다.</p>
-            </header>
+            <PageHeader
+                icon={SettingsIcon}
+                eyebrow="Application control"
+                title="Settings"
+                description="녹화 방식과 인증, 알림, 화면 테마 및 시스템 동작을 구성합니다."
+                meta={(
+                    <>
+                        <Badge tone="neutral">7 sections</Badge>
+                        {hasDirtyTab && <Badge tone="warn">저장하지 않은 변경사항</Badge>}
+                        {updateAvailable && <Badge tone="ok">업데이트 가능</Badge>}
+                    </>
+                )}
+            />
 
-            <nav className="flex gap-1 border-b border-line overflow-x-auto" aria-label="설정 탭">
+            <nav className="flex gap-1.5 p-1.5 bg-surface-2 border border-line rounded-[var(--radius-card)] overflow-x-auto surface-raise" aria-label="설정 탭">
                 {TABS.map((tab) => {
                     const Icon = tab.icon;
                     return (
                         <button
                             key={tab.id}
                             onClick={() => handleTabChange(tab.id)}
-                            className={`flex shrink-0 items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px relative ${activeTab === tab.id ? "border-[var(--primary)] text-ink" : "border-transparent text-ink-faint hover:text-ink-muted"}`}
+                            className={`flex shrink-0 items-center gap-2 px-3.5 py-2.5 rounded-[var(--radius-control)] text-[13px] font-medium whitespace-nowrap transition-all relative ${activeTab === tab.id ? "btn-ghost-primary text-ink shadow-sm" : "text-ink-faint hover:bg-surface-3 hover:text-ink-muted"}`}
                         >
                             <Icon className="w-4 h-4" />
                             {tab.label}

@@ -13,6 +13,7 @@ import {
 import { clsx } from "clsx";
 import { api, ChatLogFile, ChatMessageItem, MessagesResponse } from "../api/client";
 import { useToast } from "../components/ui/Toast";
+import { Button, Input, PageHeader } from "../components/ui/primitives";
 import { formatBytes, formatDate as _formatDate, formatTime } from "../utils/format";
 
 function formatDate(iso: string): string {
@@ -26,18 +27,16 @@ export default function ChatLogs() {
     const toast = useToast();
 
     return (
-        <div className="flex flex-col h-[calc(100vh-6rem)]">
-            <div className="mb-6 shrink-0">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <MessageSquare className="w-6 h-6 text-cyan-500" />
-                    Chat Logs
-                </h2>
-                <p className="text-zinc-400">녹화 중 수집된 채팅 아카이브를 좌우 분할 화면에서 조회합니다.</p>
-            </div>
+        <div className="flex flex-col gap-6 xl:h-[calc(100vh-4rem)]">
+            <PageHeader
+                icon={MessageSquare}
+                eyebrow="Conversation archive"
+                title="Chat Logs"
+                description="녹화 중 수집한 채팅을 채널과 세션별로 찾아보고 원본 로그를 내려받습니다."
+            />
 
-            <div className="flex flex-1 gap-6 min-h-0">
-                {/* 왼쪽 패널: 채널 및 파일 목록 */}
-                <div className="w-1/3 flex flex-col bg-zinc-900/30 border border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+            <div className="flex flex-col lg:flex-row flex-1 gap-4 min-h-[680px] xl:min-h-0">
+                <div className="lg:w-[340px] xl:w-[30%] flex flex-col bg-surface-2 border border-line rounded-[var(--radius-card)] overflow-hidden surface-raise min-h-[260px]">
                     <FileListView 
                         selectedFile={selectedFile} 
                         onSelect={setSelectedFile} 
@@ -45,11 +44,10 @@ export default function ChatLogs() {
                     />
                 </div>
 
-                {/* 오른쪽 패널: 메시지 뷰어 */}
-                <div className="w-2/3 flex flex-col bg-zinc-900/30 border border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+                <div className="flex-1 flex flex-col bg-surface-2 border border-line rounded-[var(--radius-card)] overflow-hidden surface-raise min-h-[420px]">
                     {selectedFile === null ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-zinc-500">
-                            <MessageSquare className="w-12 h-12 mb-4 opacity-30" />
+                        <div className="flex-1 flex flex-col items-center justify-center text-ink-faint p-8 text-center">
+                            <span className="w-14 h-14 rounded-2xl bg-surface-3 border border-line grid place-items-center mb-4"><MessageSquare className="w-6 h-6 opacity-60" /></span>
                             <p className="text-sm">왼쪽 목록에서 채팅 로그 파일을 선택하세요.</p>
                         </div>
                     ) : (
@@ -100,7 +98,7 @@ function FileListView({ selectedFile, onSelect, toast }: FileListViewProps) {
 
     if (loading) {
         return (
-            <div className="flex flex-1 items-center justify-center text-zinc-500">
+            <div className="flex flex-1 items-center justify-center text-ink-faint">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
                 <span className="text-sm">목록 불러오는 중...</span>
             </div>
@@ -110,25 +108,25 @@ function FileListView({ selectedFile, onSelect, toast }: FileListViewProps) {
     if (files.length === 0) {
         return (
             <div className="flex flex-col flex-1 items-center justify-center p-8 text-center">
-                <MessageSquare className="w-8 h-8 text-zinc-700 mb-3" />
-                <p className="text-zinc-400 font-medium text-sm mb-1">채팅 로그가 없습니다.</p>
+                <MessageSquare className="w-8 h-8 text-ink-faint mb-3" />
+                <p className="text-ink-muted font-medium text-sm mb-1">채팅 로그가 없습니다.</p>
             </div>
         );
     }
 
     return (
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700">
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
             {Object.entries(grouped).map(([channel, channelFiles]) => (
-                <div key={channel} className="border-b border-zinc-800/50 last:border-0">
-                    <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-2.5 bg-zinc-900/95 backdrop-blur-md border-b border-zinc-800">
-                        <FolderOpen className="w-4 h-4 text-cyan-400" />
-                        <span className="text-xs font-bold text-zinc-300 truncate">{channel}</span>
-                        <span className="text-[10px] text-zinc-500 ml-auto">
+                <div key={channel} className="border-b border-line/70 last:border-0">
+                    <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-2.5 bg-surface-2/95 backdrop-blur-md border-b border-line">
+                        <FolderOpen className="w-4 h-4 text-info" />
+                        <span className="text-xs font-semibold text-ink-muted truncate">{channel}</span>
+                        <span className="text-[10px] text-ink-faint ml-auto font-mono">
                             {channelFiles.length}
                         </span>
                     </div>
 
-                    <div className="divide-y divide-zinc-800/30">
+                    <div className="divide-y divide-line/50">
                         {channelFiles.map((file) => {
                             const isSelected = selectedFile?.file_id === file.file_id;
                             return (
@@ -137,26 +135,26 @@ function FileListView({ selectedFile, onSelect, toast }: FileListViewProps) {
                                     onClick={() => onSelect(file)}
                                     className={clsx(
                                         "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors group",
-                                        isSelected ? "bg-cyan-500/10 hover:bg-cyan-500/20" : "hover:bg-zinc-800/50"
+                                        isSelected ? "btn-ghost-primary" : "hover:bg-surface-3/70"
                                     )}
                                 >
                                     <FileText className={clsx(
                                         "w-4 h-4 shrink-0", 
-                                        isSelected ? "text-cyan-400" : "text-zinc-500 group-hover:text-cyan-400/70"
+                                        isSelected ? "text-[var(--primary)]" : "text-ink-faint group-hover:text-ink-muted"
                                     )} />
 
                                     <div className="flex-1 min-w-0">
                                         <p className={clsx(
                                             "text-xs font-medium truncate transition-colors",
-                                            isSelected ? "text-white" : "text-zinc-300 group-hover:text-white"
+                                            isSelected ? "text-ink" : "text-ink-muted group-hover:text-ink"
                                         )}>
                                             {file.filename}
                                         </p>
                                         <div className="flex items-center gap-2 mt-1">
-                                            <p className="text-[10px] text-zinc-500">
+                                            <p className="text-[10px] text-ink-faint">
                                                 {formatDate(file.created_at)}
                                             </p>
-                                            <span className="text-[10px] text-zinc-600 font-mono">
+                                            <span className="text-[10px] text-ink-faint font-mono">
                                                 {formatBytes(file.size_bytes)}
                                             </span>
                                         </div>
@@ -245,17 +243,16 @@ function MessageViewer({ file, toast }: MessageViewerProps) {
     const hasFilter = appliedSearch || appliedNickname;
 
     return (
-        <div className="flex flex-col h-full bg-zinc-950/20">
-            {/* 뷰어 헤더 */}
-            <div className="flex items-center gap-3 p-4 border-b border-zinc-800 bg-zinc-900/50 shrink-0">
+        <div className="flex flex-col h-full bg-surface-1/30">
+            <div className="flex items-center gap-3 p-4 border-b border-line bg-surface-2 shrink-0">
                 <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-semibold text-white truncate">{file.filename}</h3>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">{file.message_count.toLocaleString()}개 메시지</p>
+                    <h3 className="text-sm font-semibold text-ink truncate">{file.filename}</h3>
+                    <p className="text-[11px] text-ink-faint mt-0.5">{file.message_count.toLocaleString()}개 메시지</p>
                 </div>
                 <a
                     href={api.getChatDownloadUrl(file.file_id)}
                     download={file.filename}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800 border border-zinc-800 hover:border-cyan-700 transition-colors shrink-0"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs text-ink-muted hover:text-ink hover:bg-surface-3 border border-line transition-colors shrink-0"
                     title="JSONL 파일 다운로드"
                 >
                     <Download className="w-3.5 h-3.5" />
@@ -263,40 +260,34 @@ function MessageViewer({ file, toast }: MessageViewerProps) {
                 </a>
             </div>
 
-            {/* 검색 툴바 */}
-            <div className="p-3 border-b border-zinc-800 bg-zinc-900/30 shrink-0 flex flex-wrap gap-2">
+            <div className="p-3 border-b border-line bg-surface-2/70 shrink-0 flex flex-wrap gap-2">
                 <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
                     <div className="relative flex-1">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
-                        <input
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-faint" />
+                        <Input
                             type="text"
                             value={pendingSearch}
                             onChange={(e) => setPendingSearch(e.target.value)}
                             onKeyDown={handleKeyDown}
                             placeholder="내용 검색..."
-                            className="w-full pl-8 pr-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-md text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500"
+                            className="w-full pl-8 pr-3 py-1.5 text-xs"
                         />
                     </div>
                     <div className="w-1/3 min-w-[100px]">
-                        <input
+                        <Input
                             type="text"
                             value={pendingNickname}
                             onChange={(e) => setPendingNickname(e.target.value)}
                             onKeyDown={handleKeyDown}
                             placeholder="닉네임..."
-                            className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-md text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500"
+                            className="w-full px-3 py-1.5 text-xs"
                         />
                     </div>
-                    <button
-                        onClick={handleSearch}
-                        className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs rounded-md font-medium transition-colors shrink-0"
-                    >
-                        적용
-                    </button>
+                    <Button icon={Search} onClick={handleSearch} variant="primary" className="px-3 py-1.5 text-xs shrink-0">적용</Button>
                     {hasFilter && (
                         <button
                             onClick={handleClearSearch}
-                            className="p-1.5 text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-md transition-colors shrink-0"
+                            className="p-1.5 text-ink-faint hover:text-ink bg-surface-3 hover:bg-surface-4 rounded-md transition-colors shrink-0"
                             title="검색 초기화"
                         >
                             <X className="w-3.5 h-3.5" />
@@ -305,22 +296,21 @@ function MessageViewer({ file, toast }: MessageViewerProps) {
                 </div>
             </div>
 
-            {/* 본문 메시지 리스트 */}
-            <div className="flex-1 overflow-y-auto bg-zinc-950/40 relative min-h-0">
+            <div className="flex-1 overflow-y-auto bg-surface-0/45 relative min-h-0">
                 {loading && (
-                    <div className="absolute inset-0 z-10 bg-zinc-950/60 backdrop-blur-[1px] flex items-center justify-center text-zinc-400">
+                    <div className="absolute inset-0 z-10 bg-surface-0/65 backdrop-blur-[1px] flex items-center justify-center text-ink-faint">
                         <Loader2 className="w-5 h-5 animate-spin mr-2" />
                         <span className="text-sm">불러오는 중...</span>
                     </div>
                 )}
                 
                 {!data || data.messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-zinc-600">
+                    <div className="flex flex-col items-center justify-center h-full text-ink-faint">
                         <MessageSquare className="w-8 h-8 mb-3 opacity-20" />
                         <p className="text-sm">{hasFilter ? "검색 결과가 없습니다." : "메시지가 없습니다."}</p>
                     </div>
                 ) : (
-                    <div className="divide-y divide-zinc-800/40 py-2">
+                    <div className="divide-y divide-line/40 py-2">
                         {data.messages.map((msg, idx) => (
                             <MessageRow key={idx} msg={msg} />
                         ))}
@@ -328,27 +318,26 @@ function MessageViewer({ file, toast }: MessageViewerProps) {
                 )}
             </div>
 
-            {/* 꼬리 (페이지네이션) */}
             {data && data.total > 0 && (
-                <div className="flex items-center justify-between px-4 py-2 border-t border-zinc-800 bg-zinc-900/50 shrink-0">
-                    <span className="text-[10px] text-zinc-500">
-                        총 <span className="text-zinc-300">{data.total.toLocaleString()}</span>개
+                <div className="flex items-center justify-between px-4 py-2 border-t border-line bg-surface-2 shrink-0">
+                    <span className="text-[10px] text-ink-faint">
+                        총 <span className="text-ink-muted">{data.total.toLocaleString()}</span>개
                     </span>
                     <div className="flex items-center gap-1.5">
                         <button
                             disabled={page <= 1}
                             onClick={() => setPage((p) => p - 1)}
-                            className="p-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 disabled:opacity-30 transition-colors"
+                            className="p-1 rounded-md bg-surface-3 hover:bg-surface-4 text-ink-muted disabled:opacity-30 transition-colors"
                         >
                             <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <span className="text-[10px] text-zinc-400 min-w-[50px] text-center font-mono">
+                        <span className="text-[10px] text-ink-muted min-w-[50px] text-center font-mono">
                             {page} / {Math.ceil(data.total / LIMIT) || 1}
                         </span>
                         <button
                             disabled={!data.has_next}
                             onClick={() => setPage((p) => p + 1)}
-                            className="p-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 disabled:opacity-30 transition-colors"
+                            className="p-1 rounded-md bg-surface-3 hover:bg-surface-4 text-ink-muted disabled:opacity-30 transition-colors"
                         >
                             <ChevronRight className="w-4 h-4" />
                         </button>
@@ -363,16 +352,14 @@ function MessageViewer({ file, toast }: MessageViewerProps) {
 
 function MessageRow({ msg }: { msg: ChatMessageItem }) {
     return (
-        <div className="flex items-start gap-3 px-4 py-1.5 hover:bg-white/[0.02] transition-colors">
-            {/* 타임스탬프 */}
-            <span className="text-[10px] text-zinc-600 font-mono shrink-0 pt-[3px] w-[64px]">
+        <div className="flex items-start gap-3 px-4 py-1.5 hover:bg-surface-3/50 transition-colors">
+            <span className="text-[10px] text-ink-faint font-mono shrink-0 pt-[3px] w-[64px]">
                 {formatTime(msg.timestamp)}
             </span>
 
-            {/* 내용 */}
             <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-1.5 leading-snug">
-                <span className="text-[11px] font-semibold text-cyan-300 shrink-0">{msg.nickname}</span>
-                <span className="text-[13px] text-zinc-300 break-words">{msg.message}</span>
+                <span className="text-[11px] font-semibold text-info shrink-0">{msg.nickname}</span>
+                <span className="text-[13px] text-ink-muted break-words">{msg.message}</span>
             </div>
         </div>
     );

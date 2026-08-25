@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Download, Loader2, Radio } from "lucide-react";
+import { Cookie, Download, FileAudio, Link2, Radio, TimerReset } from "lucide-react";
 import { useVod } from "../contexts/VodContext";
 import { useToast } from "../components/ui/Toast";
+import { Button, Card, Field, Input, PageHeader } from "../components/ui/primitives";
 import { getErrorMessage } from "../utils/error";
 
 export default function ArchivePage() {
@@ -27,59 +28,60 @@ export default function ArchivePage() {
 
     return (
         <div className="space-y-6">
-            {/* 헤더 */}
-            <div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <Radio className="w-6 h-6 text-cyan-400" />
-                    X Spaces Downloader
-                </h2>
-                <p className="text-zinc-400 text-sm mt-1">
-                    캡처된 X Spaces master URL로 오디오를 다운로드합니다.
-                </p>
-            </div>
+            <PageHeader
+                icon={Radio}
+                eyebrow="Audio archive"
+                title="X Spaces Downloader"
+                description="캡처한 X Spaces 스트림을 오래 보관할 수 있는 오디오 파일로 변환합니다."
+            />
 
-            {/* 입력 폼 */}
-            <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-zinc-300 mb-1">
-                        X Spaces URL
-                    </label>
-                    <p className="text-xs text-zinc-500 mb-3">
-                        Live Dashboard에서 자동 캡처된 master_playlist.m3u8 URL 또는 x.com/i/spaces 링크를 입력하세요.
-                    </p>
-                </div>
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_minmax(300px,0.7fr)] gap-4">
+                <Card className="relative overflow-hidden">
+                    <span className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-xspaces to-transparent opacity-70" />
+                    <div className="flex items-start gap-3 mb-6">
+                        <span className="w-9 h-9 rounded-[var(--radius-control)] grid place-items-center bg-xspaces/10 text-xspaces"><Link2 className="w-4 h-4" /></span>
+                        <div>
+                            <h2 className="text-sm font-semibold text-ink">다운로드 소스</h2>
+                            <p className="text-xs text-ink-faint mt-1">Space 링크 또는 캡처된 master playlist 주소를 붙여넣으세요.</p>
+                        </div>
+                    </div>
+                    <form onSubmit={handleDownload} className="space-y-4">
+                        <Field label="X Spaces URL" htmlFor="spaces-url" hint="Live Dashboard에서 자동 캡처된 master_playlist.m3u8 URL도 사용할 수 있습니다.">
+                            <Input
+                                id="spaces-url"
+                                type="url"
+                                placeholder="https://x.com/i/spaces/..."
+                                value={url}
+                                onChange={(event) => setUrl(event.target.value)}
+                                autoComplete="off"
+                            />
+                        </Field>
+                        <div className="flex justify-end">
+                            <Button type="submit" icon={Download} loading={loading} disabled={!url.trim()} variant="primary">
+                                다운로드 시작
+                            </Button>
+                        </div>
+                    </form>
+                </Card>
 
-                <form onSubmit={handleDownload} className="flex gap-2">
-                    <input
-                        type="text"
-                        className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-sm"
-                        placeholder="https://.../master_playlist.m3u8  또는  https://x.com/i/spaces/..."
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                    />
-                    <button
-                        type="submit"
-                        disabled={loading || !url.trim()}
-                        className="bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2 rounded-lg font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
-                    >
-                        {loading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <Download className="w-4 h-4" />
-                        )}
-                        다운로드
-                    </button>
-                </form>
-
-                <div className="bg-zinc-950/50 rounded-lg p-4 space-y-2 text-xs text-zinc-400 border border-zinc-800/50">
-                    <p className="font-semibold text-zinc-300">안내</p>
-                    <ul className="space-y-1 list-disc list-inside">
-                        <li>출력 형식: <span className="text-cyan-400">m4a (오디오 전용)</span></li>
-                        <li>master_playlist.m3u8 URL은 Space 종료 후 약 30일간 유효합니다.</li>
-                        <li>비공개 Space는 Settings에서 X 쿠키 파일을 설정하세요.</li>
-                        <li>다운로드 진행 상황은 <span className="text-white">VOD Downloader</span> 탭에서 확인하세요.</li>
-                    </ul>
-                </div>
+                <Card>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-ink-faint mb-4">Before you start</p>
+                    <div className="space-y-4">
+                        <div className="flex gap-3">
+                            <span className="w-8 h-8 rounded-[var(--radius-control)] bg-info/10 text-info grid place-items-center shrink-0"><FileAudio className="w-4 h-4" /></span>
+                            <div><p className="text-sm font-medium text-ink">M4A 오디오</p><p className="text-xs text-ink-faint mt-0.5">영상 없이 효율적인 오디오 형식으로 저장됩니다.</p></div>
+                        </div>
+                        <div className="flex gap-3">
+                            <span className="w-8 h-8 rounded-[var(--radius-control)] bg-warn/10 text-warn grid place-items-center shrink-0"><TimerReset className="w-4 h-4" /></span>
+                            <div><p className="text-sm font-medium text-ink">링크 유효 기간</p><p className="text-xs text-ink-faint mt-0.5">master playlist는 Space 종료 후 약 30일간 유효합니다.</p></div>
+                        </div>
+                        <div className="flex gap-3">
+                            <span className="w-8 h-8 rounded-[var(--radius-control)] bg-surface-4 text-ink-muted grid place-items-center shrink-0"><Cookie className="w-4 h-4" /></span>
+                            <div><p className="text-sm font-medium text-ink">비공개 Space</p><p className="text-xs text-ink-faint mt-0.5">Settings에서 X 쿠키 파일을 먼저 지정해 주세요.</p></div>
+                        </div>
+                    </div>
+                    <p className="mt-5 pt-4 border-t border-line text-xs text-ink-faint">진행 상황과 완료 파일은 VOD Downloader에서 확인할 수 있습니다.</p>
+                </Card>
             </div>
         </div>
     );

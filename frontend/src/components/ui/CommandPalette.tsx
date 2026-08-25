@@ -31,54 +31,54 @@ export function CommandPalette() {
         <Command.Dialog
             open={open}
             onOpenChange={setOpen}
-            className="fixed inset-0 z-[100] flex items-start justify-center pt-[20vh] bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-start justify-center pt-[18vh] bg-surface-0/75 backdrop-blur-md"
             label="Global Command Palette"
         >
-            <div className="w-full max-w-lg bg-zinc-900 border border-zinc-700 shadow-2xl rounded-xl overflow-hidden pointer-events-auto shadow-black/50">
+            <div className="w-[calc(100%-2rem)] max-w-lg bg-surface-2 border border-line-strong shadow-[var(--shadow-pop)] rounded-[calc(var(--radius-card)+4px)] overflow-hidden pointer-events-auto">
                 <Command.Input
                     placeholder="검색하거나 명령어를 입력하세요..."
-                    className="w-full px-4 py-4 bg-transparent text-white placeholder:text-zinc-500 border-b border-zinc-800 focus:outline-none focus:ring-0"
+                    className="w-full px-5 py-4 bg-transparent text-ink placeholder:text-ink-faint border-b border-line focus:outline-none focus:ring-0"
                 />
                 
-                <Command.List className="max-h-[300px] overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-zinc-700">
-                    <Command.Empty className="py-6 text-center text-sm text-zinc-500">
+                <Command.List className="max-h-[320px] overflow-y-auto p-2">
+                    <Command.Empty className="py-6 text-center text-sm text-ink-faint">
                         검색 결과가 없습니다.
                     </Command.Empty>
                     
-                    <Command.Group heading="이동 (Navigation)" className="px-2 py-1.5 text-xs font-semibold text-zinc-500">
+                    <Command.Group heading="이동 (Navigation)" className="px-2 py-1.5 text-xs font-semibold text-ink-faint">
                         <Command.Item
                             onSelect={() => runCommand(() => navigate("/"))}
-                            className="flex items-center gap-2 px-2 py-2 mt-1 text-sm text-zinc-300 rounded-lg cursor-pointer hover:bg-zinc-800 aria-selected:bg-zinc-800 aria-selected:text-white transition-colors"
+                            className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
                         >
                             <LayoutDashboard className="w-4 h-4" /> Live Dashboard
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => navigate("/vod"))}
-                            className="flex items-center gap-2 px-2 py-2 mt-1 text-sm text-zinc-300 rounded-lg cursor-pointer hover:bg-zinc-800 aria-selected:bg-zinc-800 aria-selected:text-white transition-colors"
+                            className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
                         >
                             <Download className="w-4 h-4" /> VOD Download
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => navigate("/archive"))}
-                            className="flex items-center gap-2 px-2 py-2 mt-1 text-sm text-zinc-300 rounded-lg cursor-pointer hover:bg-zinc-800 aria-selected:bg-zinc-800 aria-selected:text-white transition-colors"
+                            className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
                         >
                             <Radio className="w-4 h-4" /> X Spaces
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => navigate("/chat"))}
-                            className="flex items-center gap-2 px-2 py-2 mt-1 text-sm text-zinc-300 rounded-lg cursor-pointer hover:bg-zinc-800 aria-selected:bg-zinc-800 aria-selected:text-white transition-colors"
+                            className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
                         >
                             <MessageSquare className="w-4 h-4" /> Chat Logs
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => navigate("/stats"))}
-                            className="flex items-center gap-2 px-2 py-2 mt-1 text-sm text-zinc-300 rounded-lg cursor-pointer hover:bg-zinc-800 aria-selected:bg-zinc-800 aria-selected:text-white transition-colors"
+                            className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
                         >
                             <BarChart2 className="w-4 h-4" /> Stats
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => navigate("/settings"))}
-                            className="flex items-center gap-2 px-2 py-2 mt-1 text-sm text-zinc-300 rounded-lg cursor-pointer hover:bg-zinc-800 aria-selected:bg-zinc-800 aria-selected:text-white transition-colors"
+                            className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
                         >
                             <Settings className="w-4 h-4" /> Settings
                         </Command.Item>

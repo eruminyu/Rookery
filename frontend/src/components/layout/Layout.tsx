@@ -5,10 +5,10 @@ import { VodProvider } from "../../contexts/VodContext";
 export function Layout() {
     return (
         <VodProvider>
-            <div className="flex h-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden">
+            <div className="app-canvas flex h-screen text-ink font-sans overflow-hidden">
                 <Sidebar />
-                <main className="flex-1 overflow-auto bg-zinc-950 p-4 pt-16 lg:p-8 lg:pt-8">
-                    <div className="max-w-6xl mx-auto space-y-8">
+                <main className="relative flex-1 overflow-auto px-4 pb-8 pt-16 sm:px-6 lg:px-8 lg:py-8">
+                    <div className="page-content relative z-10 max-w-[1480px] mx-auto">
                         <Outlet />
                     </div>
                 </main>
