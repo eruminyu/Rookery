@@ -77,10 +77,6 @@ Space가 라이브 중일 때 Discord에서 다음 커맨드를 실행합니다:
 ```
 /capture-space username:elonmusk
 ```
-또는
-```
-!capture-space elonmusk
-```
 
 성공 시 다음 정보가 반환됩니다:
 - Space 제목

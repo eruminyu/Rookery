@@ -89,16 +89,21 @@ TS와 MKV는 비정상 종료 시에도 이미 받은 구간을 보존하기 쉬
 
 지원하는 주요 Bot 명령은 다음과 같습니다.
 
-| 프리픽스 명령 | 슬래시 명령 | 설명 |
-|---|---|---|
-| `!status` | `/status` | 현재 녹화 상태 |
-| `!list` | - | 등록 채널 목록 |
-| `!start <채널ID>` | `/start` | 녹화 시작 및 자동 녹화 활성화 |
-| `!stop <채널ID>` | `/stop` | 녹화 중지 및 자동 녹화 비활성화 |
-| `!rescan` | `/rescan` | 모든 채널 즉시 스캔 |
-| `!spaces` | `/spaces` | 캡처된 Space 목록 |
-| `!capture-space <핸들>` | `/capture-space` | Space URL 즉시 캡처 |
-| `!download-space <URL>` | `/download-space` | Space 또는 master URL 다운로드 |
+| 명령 | 설명 |
+|---|---|
+| `/status` | 현재 녹화 상태 |
+| `/list` | 등록 채널 목록 |
+| `/start <채널ID>` | 녹화 시작 및 자동 녹화 활성화 |
+| `/stop <채널ID>` | 녹화 중지 및 자동 녹화 비활성화 |
+| `/rescan` | 모든 채널 즉시 스캔 |
+| `/spaces` | 캡처된 Space 목록 |
+| `/capture-space <핸들>` | Space URL 즉시 캡처 |
+| `/download-space <URL>` | Space 또는 master URL 다운로드 |
+| `/diag` | 알림 큐와 전송 채널 상태 진단 |
+| `/notify-test` | 알림 채널로 테스트 알림 발송 |
+
+명령을 실행할 수 있는 사용자와 채널은 설정 → 알림 탭에서 제한할 수 있습니다.
+아무것도 지정하지 않으면 알림 채널에서만 동작하며, 알림 채널조차 없으면 모든 명령이 거부됩니다.
 
 ## 화면 구성
 
@@ -171,7 +176,7 @@ volumes:
 | 항목 | 요구 버전·설명 |
 |---|---|
 | Python | 3.12.10 권장 (`backend/.python-version`) |
-| Node.js | 18 이상, 20 이상 권장 |
+| Node.js | 20 이상 (22 또는 24 LTS 권장) |
 | FFmpeg | 6 이상 |
 | yt-dlp | Python 요구 패키지에 포함되며 실행 파일을 PATH 또는 `bin/`에서 탐색 |
 | 메모리 | 2GB 이상, 여러 동시 작업은 4GB 이상 권장 |
@@ -250,7 +255,7 @@ npm run dev
 
 ### Discord
 
-Bot 토큰과 알림 채널 ID 또는 Webhook URL 중 하나를 입력합니다. 프리픽스 명령을 사용하려면 Discord Developer Portal에서 Message Content Intent를 활성화해야 합니다.
+Bot 토큰과 알림 채널 ID 또는 Webhook URL 중 하나를 입력합니다. 명령은 슬래시 커맨드 전용이므로 Message Content Intent를 켤 필요가 없습니다. 알림만 필요하다면 Bot 없이 Webhook URL만 설정해도 됩니다.
 
 ## 설정과 데이터
 
@@ -273,7 +278,7 @@ MONITOR_INTERVAL=30
 |---|---|
 | `backend/data/signal_recorder.db` | 채널, 녹화·VOD 이력, 태그, 알림 큐 |
 | `backend/recordings/` | 기본 녹화·다운로드 파일 |
-| `backend/logs/` | 서비스 로그 |
+| `logs/` | 서비스 로그 (프로젝트 루트 기준) |
 | `{DOWNLOAD_DIR}/x_spaces_urls/` | 캡처된 X Spaces master URL 백업 |
 
 저장 구조와 마이그레이션은 [스토리지 문서](docs/storage.md)를 참고하세요.

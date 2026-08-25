@@ -238,8 +238,6 @@ sudo journalctl -u signal-recorder@$USER -f
 2. 대상 계정에서 Space가 라이브 중인 시점에 Discord에서 캡처 커맨드 실행:
    ```
    /capture-space username:KalserianT
-   또는
-   !capture-space KalserianT
    ```
 3. Space 라이브 중이면 녹색 Embed + m3u8 URL 반환 확인
 4. Space가 없으면 파란 Embed (오프라인 안내) 확인

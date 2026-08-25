@@ -122,46 +122,58 @@ class TestParseHelpers:
 
 
 class TestBotWiring:
-    """권한 검사가 두 명령어 계열에 모두 연결되는지 테스트"""
+    """권한 검사가 슬래시 커맨드에 연결되는지 테스트"""
 
     @pytest.mark.asyncio
-    async def test_guard_applied_to_prefix_and_slash(self):
-        """프리픽스는 전역 check, 슬래시는 CommandTree로 일괄 적용된다."""
+    async def test_guard_applied_to_slash_commands(self):
+        """CommandTree.interaction_check로 모든 슬래시 커맨드에 일괄 적용된다."""
         service = discord_bot.DiscordBotService(recorder_service=object())
         # _build_bot은 동기 함수다. 다만 commands.Bot 생성이 실행 중인 루프를
         # 필요로 하므로 테스트 자체는 async로 둔다.
         bot = service._build_bot()
 
-        assert discord_bot._prefix_authorization_check in bot._checks
         assert isinstance(bot.tree, discord_bot.app_commands.CommandTree)
         assert type(bot.tree).interaction_check is not (
             discord_bot.app_commands.CommandTree.interaction_check
         )
 
         # 상태 변경 명령어가 실제로 등록되어 있는지 확인
-        prefix_names = {c.name for c in bot.commands}
         slash_names = {c.name for c in bot.tree.get_commands()}
         for name in ("start", "stop", "rescan", "download-space", "capture-space"):
-            assert name in prefix_names
             assert name in slash_names
 
     @pytest.mark.asyncio
-    async def test_prefix_check_denies_and_replies(self, discord_settings):
-        """거부 시 안내 메시지를 보내고 False를 반환한다."""
+    async def test_no_prefix_commands_and_no_privileged_intent(self):
+        """프리픽스 명령이 남아 있으면 message_content intent가 다시 필요해진다."""
+        service = discord_bot.DiscordBotService(recorder_service=object())
+        bot = service._build_bot()
+
+        assert list(bot.commands) == []
+        assert bot.intents.message_content is False
+
+    @pytest.mark.asyncio
+    async def test_slash_check_denies_and_replies(self, discord_settings):
+        """거부 시 ephemeral 안내 메시지를 보내고 False를 반환한다."""
         discord_settings(notification_channel=str(CHANNEL_ID))
+
+        service = discord_bot.DiscordBotService(recorder_service=object())
+        bot = service._build_bot()
 
         replies = []
 
-        class FakeCtx:
-            author = type("A", (), {"id": OTHER_USER_ID, "__str__": lambda s: "someone"})()
-            channel = type("C", (), {"id": OTHER_CHANNEL_ID})()
-            command = "stop"
+        class FakeResponse:
+            async def send_message(self, message, ephemeral=False):
+                replies.append((message, ephemeral))
 
-            async def reply(self, message, mention_author=True):
-                replies.append(message)
+        class FakeInteraction:
+            channel_id = OTHER_CHANNEL_ID
+            user = type("U", (), {"id": OTHER_USER_ID, "__str__": lambda s: "someone"})()
+            command = type("C", (), {"name": "stop"})()
+            response = FakeResponse()
 
-        allowed = await discord_bot._prefix_authorization_check(FakeCtx())
+        allowed = await type(bot.tree).interaction_check(bot.tree, FakeInteraction())
 
         assert allowed is False
         assert len(replies) == 1
-        assert "권한이 없습니다" in replies[0]
+        assert "권한이 없습니다" in replies[0][0]
+        assert replies[0][1] is True

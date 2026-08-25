@@ -3,7 +3,7 @@ Signal-Recorder: Discord Bot 서비스
 User-Hosted Bot으로 원격에서 녹화 상태 확인 및 제어.
 
 사용자가 DISCORD_BOT_TOKEN을 설정에 입력하면 자동 구동된다.
-명령어: !status, !list, !start, !stop (프리픽스) + /status, /list, /start, /stop (슬래시)
+명령어: /status, /list, /start, /stop 등 슬래시 커맨드 전용.
 
 모든 명령어는 DISCORD_COMMAND_USER_IDS / DISCORD_COMMAND_CHANNEL_ID 기반 권한 검사를
 거친다. 두 값이 비어 있으면 DISCORD_NOTIFICATION_CHANNEL_ID가 사용되며, 어느 것도
@@ -50,7 +50,6 @@ except ImportError:
 # 재연결 백오프 (초) — 고정 대기 대신 지수 증가로 API 남용을 피한다.
 _RECONNECT_BASE_DELAY = 5.0
 _RECONNECT_MAX_DELAY = 300.0
-
 
 
 _DENIED_MESSAGE = (
@@ -118,23 +117,6 @@ def _is_authorized(user_id: int, channel_id: Optional[int]) -> bool:
     if allowed_channel is not None and channel_id != allowed_channel:
         return False
     return True
-
-
-async def _prefix_authorization_check(ctx: commands.Context) -> bool:
-    """모든 프리픽스 명령어에 적용되는 전역 권한 검사."""
-    channel_id = getattr(ctx.channel, "id", None)
-    if _is_authorized(ctx.author.id, channel_id):
-        return True
-
-    logger.warning(
-        f"Discord 명령어 권한 거부 (프리픽스): user={ctx.author} ({ctx.author.id}) "
-        f"channel={channel_id} command={ctx.command}"
-    )
-    try:
-        await ctx.reply(_DENIED_MESSAGE, mention_author=False)
-    except Exception:
-        pass
-    return False
 
 
 def _make_embed(
@@ -246,13 +228,15 @@ class DiscordBotService:
                 return False
 
         intents = discord.Intents.default()
-        intents.message_content = True
         bot = commands.Bot(
-            command_prefix="!",
+            # 프리픽스 명령을 쓰지 않으므로 메시지 본문을 읽을 필요가 없다.
+            # message_content는 privileged intent라, 빼면 봇 설정 단계가 하나 줄어든다.
+            command_prefix=commands.when_mentioned,
             intents=intents,
             tree_cls=_AuthorizedCommandTree,
+            # 빌트인 !help도 프리픽스 명령이라 슬래시 전용에서는 끈다.
+            help_command=None,
         )
-        bot.add_check(_prefix_authorization_check)
         self._register_commands(bot)
         return bot
 
@@ -279,12 +263,6 @@ class DiscordBotService:
                 logger.error(
                     "Discord Bot 로그인 실패: 토큰이 올바르지 않습니다. "
                     "재연결을 중단합니다. 설정에서 토큰을 다시 확인하세요."
-                )
-                break
-            except discord.PrivilegedIntentsRequired:
-                logger.error(
-                    "Discord Bot에 Message Content Intent가 활성화되어 있지 않습니다. "
-                    "Discord 개발자 포털 > Bot > Privileged Gateway Intents에서 켜주세요."
                 )
                 break
             except asyncio.CancelledError:
@@ -529,62 +507,6 @@ class DiscordBotService:
                     logger.error(f"슬래시 커맨드 동기화 실패 ({guild.name}): {e}")
             logger.info(f"🤖 슬래시 커맨드 동기화 완료: {total}개 (서버별 즉시 적용)")
 
-        @bot.event
-        async def on_command_error(ctx: commands.Context, error: Exception) -> None:
-            # 권한 검사 실패는 이미 안내 메시지를 보냈으므로 조용히 넘어간다.
-            if isinstance(error, commands.CheckFailure):
-                return
-            if isinstance(error, commands.CommandNotFound):
-                logger.debug(f"알 수 없는 Discord 명령어: {ctx.message.content[:100]}")
-                return
-            logger.error(f"Discord 명령어 오류 ({ctx.command}): {error}")
-
-        @bot.command(name="status")
-        async def cmd_status(ctx: commands.Context) -> None:
-            await ctx.send(embed=_get_status_embed())
-
-        @bot.command(name="list")
-        async def cmd_list(ctx: commands.Context) -> None:
-            embed, err = _get_list_embed()
-            if err:
-                await ctx.send(err)
-            else:
-                await ctx.send(embed=embed)
-
-        @bot.command(name="start")
-        async def cmd_start(ctx: commands.Context, channel_id: str = "") -> None:
-            """녹화 시작 + 자동 녹화 ON: !start <channel_id>."""
-            if not channel_id:
-                await ctx.send("❓ 사용법: `!start <channel_id>`")
-                return
-
-            ch = _find_channel(channel_id)
-            if ch is None:
-                await ctx.send(f"❌ 등록되지 않은 채널 ID입니다: `{channel_id}`")
-                return
-
-            display_name = ch.get("channel_name") or channel_id
-            composite_key = ch["composite_key"]
-            await self._service.start_channel(composite_key)
-            await ctx.send(embed=_make_embed("🎬 녹화 시작", f"**{display_name}**\n자동 녹화 ON", "green"))
-
-        @bot.command(name="stop")
-        async def cmd_stop(ctx: commands.Context, channel_id: str = "") -> None:
-            """녹화 중지 + 자동 녹화 OFF: !stop <channel_id>."""
-            if not channel_id:
-                await ctx.send("❓ 사용법: `!stop <channel_id>`")
-                return
-
-            ch = _find_channel(channel_id)
-            if ch is None:
-                await ctx.send(f"❌ 등록되지 않은 채널 ID입니다: `{channel_id}`")
-                return
-
-            display_name = ch.get("channel_name") or channel_id
-            composite_key = ch["composite_key"]
-            await self._service.stop_channel(composite_key)
-            await ctx.send(embed=_make_embed("⏹ 녹화 중지", f"**{display_name}**\n자동 녹화 OFF", "blue"))
-
         # ── 슬래시 커맨드 ────────────────────────────────────
 
         @bot.tree.command(name="status", description="현재 녹화 상태와 시스템 리소스를 확인합니다")
@@ -692,11 +614,6 @@ class DiscordBotService:
             )
             return embed
 
-        @bot.command(name="diag")
-        async def cmd_diag(ctx: commands.Context) -> None:
-            """알림 파이프라인 진단: !diag."""
-            await ctx.send(embed=_get_diag_embed())
-
         @bot.tree.command(name="diag", description="알림 큐와 전송 채널 상태를 진단합니다")
         async def slash_diag(interaction: discord.Interaction) -> None:
             await interaction.response.send_message(embed=_get_diag_embed())
@@ -716,44 +633,16 @@ class DiscordBotService:
             )
             return "📨 테스트 알림을 큐에 넣었습니다. 알림 채널을 확인하세요."
 
-        @bot.command(name="notify-test")
-        async def cmd_notify_test(ctx: commands.Context) -> None:
-            """테스트 알림 발송: !notify-test."""
-            await ctx.send(_send_test_notification())
-
         @bot.tree.command(name="notify-test", description="알림 채널로 테스트 알림을 보냅니다")
         async def slash_notify_test(interaction: discord.Interaction) -> None:
             await interaction.response.send_message(_send_test_notification())
 
         # ── X Spaces 전용 커맨드 ────────────────────────────
 
-        @bot.command(name="rescan")
-        async def cmd_rescan(ctx: commands.Context) -> None:
-            """전체 채널 즉시 스캔: !rescan."""
-            self._service.scan_now()
-            await ctx.send("🔍 전체 채널 즉시 스캔을 시작했습니다.")
-
         @bot.tree.command(name="rescan", description="설정된 폴링 주기를 무시하고 모든 채널을 즉시 스캔합니다")
         async def slash_rescan(interaction: discord.Interaction) -> None:
             self._service.scan_now()
             await interaction.response.send_message("🔍 전체 채널 즉시 스캔을 시작했습니다.")
-
-        @bot.command(name="spaces")
-        async def cmd_spaces(ctx: commands.Context) -> None:
-            """캡처된 X Spaces m3u8 목록: !spaces."""
-            embed, err = _get_spaces_embed()
-            if err:
-                await ctx.send(err)
-            else:
-                await ctx.send(embed=embed)
-
-        @bot.command(name="download-space")
-        async def cmd_download_space(ctx: commands.Context, *, url: str = "") -> None:
-            """X Spaces m3u8 URL 다운로드: !download-space <url>."""
-            if not url:
-                await ctx.send("❓ 사용법: `!download-space <m3u8_url>`")
-                return
-            await ctx.send(embed=await _do_download_space(url))
 
         @bot.tree.command(name="spaces", description="캡처된 X Spaces m3u8 URL 목록을 표시합니다")
         async def slash_spaces(interaction: discord.Interaction) -> None:
@@ -772,14 +661,6 @@ class DiscordBotService:
             await interaction.response.defer()
             embed = await _do_download_space(url)
             await interaction.followup.send(embed=embed)
-
-        @bot.command(name="capture-space")
-        async def cmd_capture_space(ctx: commands.Context, username: str = "") -> None:
-            """X Spaces m3u8 URL 즉시 캡처: !capture-space <username>."""
-            if not username:
-                await ctx.send("❓ 사용법: `!capture-space <username>` (@ 없는 핸들)")
-                return
-            await ctx.send(embed=await _do_capture_space(username))
 
         @bot.tree.command(name="capture-space", description="X Spaces m3u8 URL을 즉시 1회 조회합니다 (자동 감지 대체)")
         @app_commands.describe(username="X 계정 핸들 (@ 제외, 예: KalserianT)")
