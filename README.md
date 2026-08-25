@@ -56,7 +56,7 @@
 | RAM | 2GB | 4GB 이상 |
 | 디스크 | 500MB (앱) + 녹화 용량 | SSD 권장 |
 | FFmpeg | 필수 (Windows: 자동 설치 지원) | 6.x 이상 |
-| Python | 3.10+ (.exe 사용 시 불필요) | 3.12 |
+| Python | 3.10+ (.exe 사용 시 불필요) | **3.12.10** (`backend/.python-version`) |
 | Node.js | 18+ (개발자용만 필요) | 20+ |
 
 ---
@@ -144,6 +144,10 @@ volumes:
 
 Python 3.10+, Node.js 18+, `ffmpeg` (6.x 이상)가 사전 설치되어 있어야 합니다.
 
+> **Python 버전 고정**: 개발 및 배포는 **3.12.10** 기준입니다 (`backend/.python-version`).
+> 3.12는 3.12.10을 끝으로 보안 전용 모드로 전환되어 이후 패치에는 Windows 설치 프로그램이 제공되지 않습니다.
+> 3.13 이상에서는 의존성 호환성이 검증되지 않았으니 3.12.10을 사용하세요.
+
 ```bash
 # 저장소 클론
 git clone https://github.com/eruminyu/Signal-Recorder.git
@@ -164,6 +168,13 @@ pip install -r backend/requirements.txt
 
 # 서버 실행
 cd backend && python run.py
+```
+
+테스트를 실행하려면 개발 의존성을 추가로 설치합니다:
+
+```bash
+pip install -r backend/requirements-dev.txt
+cd backend && python -m pytest
 ```
 
 브라우저에서 `http://localhost:8000` 접속
