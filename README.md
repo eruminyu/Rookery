@@ -129,33 +129,41 @@ Python을 별도로 설치하지 않고 사용할 수 있는 방법입니다.
 
 Windows Defender가 서명되지 않은 실행 파일을 경고할 수 있습니다. 소스를 확인한 뒤 신뢰할 수 있을 때만 **추가 정보 → 실행**을 선택하세요.
 
-### Linux / macOS 네이티브 설치
+### Linux / macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
 ```
 
-스크립트는 운영체제 확인, Python·Node.js·FFmpeg 준비, 프론트엔드 빌드, 가상환경 구성과 선택적 systemd 등록을 진행합니다.
+이 한 줄이 설치와 업데이트를 모두 처리합니다. 설치되어 있지 않으면 설치하고, 이미 설치되어 있으면 최신 버전으로 갱신한 뒤 재시작합니다. 의존성 확인, 프론트엔드 빌드, 가상환경 구성, systemd 등록까지 이어집니다.
+
+설치가 끝나면 어디서나 한 단어로 관리합니다.
 
 ```bash
-~/signal-recorder/start.sh
+signal-recorder status     # 상태 확인
+signal-recorder update     # 최신 버전으로 갱신
+signal-recorder start      # 시작
+signal-recorder stop       # 중지
+signal-recorder logs       # 로그 실시간 보기
+signal-recorder --help     # 전체 명령
+```
+
+설치 경로는 기본이 `~/signal-recorder`이며 `INSTALL_DIR`로 바꿀 수 있습니다.
+
+```bash
+INSTALL_DIR=/opt/signal-recorder curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
 ```
 
 자세한 내용은 [Linux 설치 가이드](docs/linux-guide.md)를 참고하세요.
 
 ### Docker
 
-자동 설치:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install-docker.sh | bash
-```
-
-이미 Docker와 Compose가 설치되어 있다면 저장소 루트에서 직접 실행할 수 있습니다.
+Docker로 띄우는 경우 위 스크립트는 쓰지 않습니다. 저장소 루트에서 바로 실행하세요.
 
 ```bash
 docker compose up --build -d
 ```
+
 
 기본 포트는 `8000`이며 `.env`의 `PORT`로 변경할 수 있습니다. 데이터는 다음 경로에 영속화됩니다.
 
@@ -229,7 +237,7 @@ npm run dev
 
 - 프론트엔드: `http://localhost:3000`
 - 백엔드와 API 문서: `http://localhost:8000`, `http://localhost:8000/docs`
-- Windows에서는 의존성 설치 후 `start-dev.bat`로 두 프로세스를 함께 열 수 있습니다.
+- Windows에서는 `scripts\manage.bat dev`로 백엔드와 프론트엔드 창을 함께 열 수 있습니다.
 
 ## 첫 실행 설정
 

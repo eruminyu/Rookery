@@ -44,53 +44,38 @@ export function UpdateModal({ info, onClose }: UpdateModalProps) {
                     </div>
                 );
             case "docker":
-                const dockerCommand = `cd $(dirname $(find / -name "docker-compose.yml" -path "*/signal-recorder/*" 2>/dev/null | head -1)) && docker-compose pull && docker-compose up -d`;
-                return (
-                    <div className="space-y-4">
-                        <p className="text-sm text-ink-muted">
-                            Docker 컨테이너로 실행 중입니다. 호스트 머신의 터미널에서 다음 명령어를 실행하여 이미지를 최신으로 교체하세요.
-                        </p>
-                        <div className="relative group">
-                            <div className="bg-surface-1 border border-line rounded-[var(--radius-control)] p-3 overflow-x-auto">
-                                <code className="text-xs text-[var(--primary)] font-mono whitespace-nowrap">
-                                    docker-compose pull && docker-compose up -d
-                                </code>
-                            </div>
-                            <button
-                                onClick={() => handleCopy("docker-compose pull && docker-compose up -d")}
-                                className="absolute top-2 right-2 p-1.5 bg-surface-3 hover:bg-surface-4 text-ink-faint hover:text-ink rounded-md transition-colors"
-                            >
-                                {copied ? <CheckCircle2 className="w-4 h-4 text-ok" /> : <Copy className="w-4 h-4" />}
-                            </button>
-                        </div>
-                        <p className="text-xs text-ink-faint">
-                            만약 원라이너 자동 설치 스크립트를 사용하셨다면, 기존 설치 명령어를 그대로 다시 실행하셔도 업데이트됩니다.
-                        </p>
-                    </div>
-                );
             case "linux-native":
             default:
-                const linuxCommand = `curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash`;
+                // 네이티브는 manage.sh가 설치한 signal-recorder 명령으로 끝난다.
+                // Docker는 manage.sh 대상이 아니므로 compose를 직접 쓴다.
+                const isDocker = info.environment === "docker";
+                const updateCommand = isDocker
+                    ? "git pull && docker compose up --build -d"
+                    : "signal-recorder update";
                 return (
                     <div className="space-y-4">
                         <p className="text-sm text-ink-muted">
-                            Linux Native 환경입니다. 터미널에서 아래의 원라이너 설치 스크립트를 다시 실행하시면 자동으로 최신 버전으로 업데이트 후 재시작됩니다.
+                            {isDocker
+                                ? "Docker로 실행 중입니다. 호스트 머신의 저장소 디렉토리에서 아래 명령을 실행하세요."
+                                : "터미널에서 아래 명령을 실행하면 최신 버전으로 갱신한 뒤 자동으로 재시작됩니다."}
                         </p>
                         <div className="relative group">
                             <div className="bg-surface-1 border border-line rounded-[var(--radius-control)] p-3 overflow-x-auto">
                                 <code className="text-xs text-[var(--primary)] font-mono whitespace-nowrap">
-                                    {linuxCommand}
+                                    {updateCommand}
                                 </code>
                             </div>
                             <button
-                                onClick={() => handleCopy(linuxCommand)}
+                                onClick={() => handleCopy(updateCommand)}
                                 className="absolute top-2 right-2 p-1.5 bg-surface-3 hover:bg-surface-4 text-ink-faint hover:text-ink rounded-md transition-colors"
                             >
                                 {copied ? <CheckCircle2 className="w-4 h-4 text-ok" /> : <Copy className="w-4 h-4" />}
                             </button>
                         </div>
                         <p className="text-xs text-ink-faint">
-                            ※ 스크립트 실행 시 시스템 패키지 관리를 위해 sudo 비밀번호를 요구할 수 있습니다.
+                            {isDocker
+                                ? "config/ 와 recordings/ 는 호스트에 마운트되어 있어 재빌드해도 유지됩니다."
+                                : "명령을 찾을 수 없다면 설치 원라이너를 그대로 다시 실행해도 업데이트됩니다. 시스템 패키지를 다룰 때 sudo 비밀번호를 물을 수 있습니다."}
                         </p>
                     </div>
                 );

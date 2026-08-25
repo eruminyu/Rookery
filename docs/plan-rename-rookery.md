@@ -68,8 +68,7 @@
 **변경 파일**
 - `backend/app/engine/updater.py:17` — `GITHUB_REPO = "eruminyu/Signal-Recorder"`
 - `frontend/src/components/ui/UpdateModal.tsx:30` — 릴리즈 asset 안내 `Signal_Recorder.exe`
-- `frontend/src/components/ui/UpdateModal.tsx:47` — docker-compose 경로 탐색 문자열 `*/signal-recorder/*`
-- `frontend/src/components/ui/UpdateModal.tsx:73` — `install.sh` 원라이너 URL
+- `frontend/src/components/ui/UpdateModal.tsx` — 업데이트 안내 명령 `signal-recorder update`
 
 **문제**
 리포 이름을 바꾸면 구버전 클라이언트의 업데이트 확인 경로가 영향을 받는다.
@@ -79,19 +78,20 @@ GitHub이 리다이렉트를 제공하지만 `raw.githubusercontent.com`과 릴�
 ### 3. 설치 스크립트
 
 **변경 파일**
-- `scripts/install.sh:5,20`
-- `scripts/install-docker.sh:5,20`
-- `scripts/signal-recorder.service` → `scripts/rookery.service` (파일명 변경)
-- `scripts/healthcheck.sh:17,44,45,116` (현재 untracked)
+- `scripts/manage.sh` — 원라이너 URL, `APP_NAME`, `SERVICE_NAME`, 기본 설치 경로, 유닛 정의
+- `scripts/manage.bat` — 안내 문구
+- `scripts/healthcheck.sh` — 설치 경로, systemd 유닛명, DB 파일명
 
 **문제**
-이미 배포된 `curl | bash` 원라이너가 죽는다. 기본 설치 경로 `~/signal-recorder`와
-systemd 유닛명도 함께 바뀌므로 기존 리눅스 사용자는 수동 마이그레이션이 필요하다.
+이미 배포된 `curl | bash` 원라이너가 죽는다. 설치 후 등록되는 명령 이름
+(`~/.local/bin/signal-recorder`), 기본 설치 경로 `~/signal-recorder`, systemd 유닛명이
+모두 바뀌므로 기존 리눅스 사용자는 마이그레이션이 필요하다.
 
 **구현 내용**
-- 신규 설치 경로 `~/rookery`, 유닛명 `rookery.service`
+- 신규 설치 경로 `~/rookery`, 명령 `rookery`, 유닛명 `rookery.service`
+- `resolve_install_dir()`의 레거시 경로 목록에 `~/signal-recorder`를 남겨 기존 설치를 이어받는다
+- 옛 유닛(`signal-recorder.service`)이 남아 있으면 제거 후 새 유닛을 등록한다
 - README와 릴리즈 노트의 설치 명령 동시 갱신
-- 기존 사용자용 마이그레이션 안내를 릴리즈 노트에 명시
 
 ### 4. 브라우저 저장 타이틀
 
@@ -136,7 +136,6 @@ systemd 유닛명도 함께 바뀌므로 기존 리눅스 사용자는 수동 �
 - UI 문자열 — `frontend/src/App.tsx:36`, `components/layout/Sidebar.tsx:168`,
   `components/SetupWizard.tsx:314`, `components/settings/AppearanceTab.tsx:70`
 - `scripts/generate_icon.py:3,21`
-- `scripts/install.bat:2`
 - `README.md`, `docs/` 문서
 
 `docs/done-*.md`는 당시 작업 기록이므로 **변경하지 않는다.** 원문 그대로 두는 편이 히스토리로서 정확하다.

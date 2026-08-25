@@ -2,59 +2,70 @@
 
 ## 📋 개요
 
-Linux 환경에서는 세 가지 방식으로 설치할 수 있습니다:
+설치 방법은 두 가지입니다.
 
 | 방식 | 대상 | 특징 |
 |------|------|------|
-| **원라이너 Native** | 서버/NAS (Docker 없이) | 한 줄 명령으로 전체 자동 설치 |
-| **원라이너 Docker** | 서버 배포 권장 | 격리 환경, 재현성 보장 |
-| **수동 설치** | 개발/고급 사용자 | 직접 제어 |
+| **원라이너** | 대부분의 경우 | 한 줄로 설치·업데이트·실행까지 전부 처리 |
+| **Docker** | 격리 배포 | [Docker 가이드](docker-guide.md) 참고 |
+| **수동 설치** | 개발/고급 사용자 | 단계별로 직접 제어 |
 
 ---
 
-## 🚀 방법 1: 원라이너 — Linux Native (권장: 일반 서버)
-
-터미널에 아래 명령어 하나만 입력하세요.  
-OS 감지 → 의존성 설치 → 빌드 → venv 설정 → systemd 등록까지 전부 자동으로 처리합니다.
+## 🚀 방법 1: 원라이너 (권장)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
 ```
 
-**자동으로 처리되는 것들:**
-- ✅ Ubuntu/Debian/CentOS/Fedora/Arch OS 자동 감지
-- ✅ Python 3.12, ffmpeg, Node.js 자동 설치
-- ✅ 프론트엔드 빌드 (React → 정적 파일)
-- ✅ Python 가상환경(.venv) 생성 및 의존성 설치
-- ✅ systemd 서비스 등록 (선택, 부팅 시 자동 실행)
+이 한 줄이 설치와 업데이트를 겸합니다. 설치되어 있지 않으면 설치하고, 이미 설치되어 있으면 최신 버전으로 갱신한 뒤 재시작합니다.
 
-> **설치 경로 변경:** 기본 설치 경로는 `~/signal-recorder` 입니다.
+Docker로 배포하는 경우에는 이 스크립트를 쓰지 않습니다. [Docker 가이드](docker-guide.md)를 참고하세요.
+
+**자동으로 처리되는 것**
+
+- Ubuntu / Debian / CentOS / Fedora / Arch / macOS 감지
+- Python 3.10+, ffmpeg 6+, Node.js 20+ 설치
+- 프론트엔드 빌드 (React → 정적 파일) 및 Python 가상환경 구성
+- systemd 서비스 등록 (선택, 부팅 시 자동 실행)
+- 헬스체크로 정상 기동 확인
+
+### 설치 후 관리
+
+설치가 끝나면 `signal-recorder` 명령이 `~/.local/bin`에 등록됩니다.
+
+```bash
+signal-recorder status          # 상태 요약
+signal-recorder status --full   # 상세 점검 (프로세스·DB·디스크·로그)
+signal-recorder update          # 최신 버전으로 갱신 후 재시작
+signal-recorder start           # 시작
+signal-recorder stop            # 중지
+signal-recorder restart         # 재시작
+signal-recorder logs            # 로그 실시간 보기
+signal-recorder service install # systemd 등록
+signal-recorder service remove  # systemd 해제
+signal-recorder uninstall       # 제거 (녹화 파일·데이터는 유지)
+```
+
+> `~/.local/bin`이 PATH에 없다는 경고가 나오면 셸 설정에 아래를 추가하세요.
 > ```bash
-> INSTALL_DIR=/opt/signal-recorder curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash
+> export PATH="$HOME/.local/bin:$PATH"
 > ```
 
----
-
-## 🐳 방법 2: 원라이너 — Docker (권장: 격리 배포)
-
-Docker가 없는 서버에도 사용 가능합니다. Docker Engine 설치까지 자동으로 처리합니다.
+### 옵션
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install-docker.sh | bash
+# 설치 경로 변경 (기본: ~/signal-recorder)
+INSTALL_DIR=/opt/signal-recorder curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
+
+# 명시적으로 설치만 수행 (업데이트 판단 없이)
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash -s -- install
 ```
-
-**자동으로 처리되는 것들:**
-- ✅ Docker Engine 자동 설치 (없는 경우)
-- ✅ Docker Compose 플러그인 자동 설치
-- ✅ 저장소 클론 및 이미지 빌드
-- ✅ 컨테이너 백그라운드 실행
-- ✅ 헬스체크로 정상 시작 확인
-
-설치 완료 후 출력되는 관리 명령어로 컨테이너를 제어하세요.
 
 ---
 
-## 🔧 방법 3: 수동 설치 (고급 사용자)
+
+## 🔧 방법 2: 수동 설치 (고급 사용자)
 
 ### 사전 요구사항
 
@@ -153,31 +164,28 @@ sudo firewall-cmd --reload
 
 ## 🔄 재설치 / 완전 초기화
 
-재설치 전에 반드시 기존 서비스를 먼저 정리하세요.
-**정리하지 않으면 포트 충돌로 서버가 시작되지 않습니다.**
+대부분의 경우 재설치할 필요 없이 `signal-recorder update` 로 충분합니다.
+완전히 지우고 다시 깔아야 한다면:
 
 ```bash
-# 1. systemd 서비스 중지 및 제거
-sudo systemctl stop signal-recorder
-sudo systemctl disable signal-recorder
-sudo rm -f /etc/systemd/system/signal-recorder.service
-sudo systemctl daemon-reload
+# 1. 서비스와 실행 환경 정리 (녹화 파일과 data/ 는 남습니다)
+signal-recorder uninstall
 
-# 2. 설치 디렉토리 삭제
+# 2. 저장소까지 지우려면
 rm -rf ~/signal-recorder
 
 # 3. 재설치
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
 ```
 
-> ⚠️ **포트가 이미 사용 중이라는 오류가 나는 경우**
-> systemd 서비스가 이미 8000 포트를 점유하고 있는 상태입니다.
-> 위의 1번 단계(서비스 중지)만 실행 후 재시도하세요.
+> ⚠️ **`address already in use` 오류가 나는 경우**
+> 기존 서비스가 포트를 점유하고 있는 상태입니다. 먼저 중지하세요.
 > ```bash
-> sudo systemctl stop signal-recorder
+> signal-recorder stop
 > ```
 
 ---
+
 
 ## 🛠️ 트러블슈팅
 

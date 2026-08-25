@@ -7,7 +7,7 @@
 | Windows (빌드 전) | 기능/API 최종 검증 | Python + Vite dev server |
 | Windows (빌드 후) | 통합 서버 및 `.exe` 검증 | PyInstaller 빌드 후 실행 |
 | Ubuntu VM (Docker) | 컨테이너 배포 검증 | `docker compose up` |
-| Ubuntu VM (설치형) | Linux Native 배포 검증 | `install.sh` + Native 실행 |
+| Ubuntu VM (설치형) | Linux Native 배포 검증 | `manage.sh` + Native 실행 |
 
 > [!NOTE]
 > **빌드 후 테스트부터는 `.env`를 직접 편집하지 않아도 됩니다.**
@@ -162,7 +162,7 @@ cd /path/to/Signal-Recorder
 
 ### 설치 스크립트 실행
 ```bash
-bash scripts/install.sh
+bash scripts/manage.sh install --native
 # .env 파일이 자동으로 .env.example에서 복사됨
 # → 직접 편집 불필요, 마법사에서 설정 가능
 ```
@@ -187,10 +187,10 @@ cd /path/to/Signal-Recorder/backend
 
 ### systemd 서비스 등록 (선택사항)
 ```bash
-sudo bash scripts/setup_service.sh /path/to/Signal-Recorder $USER
+signal-recorder service install
 
-sudo systemctl status signal-recorder@$USER
-sudo journalctl -u signal-recorder@$USER -f
+sudo systemctl status signal-recorder
+sudo journalctl -u signal-recorder -f
 ```
 
 ### 체크리스트

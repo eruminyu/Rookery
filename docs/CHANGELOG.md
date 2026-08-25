@@ -25,6 +25,19 @@
 - **`auth.py` `get_streamlink_options()`**: Streamlink 쿠키 주입 헬퍼 메서드
 
 ### Changed
+- **설치·실행·업데이트 스크립트를 하나로 통합** (`scripts/manage.sh`, `scripts/manage.bat`)
+  - 제거: `install.sh`, `install-docker.sh`, `update-docker.sh`, `setup_service.sh`,
+    `signal-recorder.service`, `install.bat`, `start.bat`, `start-dev.bat`
+  - 색상 변수·출력 헬퍼·OS 감지·저장소 클론·완료 메시지가 스크립트마다 2~3벌씩
+    중복되어 있었고, systemd 유닛이 일반 유닛과 템플릿 유닛 두 갈래로 갈라져 있었다
+  - 원라이너 하나가 설치와 업데이트를 겸한다. 미설치면 설치, 설치되어 있으면 갱신 후 재시작
+  - 설치 후 `signal-recorder` 명령이 등록되어 `status` / `update` / `start` / `stop` /
+    `logs` / `service` / `uninstall` 을 한 단어로 실행한다
+  - 네이티브 설치 전용이다. Docker는 `docker compose up --build -d` 를 직접 사용한다
+  - **기존 사용자 영향**: 원라이너 URL이 `scripts/install.sh` → `scripts/manage.sh` 로 바뀌었다.
+    네이티브 설치에는 그동안 업데이트 스크립트가 없었으나 이제 `signal-recorder update` 로 갱신한다.
+- **`.gitattributes` 추가**: `*.sh` 는 LF, `*.bat` 은 CRLF로 고정.
+  셸 스크립트가 CRLF로 체크아웃되면 셔뱅이 `bash` 로 읽혀 원라이너 설치가 실패한다.
 - **Discord 봇 명령을 슬래시 커맨드 전용으로 전환** (기존 `!` 프리픽스 명령 제거)
   - 프리픽스와 슬래시로 중복 구현되어 있던 핸들러 10개 제거 — 공통 로직은 이미 헬퍼로 분리되어 있어 기능 손실 없음
   - `message_content` privileged intent 요구 제거 → Discord 개발자 포털에서 별도 활성화 불필요
