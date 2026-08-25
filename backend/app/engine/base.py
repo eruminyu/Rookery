@@ -42,14 +42,17 @@ class LiveStatus(TypedDict, total=False):
 class PlatformEngine(Protocol):
     """플랫폼 엔진 프로토콜.
 
-    StreamLinkEngine, TwitcastingEngine, XSpacesEngine이 이를 구현한다.
-    @runtime_checkable 덕분에 isinstance() 체크 가능.
+    ChzzkLiveEngine, TwitcastingEngine, YoutubeLiveEngine이 이를 구현한다.
+    X Spaces는 스트림 URL이 아니라 space_id로 녹화하므로 이 프로토콜을 따르지
+    않고 Conductor가 별도 경로로 처리한다.
+
+    @runtime_checkable 덕분에 isinstance() 체크가 가능하다.
     """
 
     async def check_live_status(self, channel_id: str) -> LiveStatus:
         """채널의 라이브 상태를 확인한다."""
         ...
 
-    def get_stream(self, channel_id: str, quality: str = "best") -> object:
-        """스트림 객체를 반환한다 (X Spaces는 NotImplementedError)."""
+    def get_stream_url(self, channel_id: str) -> str:
+        """yt-dlp에 넘길 라이브 페이지 URL을 반환한다."""
         ...

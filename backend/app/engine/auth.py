@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from app.core.config import get_settings
+from app.core.http import USER_AGENT
 from app.core.logger import logger
 
 
@@ -35,6 +36,9 @@ class AuthManager:
     HTTP 헤더 또는 옵션을 생성한다.
     """
 
+    #: 비로그인 경고를 인스턴스마다 반복 출력하지 않기 위한 클래스 단위 플래그.
+    _warned_anonymous = False
+
     def __init__(
         self,
         nid_aut: Optional[str] = None,
@@ -52,19 +56,18 @@ class AuthManager:
     def get_cookies(self) -> Optional[ChzzkCookies]:
         """쿠키 객체를 반환. 미설정 시 None."""
         if not self.is_authenticated:
-            logger.warning("인증 쿠키가 설정되지 않았습니다. 비로그인 모드로 동작합니다.")
+            # 감시 루프가 채널마다 30초 간격으로 호출하므로 한 번만 알린다.
+            if not AuthManager._warned_anonymous:
+                AuthManager._warned_anonymous = True
+                logger.warning(
+                    "인증 쿠키가 설정되지 않았습니다. 비로그인 모드로 동작합니다."
+                )
             return None
         return ChzzkCookies(nid_aut=self._nid_aut, nid_ses=self._nid_ses)  # type: ignore[arg-type]
 
     def get_http_headers(self) -> dict[str, str]:
-        """Streamlink/httpx용 HTTP 헤더 딕셔너리 반환."""
-        headers: dict[str, str] = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/131.0.0.0 Safari/537.36"
-            ),
-        }
+        """httpx/yt-dlp용 HTTP 헤더 딕셔너리 반환."""
+        headers: dict[str, str] = {"User-Agent": USER_AGENT}
         cookies = self.get_cookies()
         if cookies:
             headers["Cookie"] = cookies.to_cookie_string()

@@ -12,6 +12,7 @@ from typing import Optional
 import httpx
 
 from app.core.config import get_settings
+from app.core.http import get_http_client
 from app.core.logger import logger
 from app.engine.base import LiveStatus
 
@@ -58,12 +59,11 @@ class TwitcastingEngine:
             **self._get_auth_header(),
         }
 
-        async with httpx.AsyncClient() as client:
-            try:
-                resp = await client.get(url, headers=headers, timeout=10.0)
-            except httpx.RequestError as e:
-                logger.error(f"[TwitCasting:{channel_id}] API 요청 실패: {e}")
-                return self._offline_status(channel_id)
+        try:
+            resp = await get_http_client().get(url, headers=headers)
+        except httpx.RequestError as e:
+            logger.error(f"[TwitCasting:{channel_id}] API 요청 실패: {e}")
+            return self._offline_status(channel_id)
 
         # 404 = 오프라인 (공식 동작)
         if resp.status_code == 404:
@@ -118,12 +118,11 @@ class TwitcastingEngine:
         }
         params = {"offset": offset, "limit": min(limit, 50)}
 
-        async with httpx.AsyncClient() as client:
-            try:
-                resp = await client.get(url, headers=headers, params=params, timeout=10.0)
-            except httpx.RequestError as e:
-                logger.error(f"[TwitCasting:{channel_id}] 아카이브 목록 요청 실패: {e}")
-                raise RuntimeError(f"API 요청 실패: {e}") from e
+        try:
+            resp = await get_http_client().get(url, headers=headers, params=params)
+        except httpx.RequestError as e:
+            logger.error(f"[TwitCasting:{channel_id}] 아카이브 목록 요청 실패: {e}")
+            raise RuntimeError(f"API 요청 실패: {e}") from e
 
         if resp.status_code == 401:
             raise PermissionError("TwitCasting 인증 실패: Client ID/Secret을 확인하세요.")

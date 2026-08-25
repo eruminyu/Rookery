@@ -11,6 +11,7 @@ import asyncio
 import httpx
 from app.core.logger import logger
 from app.core.config import get_settings
+from app.core.http import get_http_client
 from app.engine.base import LiveStatus
 
 
@@ -25,36 +26,28 @@ class YoutubeLiveEngine:
             handle = channel_id if channel_id.startswith("@") else f"@{channel_id}"
             url = f"https://www.youtube.com/{handle}/live"
 
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
-            ),
-            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-        }
+        headers = {"Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7"}
 
         # 1차 체크: 가벼운 HTML 스크래핑으로 감지
         is_live = False
         html = ""
         redirected_url = url
 
-        async with httpx.AsyncClient(follow_redirects=True) as client:
-            try:
-                resp = await client.get(url, headers=headers, timeout=10.0)
-                if resp.status_code == 200:
-                    html = resp.text
-                    redirected_url = str(resp.url)
-                    # "isLive":true 또는 "isLiveStreaming":true 확인
-                    # 혹은 리다이렉트된 주소가 watch?v= 인 경우
-                    if (
-                        '"isLive":true' in html
-                        or '"isLiveStreaming":true' in html
-                        or ("watch?v=" in redirected_url)
-                    ):
-                        is_live = True
-            except httpx.RequestError as e:
-                logger.error(f"[YouTube:{channel_id}] HTML 스크래핑 요청 실패: {e}")
+        try:
+            resp = await get_http_client().get(url, headers=headers, follow_redirects=True)
+            if resp.status_code == 200:
+                html = resp.text
+                redirected_url = str(resp.url)
+                # "isLive":true 또는 "isLiveStreaming":true 확인
+                # 혹은 리다이렉트된 주소가 watch?v= 인 경우
+                if (
+                    '"isLive":true' in html
+                    or '"isLiveStreaming":true' in html
+                    or ("watch?v=" in redirected_url)
+                ):
+                    is_live = True
+        except httpx.RequestError as e:
+            logger.error(f"[YouTube:{channel_id}] HTML 스크래핑 요청 실패: {e}")
 
         # 2차 체크: HTML로 명확히 감지되지 않았지만 차단 등으로 인한 이슈일 수 있어 yt-dlp 덤프 백업 적용
         if not is_live:

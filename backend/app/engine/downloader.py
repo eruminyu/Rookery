@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from typing import Optional
 
-import httpx
-
+from app.core.http import get_http_client
 from app.core.logger import logger
 from app.engine.auth import AuthManager
+from app.engine.base import LiveStatus
 
 # ── 치지직 API ──────────────────────────────────────────
 CHZZK_API_BASE = "https://api.chzzk.naver.com"
@@ -29,7 +29,7 @@ class ChzzkLiveEngine:
     def __init__(self, auth: Optional[AuthManager] = None) -> None:
         self._auth = auth or AuthManager()
 
-    async def check_live_status(self, channel_id: str) -> dict:
+    async def check_live_status(self, channel_id: str) -> LiveStatus:
         """치지직 API를 통해 채널의 라이브 상태를 확인한다.
 
         Returns:
@@ -38,10 +38,10 @@ class ChzzkLiveEngine:
         url = CHZZK_LIVE_DETAIL.format(channel_id=channel_id)
         headers = self._auth.get_http_headers()
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=headers, timeout=10.0)
-            resp.raise_for_status()
-            data = resp.json()
+        # 공용 클라이언트를 써서 폴링마다 TLS 핸드셰이크를 반복하지 않는다.
+        resp = await get_http_client().get(url, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
 
         content = data.get("content") or {}
         status = content.get("status", "CLOSE")

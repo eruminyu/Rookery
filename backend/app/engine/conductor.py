@@ -7,8 +7,6 @@ Signal-Recorder: Conductor (비동기 오케스트레이터)
 from __future__ import annotations
 
 import asyncio
-import json
-from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -17,9 +15,12 @@ from app.core.config import get_settings
 from app.core.logger import logger
 from app.engine.auth import AuthManager
 from app.engine.base import Platform
+from app.engine.channel import ChannelTask
 from app.engine.chat import ChatArchiver
 from app.engine.downloader import ChzzkLiveEngine
+from app.engine.events import EventBus
 from app.engine.pipeline import YtdlpLivePipeline, RecordingState
+from app.engine.spaces_recorder import SpacesRecorder
 from app.services.notifications import NotificationKind
 from app.store.repositories import ChannelRepository, LiveHistoryRepository
 
@@ -28,39 +29,6 @@ if TYPE_CHECKING:
     from app.engine.twitcasting import TwitcastingEngine
     from app.engine.x_spaces import XSpacesEngine
     from app.engine.youtube import YoutubeLiveEngine
-
-
-@dataclass
-class ChannelTask:
-    """감시 대상 채널 정보."""
-
-    channel_id: str
-    platform: Platform = Platform.CHZZK
-    auto_record: bool = True
-    pipeline: Optional[YtdlpLivePipeline] = field(default=None, repr=False)
-    chat_archiver: Optional[ChatArchiver] = field(default=None, repr=False)
-    monitor_task: Optional[asyncio.Task] = field(default=None, repr=False)
-    is_live: bool = False
-    channel_name: Optional[str] = None
-    title: Optional[str] = None
-    category: Optional[str] = None
-    viewer_count: int = 0
-    thumbnail_url: Optional[str] = None
-    profile_image_url: Optional[str] = None
-    tags: list[str] = field(default_factory=list)
-    last_error: Optional[str] = None
-    # X Spaces 전용
-    spaces_process: Optional[asyncio.subprocess.Process] = field(default=None, repr=False)
-    spaces_output_path: Optional[str] = None
-    _current_space_id: Optional[str] = None
-    # X Spaces 전용: 라이브 중 캡처한 dynamic m3u8 URL
-    captured_m3u8_url: Optional[str] = None
-    captured_m3u8_at: Optional[str] = None
-    # X Spaces 전용: master_playlist.m3u8 (안정적, 종료 후 ~30일 유효)
-    master_url: Optional[str] = None
-    master_url_captured_at: Optional[str] = None
-    # X Spaces 전용: master URL이 저장된 .txt 파일 경로 (녹화 실패 시 백업용)
-    master_url_file: Optional[str] = None
 
 
 class Conductor:
@@ -102,7 +70,8 @@ class Conductor:
         self._channel_repo = channel_repo or ChannelRepository()
         self._history_repo = history_repo or LiveHistoryRepository()
         self._notifier = notifier
-        self._event_queues: list[asyncio.Queue] = []
+        self._events = EventBus()
+        self._spaces = SpacesRecorder(lambda: self._get_engine(Platform.X_SPACES))
         # 즉시 스캔 이벤트: composite_key → asyncio.Event
         self._scan_events: dict[str, asyncio.Event] = {}
         # X 쿠키 유효성 상태
@@ -387,8 +356,8 @@ class Conductor:
                 t.pipeline is not None and t.pipeline.state == RecordingState.RECORDING
                 for t in self._channels.values()
             )
-            if any_recording and self._event_queues:
-                self.broadcast_event("status_update", self.get_all_status())
+            if any_recording and self._events.subscriber_count:
+                self._broadcast_status()
 
     async def _cookie_check_loop(self) -> None:
         """X 쿠키 유효성을 하루 1회 주기로 검증한다."""
@@ -558,29 +527,18 @@ class Conductor:
 
     def _broadcast_status(self) -> None:
         """현재 전체 채널 상태를 SSE로 밀어낸다."""
-        self.broadcast_event("status_update", self.get_all_status())
+        self._events.publish("status_update", self.get_all_status())
 
     # ── SSE 이벤트 Pub-Sub ─────────────────────────────────
 
     def add_event_queue(self, queue: asyncio.Queue) -> None:
-        self._event_queues.append(queue)
+        self._events.subscribe(queue)
 
     def remove_event_queue(self, queue: asyncio.Queue) -> None:
-        if queue in self._event_queues:
-            self._event_queues.remove(queue)
+        self._events.unsubscribe(queue)
 
     def broadcast_event(self, event_type: str, data: Optional[dict | list] = None) -> None:
-        if not self._event_queues:
-            return
-        payload = {"type": event_type}
-        if data is not None:
-            payload["data"] = data
-        msg = f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-        for q in self._event_queues:
-            try:
-                q.put_nowait(msg)
-            except asyncio.QueueFull:
-                pass
+        self._events.publish(event_type, data)
 
     def _load_persistence(self) -> None:
         """저장소에서 채널 목록을 복원한다."""
@@ -667,7 +625,7 @@ class Conductor:
                         task.captured_m3u8_url = new_m3u8
                         task.captured_m3u8_at = now_iso
                         # master URL을 파일로 저장 (녹화 실패 시 백업)
-                        task.master_url_file = self._save_master_url_file(
+                        task.master_url_file = self._spaces.save_master_url_file(
                             task, new_master, task._current_space_id
                         )
                         logger.info(
@@ -747,41 +705,21 @@ class Conductor:
                     logger.info(f"[{composite_key}] ⚫ 방송 종료 감지.")
                     # X Spaces: 다음 Space를 위해 master_url 초기화
                     if task.platform == Platform.X_SPACES:
-                        task.master_url = None
-                        task.master_url_captured_at = None
-                        task.captured_m3u8_url = None
-                        task.captured_m3u8_at = None
-                        task.master_url_file = None
-                        task._current_space_id = None
+                        task.clear_space_capture()
                         self._save_capture_state(composite_key)
                         self._broadcast_status()
                         logger.info(f"[{composite_key}] 🎙️ Space 종료 — master URL 초기화 완료.")
                     await self._stop_recording(composite_key)
                     retry_count = 0
 
-                # ── 채팅 아카이빙 동적 시작 (Chzzk 전용, 녹화 중 설정이 켜진 경우) ──
+                # ── 채팅 아카이빙 동적 시작 (녹화 도중 설정을 켠 경우) ──
                 elif (
                     status["is_live"]
-                    and task.platform == Platform.CHZZK
                     and task.pipeline is not None
                     and task.pipeline.state == RecordingState.RECORDING
                     and task.chat_archiver is None
-                    and get_settings().chat_archive_enabled
                 ):
-                    try:
-                        output_file = task.pipeline.get_status().get("output_path")
-                        if output_file:
-                            chat_file = Path(output_file).with_suffix(".jsonl")
-                            archiver = ChatArchiver(
-                                channel_id=task.channel_id,
-                                output_path=chat_file,
-                                auth=self._auth,
-                            )
-                            await archiver.start()
-                            task.chat_archiver = archiver
-                            logger.info(f"[{composite_key}] 채팅 아카이빙 동적 시작: {chat_file}")
-                    except Exception as e:
-                        logger.error(f"[{composite_key}] 채팅 아카이빙 동적 시작 실패: {e}")
+                    await self._start_chat_archiver(composite_key, task, reason="동적 시작")
 
                 # ── 녹화 오류 시 자동 재시작 (Chzzk/TwitCasting 전용) ──
                 elif status["is_live"] and task.auto_record and task.platform != Platform.X_SPACES:
@@ -826,6 +764,46 @@ class Conductor:
                     pass
             else:
                 await asyncio.sleep(interval)
+
+    async def _start_chat_archiver(
+        self,
+        composite_key: str,
+        task: ChannelTask,
+        reason: str = "시작",
+    ) -> None:
+        """녹화 중인 채널의 채팅 아카이빙을 시작한다.
+
+        녹화 시작 직후와, 녹화 도중 설정을 켠 경우 양쪽에서 호출된다.
+        채팅 저장 실패가 녹화를 중단시켜서는 안 되므로 예외를 삼킨다.
+        """
+        # 채팅 아카이빙은 Chzzk만 지원한다.
+        if task.platform != Platform.CHZZK:
+            return
+        if not get_settings().chat_archive_enabled:
+            return
+        if task.chat_archiver is not None:
+            return
+
+        pipeline = task.pipeline
+        if pipeline is None:
+            return
+
+        try:
+            output_file = pipeline.get_status().get("output_path")
+            if not output_file:
+                return
+
+            chat_file = Path(output_file).with_suffix(".jsonl")
+            archiver = ChatArchiver(
+                channel_id=task.channel_id,
+                output_path=chat_file,
+                auth=self._auth,
+            )
+            await archiver.start()
+            task.chat_archiver = archiver
+            logger.info(f"[{composite_key}] 채팅 아카이빙 {reason}: {chat_file}")
+        except Exception as e:
+            logger.error(f"[{composite_key}] 채팅 아카이빙 {reason} 실패: {e}")
 
     async def _stop_recording(self, composite_key: str) -> None:
         """채널의 녹화 및 채팅 아카이빙을 중지한다."""
@@ -879,7 +857,7 @@ class Conductor:
         # 파이프라인 레퍼런스 정리 (모니터 루프의 의도치 않은 자동 재시작 방지)
         task.pipeline = None
         # 정지 후 프론트엔드에 즉시 상태 업데이트
-        self.broadcast_event("status_update", self.get_all_status())
+        self._broadcast_status()
 
     async def _start_recording(
         self,
@@ -936,23 +914,8 @@ class Conductor:
                     fields={"화질": quality, "플랫폼": task.platform.value},
                 )
 
-            # ── 채팅 아카이빙 시작 (Chzzk 전용) ──
-            if task.platform == Platform.CHZZK and settings.chat_archive_enabled:
-                try:
-                    recording_status = pipeline.get_status()
-                    output_file = recording_status.get("output_path")
-                    if output_file:
-                        chat_file = Path(output_file).with_suffix(".jsonl")
-                        archiver = ChatArchiver(
-                            channel_id=task.channel_id,
-                            output_path=chat_file,
-                            auth=self._auth,
-                        )
-                        await archiver.start()
-                        task.chat_archiver = archiver
-                        logger.info(f"[{composite_key}] 채팅 아카이빙 시작: {chat_file}")
-                except Exception as e:
-                    logger.error(f"[{composite_key}] 채팅 아카이빙 시작 실패: {e}")
+            # ── 채팅 아카이빙 시작 ──
+            await self._start_chat_archiver(composite_key, task)
         except Exception as e:
             task.last_error = f"녹화 시작 오류: {str(e)}"
             logger.error(f"[{composite_key}] 녹화 시작 실패: {e}")
@@ -965,7 +928,7 @@ class Conductor:
             )
 
         # 녹화 시작/실패 후 프론트엔드에 즉시 상태 업데이트
-        self.broadcast_event("status_update", self.get_all_status())
+        self._broadcast_status()
 
     async def _start_spaces_recording(
         self,
@@ -973,36 +936,23 @@ class Conductor:
         channel_name: Optional[str] = None,
         title: Optional[str] = None,
     ) -> None:
-        """X Spaces를 yt-dlp subprocess로 녹화 시작한다."""
+        """X Spaces 녹화를 시작한다 (프로세스 관리는 SpacesRecorder가 담당)."""
         task = self._channels.get(composite_key)
         if task is None:
             return
-        if task._current_space_id is None:
-            logger.error(f"[{composite_key}] Space ID 없음. 녹화 불가.")
-            return
+
+        display_name = channel_name or task.display_name
 
         try:
-            from app.engine.x_spaces import XSpacesEngine
-            engine: XSpacesEngine = self._get_engine(Platform.X_SPACES)
-
-            settings = get_settings()
-            process, output_path = await engine.start_ytdlp_recording(
-                space_id=task._current_space_id,
-                output_dir=settings.download_dir,
-                channel_name=channel_name or task.channel_name or task.channel_id,
-                title=title or task.title,
-                cookie_file=settings.x_cookie_file,
+            await self._spaces.start(task, channel_name=channel_name, title=title)
+            logger.info(
+                f"[{composite_key}] X Spaces 녹화 시작 "
+                f"(space_id={task._current_space_id})."
             )
-            task.spaces_process = process
-            task.spaces_output_path = output_path
-            logger.info(f"[{composite_key}] X Spaces 녹화 시작 (space_id={task._current_space_id}).")
-
             self._notify(
                 NotificationKind.RECORDING_STARTED,
                 title="🎬 Spaces 녹화 시작",
-                description=(
-                    f"채널: **{channel_name or composite_key}**\n제목: {title or 'N/A'}"
-                ),
+                description=f"채널: **{display_name}**\n제목: {title or 'N/A'}",
                 color="green",
                 fields={"플랫폼": "X Spaces"},
             )
@@ -1012,86 +962,20 @@ class Conductor:
             self._notify(
                 NotificationKind.RECORDING_FAILED,
                 title="❌ Spaces 녹화 시작 실패",
-                description=f"채널: **{channel_name or composite_key}**\n오류: {str(e)}",
+                description=f"채널: **{display_name}**\n오류: {str(e)}",
                 color="red",
             )
 
-        # 녹화 시작/실패 후 프론트엔드에 즉시 상태 업데이트
-        self.broadcast_event("status_update", self.get_all_status())
-
-    def _save_master_url_file(
-        self,
-        task: "ChannelTask",
-        master_url: str,
-        space_id: Optional[str],
-    ) -> Optional[str]:
-        """master URL을 .txt 파일로 저장하고 파일 경로를 반환한다.
-
-        녹화가 실패하더라도 나중에 수동으로 다운로드할 수 있도록 백업용으로 저장한다.
-        저장 위치: {download_dir}/x_spaces_urls/{channel}_{space_id}_{datetime}.txt
-        """
-        try:
-            settings = get_settings()
-            now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            channel_name = task.channel_name or task.channel_id
-            safe_name = "".join(c for c in channel_name if c.isalnum() or c in "-_@")
-            sid = (space_id or "unknown")[:20]
-            filename = f"{safe_name}_{sid}_{now_str}.txt"
-
-            url_dir = Path(settings.download_dir) / "x_spaces_urls"
-            url_dir.mkdir(parents=True, exist_ok=True)
-            file_path = url_dir / filename
-
-            content = (
-                f"X Spaces Master URL\n"
-                f"{'=' * 50}\n"
-                f"채널: @{channel_name}\n"
-                f"제목: {task.title or 'N/A'}\n"
-                f"Space ID: {space_id or 'unknown'}\n"
-                f"캡처 시각: {now_str}\n"
-                f"\nMaster URL (안정적, ~30일 유효):\n{master_url}\n"
-                f"\n다운로드 방법:\n"
-                f"  yt-dlp \"{master_url}\" -o \"{channel_name}_%(title)s.%(ext)s\"\n"
-            )
-            file_path.write_text(content, encoding="utf-8")
-            logger.info(f"[{task.channel_id}] 🗂️ Master URL 파일 저장: {file_path}")
-            return str(file_path)
-        except Exception as e:
-            logger.error(f"[{task.channel_id}] Master URL 파일 저장 실패: {e}")
-            return None
+        self._broadcast_status()
 
     async def _stop_spaces_recording(self, composite_key: str) -> None:
-        """X Spaces yt-dlp 프로세스를 종료한다."""
+        """X Spaces 녹화 프로세스를 종료한다."""
         task = self._channels.get(composite_key)
         if task is None or task.spaces_process is None:
             return
 
-        proc = task.spaces_process
-        output_path = task.spaces_output_path
-        try:
-            if proc.returncode is None:
-                proc.terminate()
-                try:
-                    await asyncio.wait_for(proc.wait(), timeout=10.0)
-                except asyncio.TimeoutError:
-                    proc.kill()
-            task.spaces_process = None
-            task.spaces_output_path = None
-            task._current_space_id = None
-            logger.info(f"[{composite_key}] Spaces 녹화 중지.")
-
-            # yt-dlp가 SIGTERM으로 종료되면 .part 파일이 남을 수 있음 → rename
-            if output_path:
-                part_file = Path(output_path + ".part")
-                final_file = Path(output_path)
-                if part_file.exists() and not final_file.exists():
-                    part_file.rename(final_file)
-                    logger.info(f"[{composite_key}] .part 파일 rename 완료: {final_file.name}")
-        except Exception as e:
-            logger.error(f"[{composite_key}] Spaces 녹화 중지 실패: {e}")
-
-        # 정지 후 프론트엔드에 즉시 상태 업데이트
-        self.broadcast_event("status_update", self.get_all_status())
+        await self._spaces.stop(task, label=composite_key)
+        self._broadcast_status()
 
     async def start_manual_recording(self, composite_key: str) -> dict:
         """수동으로 특정 채널의 녹화를 시작한다."""

@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings, resolve_data_dir
+from app.core.http import close_http_client
 from app.core.logger import logger
 from app.engine.auth import AuthManager
 from app.engine.conductor import Conductor
@@ -150,6 +151,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await _notification_service.stop()
     if discord_bot:
         await discord_bot.stop()
+    await close_http_client()
     # 저장소는 마지막에 닫는다 — 위 종료 과정에서 아직 쓰기가 발생한다.
     close_database()
     _recorder_service = None
