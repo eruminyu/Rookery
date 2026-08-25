@@ -18,12 +18,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.core.config import get_settings
+from app.core.config import get_settings, resolve_data_dir
 from app.core.logger import logger
 from app.engine.auth import AuthManager
 from app.engine.conductor import Conductor
 from app.services.recorder import RecorderService
 from app.services.discord_bot import DiscordBotService
+from app.services.notifications import DiscordWebhookTransport, NotificationService
 from app.engine.updater import UpdaterService
 from app.version import __version__
 
@@ -43,6 +44,14 @@ from app.api.system import router as system_router
 # ── 전역 인스턴스 ────────────────────────────────────────
 _recorder_service: RecorderService | None = None
 _updater_service: UpdaterService | None = None
+_notification_service: NotificationService | None = None
+
+
+def get_notification_service() -> NotificationService:
+    """NotificationService 인스턴스를 반환한다. (DI용)"""
+    if _notification_service is None:
+        raise RuntimeError("NotificationService가 초기화되지 않았습니다.")
+    return _notification_service
 
 def get_updater_service() -> UpdaterService:
     """UpdaterService 인스턴스를 반환한다. (DI용)"""
@@ -61,7 +70,7 @@ def get_recorder_service() -> RecorderService:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """애플리케이션 시작/종료 라이프사이클 관리."""
-    global _recorder_service, _updater_service
+    global _recorder_service, _updater_service, _notification_service
 
     settings = get_settings()
     logger.info(f"🚀 {settings.app_name} 시작 중...")
@@ -80,10 +89,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"⚠️ yt-dlp 확인 실패: {e}")
 
+    # ── 알림 서비스 ──────────────────────────────────────
+    # 전송 채널보다 먼저 만들어 두면 부팅 중 발생한 알림도 큐에 쌓였다가 전송된다.
+    _notification_service = NotificationService(data_dir=resolve_data_dir())
+
     # 서비스 초기화
     auth = AuthManager()
-    conductor = Conductor(auth=auth)
-    _recorder_service = RecorderService(conductor=conductor, auth=auth)
+    conductor = Conductor(auth=auth, notifier=_notification_service)
+    _recorder_service = RecorderService(
+        conductor=conductor, auth=auth, notifier=_notification_service
+    )
 
     if auth.is_authenticated:
         logger.info("🔑 인증 쿠키 로드 완료.")
@@ -91,16 +106,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("🔓 비로그인 모드로 동작합니다.")
 
     # Discord Bot 시작 (토큰이 설정되어 있으면 자동 구동)
-    discord_bot = DiscordBotService(recorder_service=_recorder_service)
+    # on_ready 콜백으로 연결 복구 즉시 대기 중인 알림을 흘려보낸다.
+    discord_bot = DiscordBotService(
+        recorder_service=_recorder_service,
+        on_ready=_notification_service.wake,
+    )
+    discord_bot.set_notifier(_notification_service)
+
+    # 전송 채널 등록 — Bot을 먼저, 실패 시 Webhook으로 폴백한다.
+    _notification_service.register(discord_bot)
+    _notification_service.register(DiscordWebhookTransport())
+
+    await _notification_service.start()
     await discord_bot.start()
 
     # 업데이트 알리미 시작
-    _updater_service = UpdaterService(discord_bot=discord_bot)
+    _updater_service = UpdaterService(notifier=_notification_service)
     await _updater_service.start()
-
-    # Conductor와 VodEngine에 Discord Bot 연결 (순환 참조 방지를 위해 나중에 설정)
-    conductor._discord_bot = discord_bot
-    _recorder_service._vod_engine._discord_bot = discord_bot
 
     logger.info(f"✅ {settings.app_name} Engine Started!")
 
@@ -113,11 +135,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"🛑 {settings.app_name} 종료 중...")
     if _updater_service:
         await _updater_service.stop()
-    if discord_bot:
-        await discord_bot.stop()
+    # Conductor를 먼저 멈춰야 종료 중 발생한 '녹화 완료' 알림이 큐에 들어간다.
     if conductor:
         await conductor.stop()
+    # 알림 서비스를 봇보다 먼저 정리해 마지막 알림 전송을 시도한다.
+    if _notification_service:
+        await _notification_service.stop()
+    if discord_bot:
+        await discord_bot.stop()
     _recorder_service = None
+    _notification_service = None
     logger.info("👋 Goodbye!")
 
 

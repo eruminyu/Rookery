@@ -13,16 +13,17 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from app.core.config import get_settings
+from app.core.config import get_settings, resolve_data_dir
 from app.core.logger import logger
 from app.engine.auth import AuthManager
 from app.engine.base import Platform
 from app.engine.chat import ChatArchiver
 from app.engine.downloader import ChzzkLiveEngine
 from app.engine.pipeline import YtdlpLivePipeline, RecordingState
+from app.services.notifications import NotificationKind
 
 if TYPE_CHECKING:
-    from app.services.discord_bot import DiscordBotService
+    from app.services.notifications import NotificationService
     from app.engine.twitcasting import TwitcastingEngine
     from app.engine.x_spaces import XSpacesEngine
     from app.engine.youtube import YoutubeLiveEngine
@@ -85,7 +86,7 @@ class Conductor:
     def __init__(
         self,
         auth: Optional[AuthManager] = None,
-        discord_bot: Optional[DiscordBotService] = None,
+        notifier: Optional[NotificationService] = None,
     ) -> None:
         settings = get_settings()
         self._auth = auth or AuthManager()
@@ -95,15 +96,9 @@ class Conductor:
         self._youtube_engine: Optional[YoutubeLiveEngine] = None
         self._channels: dict[str, ChannelTask] = {}
         self._running = False
-        import sys as _sys
-        if getattr(_sys, "frozen", False):
-            # PyInstaller exe: 임시 압축 경로 대신 exe 옆 data/ 폴더 사용
-            _data_dir = Path(_sys.executable).parent / "data"
-        else:
-            _data_dir = Path(__file__).resolve().parents[2] / "data"
-        _data_dir.mkdir(parents=True, exist_ok=True)
+        _data_dir = resolve_data_dir()
         self._persistence_path = _data_dir / "channels.json"
-        self._discord_bot = discord_bot
+        self._notifier = notifier
         self._event_queues: list[asyncio.Queue] = []
         # 라이브 감지 이력: composite_key → 날짜 문자열 set (하루 1회 카운트)
         self._live_detections: dict[str, set[str]] = {}
@@ -116,6 +111,29 @@ class Conductor:
         self._cookie_check_task: Optional[asyncio.Task] = None
         self._stats_broadcast_task: Optional[asyncio.Task] = None
         self._load_persistence()
+
+    def _notify(
+        self,
+        kind: NotificationKind,
+        title: str,
+        description: str = "",
+        color: str = "green",
+        fields: Optional[dict[str, str]] = None,
+    ) -> None:
+        """알림을 큐에 넣는다. 논블로킹이며 실패해도 감시 루프를 막지 않는다.
+
+        기존에는 감시 루프 안에서 Discord 응답을 await 했기 때문에
+        레이트 리밋이 걸리면 라이브 감지와 녹화 시작까지 함께 지연됐다.
+        """
+        if self._notifier is None:
+            return
+        self._notifier.notify(
+            kind=kind,
+            title=title,
+            description=description,
+            color=color,
+            fields=fields,
+        )
 
     def _get_engine(self, platform: Platform):
         """플랫폼에 맞는 엔진 인스턴스를 반환한다."""
@@ -412,20 +430,18 @@ class Conductor:
 
         if not result["valid"]:
             logger.warning(f"X 쿠키 만료 감지: {result.get('reason')}")
-            # 이전에 유효했거나 처음 감지된 경우에만 Discord 알림 (반복 알림 방지)
-            if prev_valid and self._discord_bot:
-                try:
-                    await self._discord_bot.send_notification(
-                        title="⚠️ X 쿠키 만료",
-                        description=(
-                            "X Spaces 쿠키가 만료되었습니다.\n"
-                            "설정 페이지에서 쿠키 파일을 갱신해주세요."
-                        ),
-                        color="red",
-                        fields={"이유": result.get("reason") or "알 수 없음"},
-                    )
-                except Exception as e:
-                    logger.error(f"쿠키 만료 Discord 알림 전송 실패: {e}")
+            # 이전에 유효했거나 처음 감지된 경우에만 알림 (반복 알림 방지)
+            if prev_valid:
+                self._notify(
+                    NotificationKind.COOKIE_EXPIRED,
+                    title="⚠️ X 쿠키 만료",
+                    description=(
+                        "X Spaces 쿠키가 만료되었습니다.\n"
+                        "설정 페이지에서 쿠키 파일을 갱신해주세요."
+                    ),
+                    color="red",
+                    fields={"이유": result.get("reason") or "알 수 없음"},
+                )
         else:
             logger.info("X 쿠키 유효성 확인 완료: 정상")
 
@@ -663,33 +679,30 @@ class Conductor:
                             f"(space_id={task._current_space_id})"
                         )
                         self._save_persistence()
-                        # Discord 알림: master URL 캡처 + 자동 녹화 상태 안내
-                        if self._discord_bot:
-                            try:
-                                rec_status = (
-                                    "🔴 자동 녹화 시작됨 (실시간 저장 중)"
-                                    if task.auto_record
-                                    else "⏸️ 자동 녹화 OFF — 아래 URL로 수동 다운로드 가능"
-                                )
-                                file_info = (
+                        # 알림: master URL 캡처 + 자동 녹화 상태 안내
+                        # (Master URL은 1024자를 넘을 수 있어 알림 계층에서 분할 전송한다)
+                        rec_status = (
+                            "🔴 자동 녹화 시작됨 (실시간 저장 중)"
+                            if task.auto_record
+                            else "⏸️ 자동 녹화 OFF — 아래 URL로 수동 다운로드 가능"
+                        )
+                        self._notify(
+                            NotificationKind.SPACE_DETECTED,
+                            title="🎙️ X Spaces 감지",
+                            description=(
+                                f"**@{task.channel_name or task.channel_id}** — "
+                                f"{task.title or 'X Spaces'}\n{rec_status}"
+                            ),
+                            color="blue",
+                            fields={
+                                "Master URL": new_master,
+                                "URL 파일": (
                                     f"`{task.master_url_file}`"
                                     if task.master_url_file
                                     else "저장 실패"
-                                )
-                                await self._discord_bot.send_notification(
-                                    title="🎙️ X Spaces 감지",
-                                    description=(
-                                        f"**@{task.channel_name or task.channel_id}** — "
-                                        f"{task.title or 'X Spaces'}\n{rec_status}"
-                                    ),
-                                    color="blue",
-                                    fields={
-                                        "Master URL": new_master,
-                                        "URL 파일": file_info,
-                                    },
-                                )
-                            except Exception as e:
-                                logger.error(f"[{composite_key}] Space 감지 Discord 알림 전송 실패: {e}")
+                                ),
+                            },
+                        )
 
                 # ── 라이브 감지 날짜 기록 (하루 1회, 날짜 경계 자동 처리) ──
                 if status["is_live"]:
@@ -702,6 +715,25 @@ class Conductor:
                         f"[{composite_key}] 🔴 방송 시작 감지! "
                         f"스트리머: {task.channel_name}, 제목: {task.title}"
                     )
+                    # 감지 즉시 알림 — 녹화 준비(CDN 대기 5초 + yt-dlp 기동)를
+                    # 기다리지 않는다. 녹화 결과는 별도 알림으로 이어진다.
+                    # X Spaces는 위쪽 master URL 캡처 알림이 이 역할을 대신한다.
+                    if task.platform != Platform.X_SPACES:
+                        self._notify(
+                            NotificationKind.LIVE_DETECTED,
+                            title="🔴 방송 시작",
+                            description=(
+                                f"**{task.channel_name or task.channel_id}**\n"
+                                f"{task.title or '제목 없음'}"
+                            ),
+                            color="green",
+                            fields={
+                                "플랫폼": task.platform.value,
+                                "카테고리": task.category or "N/A",
+                                "자동 녹화": "ON" if task.auto_record else "OFF",
+                            },
+                        )
+
                     if task.auto_record:
                         await self._start_recording(
                             composite_key,
@@ -810,27 +842,25 @@ class Conductor:
         if pipe is not None and pipe.state == RecordingState.RECORDING:
             await pipe.stop_recording()
 
-            # ── Discord 알림: 녹화 완료 ──
-            if self._discord_bot:
-                status = pipe.get_status()
-                duration = status.get("duration_seconds", 0) or 0
-                output_file = status.get("output_file", "N/A")
-                file_size = status.get("file_size_bytes", 0) / (1024 * 1024)
-                duration_str = f"{duration // 60:.0f}분 {duration % 60:.0f}초" if duration > 0 else "N/A"
-
-                try:
-                    await self._discord_bot.send_notification(
-                        title="⏹ 녹화 완료",
-                        description=f"채널: **{task.channel_name or composite_key}**",
-                        color="blue",
-                        fields={
-                            "녹화 시간": duration_str,
-                            "파일 크기": f"{file_size:.1f} MB",
-                            "저장 경로": output_file,
-                        },
-                    )
-                except Exception as e:
-                    logger.error(f"[{composite_key}] Discord 녹화 완료 알림 전송 실패: {e}")
+            # ── 알림: 녹화 완료 ──
+            status = pipe.get_status()
+            duration = status.get("duration_seconds", 0) or 0
+            output_file = status.get("output_file") or status.get("output_path") or "N/A"
+            file_size = status.get("file_size_bytes", 0) / (1024 * 1024)
+            duration_str = (
+                f"{duration // 60:.0f}분 {duration % 60:.0f}초" if duration > 0 else "N/A"
+            )
+            self._notify(
+                NotificationKind.RECORDING_COMPLETED,
+                title="⏹ 녹화 완료",
+                description=f"채널: **{task.channel_name or composite_key}**",
+                color="blue",
+                fields={
+                    "녹화 시간": duration_str,
+                    "파일 크기": f"{file_size:.1f} MB",
+                    "저장 경로": str(output_file),
+                },
+            )
 
         # 녹화 완료 이력 저장
         if pipe is not None and pipe.state == RecordingState.COMPLETED:
@@ -893,17 +923,17 @@ class Conductor:
             )
             logger.info(f"[{composite_key}] 자동 라이브 녹화 시작 (quality={quality}).")
 
-            # ── Discord 알림: 녹화 시작 (재시도 시엔 생략) ──
-            if self._discord_bot and not is_retry:
-                try:
-                    await self._discord_bot.send_notification(
-                        title="🔴 녹화 시작",
-                        description=f"채널: **{channel_name or composite_key}**\n제목: {title or 'N/A'}",
-                        color="green",
-                        fields={"화질": quality, "플랫폼": task.platform.value},
-                    )
-                except Exception as e:
-                    logger.error(f"[{composite_key}] Discord 녹화 시작 알림 전송 실패: {e}")
+            # ── 알림: 녹화 시작 (재시도 시엔 생략) ──
+            if not is_retry:
+                self._notify(
+                    NotificationKind.RECORDING_STARTED,
+                    title="🎬 녹화 시작",
+                    description=(
+                        f"채널: **{channel_name or composite_key}**\n제목: {title or 'N/A'}"
+                    ),
+                    color="green",
+                    fields={"화질": quality, "플랫폼": task.platform.value},
+                )
 
             # ── 채팅 아카이빙 시작 (Chzzk 전용) ──
             if task.platform == Platform.CHZZK and settings.chat_archive_enabled:
@@ -926,15 +956,12 @@ class Conductor:
             task.last_error = f"녹화 시작 오류: {str(e)}"
             logger.error(f"[{composite_key}] 녹화 시작 실패: {e}")
 
-            if self._discord_bot:
-                try:
-                    await self._discord_bot.send_notification(
-                        title="❌ 녹화 시작 실패",
-                        description=f"채널: **{channel_name or composite_key}**\n오류: {str(e)}",
-                        color="red",
-                    )
-                except Exception as notify_err:
-                    logger.error(f"[{composite_key}] Discord 녹화 실패 알림 전송 실패: {notify_err}")
+            self._notify(
+                NotificationKind.RECORDING_FAILED,
+                title="❌ 녹화 시작 실패",
+                description=f"채널: **{channel_name or composite_key}**\n오류: {str(e)}",
+                color="red",
+            )
 
         # 녹화 시작/실패 후 프론트엔드에 즉시 상태 업데이트
         self.broadcast_event("status_update", self.get_all_status())
@@ -969,19 +996,24 @@ class Conductor:
             task.spaces_output_path = output_path
             logger.info(f"[{composite_key}] X Spaces 녹화 시작 (space_id={task._current_space_id}).")
 
-            if self._discord_bot:
-                try:
-                    await self._discord_bot.send_notification(
-                        title="🔴 Spaces 녹화 시작",
-                        description=f"채널: **{channel_name or composite_key}**\n제목: {title or 'N/A'}",
-                        color="green",
-                        fields={"플랫폼": "X Spaces"},
-                    )
-                except Exception as e:
-                    logger.error(f"[{composite_key}] Discord Spaces 녹화 시작 알림 전송 실패: {e}")
+            self._notify(
+                NotificationKind.RECORDING_STARTED,
+                title="🎬 Spaces 녹화 시작",
+                description=(
+                    f"채널: **{channel_name or composite_key}**\n제목: {title or 'N/A'}"
+                ),
+                color="green",
+                fields={"플랫폼": "X Spaces"},
+            )
         except Exception as e:
             task.last_error = f"Spaces 녹화 오류: {str(e)}"
             logger.error(f"[{composite_key}] Spaces 녹화 시작 실패: {e}")
+            self._notify(
+                NotificationKind.RECORDING_FAILED,
+                title="❌ Spaces 녹화 시작 실패",
+                description=f"채널: **{channel_name or composite_key}**\n오류: {str(e)}",
+                color="red",
+            )
 
         # 녹화 시작/실패 후 프론트엔드에 즉시 상태 업데이트
         self.broadcast_event("status_update", self.get_all_status())

@@ -5,6 +5,10 @@ User-Hosted Bot으로 원격에서 녹화 상태 확인 및 제어.
 사용자가 DISCORD_BOT_TOKEN을 설정에 입력하면 자동 구동된다.
 명령어: !status, !list, !start, !stop (프리픽스) + /status, /list, /start, /stop (슬래시)
 
+이 모듈은 NotificationService의 전송 채널(transport) 역할도 겸한다.
+알림 큐/재시도/유실 방지 로직은 app.services.notifications가 담당하고,
+여기서는 "지금 이 embed를 Discord 채널에 보낸다"만 책임진다.
+
 NOTE: discord.py 라이브러리가 필요합니다.
       requirements.txt에 discord.py 추가 필요.
 """
@@ -12,11 +16,19 @@ NOTE: discord.py 라이브러리가 필요합니다.
 from __future__ import annotations
 
 import asyncio
+import math
 import platform
-from typing import TYPE_CHECKING, Optional
+import random
+from typing import TYPE_CHECKING, Callable, Optional
 
 from app.core.config import get_settings
 from app.core.logger import logger
+from app.services.notifications import (
+    DeliveryResult,
+    EmbedPayload,
+    MAX_FIELD_VALUE,
+    truncate,
+)
 
 if TYPE_CHECKING:
     from app.services.recorder import RecorderService
@@ -31,13 +43,9 @@ try:
 except ImportError:
     HAS_DISCORD = False
 
-_RECONNECT_DELAY = 30  # 재연결 대기 시간 (초)
-_COLOR_MAP = {
-    "green": "green",
-    "red": "red",
-    "blue": "blue",
-    "yellow": "yellow",
-}
+# 재연결 백오프 (초) — 고정 대기 대신 지수 증가로 API 남용을 피한다.
+_RECONNECT_BASE_DELAY = 5.0
+_RECONNECT_MAX_DELAY = 300.0
 
 
 def _make_embed(
@@ -46,7 +54,11 @@ def _make_embed(
     color: str = "green",
     fields: Optional[dict[str, str]] = None,
 ) -> discord.Embed:
-    """공통 Embed 생성 헬퍼."""
+    """공통 Embed 생성 헬퍼.
+
+    Discord 제약(제목 256자, 설명 4096자, 필드 값 1024자)을 넘기면
+    400 에러로 메시지 전체가 실패하므로 여기서 잘라낸다.
+    """
     color_map = {
         "green": discord.Color.green(),
         "red": discord.Color.red(),
@@ -54,13 +66,17 @@ def _make_embed(
         "yellow": discord.Color.yellow(),
     }
     embed = discord.Embed(
-        title=title,
-        description=description or "",
+        title=truncate(title, 256),
+        description=truncate(description or "", 4096),
         color=color_map.get(color, discord.Color.greyple()),
     )
     if fields:
-        for key, value in fields.items():
-            embed.add_field(name=key, value=value, inline=False)
+        for key, value in list(fields.items())[:25]:
+            embed.add_field(
+                name=truncate(str(key), 256),
+                value=truncate(str(value), MAX_FIELD_VALUE) or "​",
+                inline=False,
+            )
     return embed
 
 
@@ -77,11 +93,27 @@ class DiscordBotService:
         stop  [channel_id] — 녹화 중지 + 자동 녹화 OFF
     """
 
-    def __init__(self, recorder_service: RecorderService) -> None:
+    #: NotificationService에 등록될 때의 채널 이름.
+    name = "discord_bot"
+
+    def __init__(
+        self,
+        recorder_service: RecorderService,
+        on_ready: Optional[Callable[[], None]] = None,
+    ) -> None:
         self._service = recorder_service
         self._bot: Optional[commands.Bot] = None
         self._task: Optional[asyncio.Task] = None
         self._stopping = False
+        self._on_ready = on_ready
+        # 대상 채널 객체 캐시 — 매 알림마다 fetch_channel을 호출하지 않기 위함.
+        self._channel_cache: dict[int, object] = {}
+        self._reconnect_failures = 0
+        self._notifier = None  # NotificationService — 진단 커맨드용 (순환 참조 방지로 후주입)
+
+    def set_notifier(self, notifier) -> None:
+        """진단 커맨드가 알림 큐 상태를 읽을 수 있도록 서비스를 연결한다."""
+        self._notifier = notifier
 
     async def start(self) -> None:
         """Discord Bot을 시작한다."""
@@ -100,39 +132,77 @@ class DiscordBotService:
             return
 
         self._stopping = False
-        self._token = token
         self._task = asyncio.create_task(self._run_with_reconnect(token))
 
-    async def _build_bot(self) -> commands.Bot:
+    def _build_bot(self) -> commands.Bot:
         """Bot 인스턴스를 생성하고 명령어를 등록한다."""
         intents = discord.Intents.default()
         intents.message_content = True
         bot = commands.Bot(command_prefix="!", intents=intents)
-        self._bot = bot
         self._register_commands(bot)
         return bot
 
     async def _run_with_reconnect(self, token: str) -> None:
-        """연결 끊김 시 자동 재연결하며 Bot을 실행한다."""
+        """연결 끊김 시 지수 백오프로 재연결하며 Bot을 실행한다.
+
+        기존 구현은 예외 처리에서 30초를 먼저 자고 그 뒤에 finally가 돌았기 때문에,
+        대기하는 동안 이미 죽은 Bot 객체가 self._bot에 남아 있었다.
+        여기서는 정리를 먼저 하고 대기한다.
+        """
         while not self._stopping:
+            bot = self._build_bot()
+            self._bot = bot
+            self._channel_cache.clear()
+
             try:
-                bot = await self._build_bot()
                 logger.info("🤖 Discord Bot 시작 중...")
                 await bot.start(token)
+                # 정상 반환 = 연결이 닫힘. 종료 요청이 아니면 재연결 대상이다.
+                if self._stopping:
+                    break
+                logger.warning("Discord Bot 연결이 종료되었습니다. 재연결합니다.")
             except discord.LoginFailure:
-                logger.error("Discord Bot 로그인 실패: 토큰을 확인해주세요.")
+                logger.error(
+                    "Discord Bot 로그인 실패: 토큰이 올바르지 않습니다. "
+                    "재연결을 중단합니다. 설정에서 토큰을 다시 확인하세요."
+                )
+                break
+            except discord.PrivilegedIntentsRequired:
+                logger.error(
+                    "Discord Bot에 Message Content Intent가 활성화되어 있지 않습니다. "
+                    "Discord 개발자 포털 > Bot > Privileged Gateway Intents에서 켜주세요."
+                )
+                break
+            except asyncio.CancelledError:
                 break
             except Exception as e:
                 if self._stopping:
                     break
-                logger.error(f"Discord Bot 연결 끊김: {e}. {_RECONNECT_DELAY}초 후 재연결...")
-                await asyncio.sleep(_RECONNECT_DELAY)
+                logger.error(f"Discord Bot 연결 끊김: {e}")
             finally:
-                if self._bot is not None and not self._bot.is_closed():
+                self._bot = None
+                self._channel_cache.clear()
+                if not bot.is_closed():
                     try:
-                        await self._bot.close()
-                    except Exception:
+                        await bot.close()
+                    except BaseException:
+                        # 종료 중 취소된 상태에서도 정리는 조용히 마친다.
                         pass
+
+            if self._stopping:
+                break
+
+            # on_ready에서 0으로 리셋되므로, 오래 붙어 있다가 끊긴 경우엔
+            # 다시 짧은 간격부터 재시도한다.
+            self._reconnect_failures += 1
+            failures = self._reconnect_failures
+            delay = min(_RECONNECT_BASE_DELAY * (2 ** (failures - 1)), _RECONNECT_MAX_DELAY)
+            delay += random.uniform(0, delay * 0.2)
+            logger.info(f"🤖 {delay:.0f}초 후 Discord 재연결을 시도합니다. (시도 {failures}회)")
+            try:
+                await asyncio.sleep(delay)
+            except asyncio.CancelledError:
+                break
 
     async def stop(self) -> None:
         """Discord Bot을 종료한다."""
@@ -146,49 +216,116 @@ class DiscordBotService:
         task = self._task
         if task is not None and not task.done():
             task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
 
-    async def send_notification(
-        self,
-        title: str,
-        description: str,
-        color: str = "green",
-        fields: Optional[dict[str, str]] = None,
-    ) -> None:
-        """Discord 채널에 Embed 알림을 전송한다.
+    # ── NotificationTransport 구현 ───────────────────────
 
-        Args:
-            title: Embed 제목
-            description: Embed 내용
-            color: Embed 색상 ("green", "red", "blue", "yellow")
-            fields: 추가 필드 (key-value 형식)
-        """
+    def is_configured(self) -> bool:
+        """봇 토큰과 알림 채널 ID가 모두 설정되어 있는지."""
         if not HAS_DISCORD:
-            return
-
+            return False
         settings = get_settings()
-        channel_id_str = settings.discord_notification_channel_id
+        return bool(settings.discord_bot_token and settings.discord_notification_channel_id)
 
-        if not channel_id_str or self._bot is None or not self._bot.is_ready():
-            return
+    def is_available(self) -> bool:
+        """지금 즉시 메시지를 보낼 수 있는 상태인지."""
+        bot = self._bot
+        return self.is_configured() and bot is not None and bot.is_ready()
+
+    async def _resolve_channel(self, channel_id: int):
+        """알림 채널 객체를 얻는다.
+
+        get_channel()은 캐시 전용이라 재연결 직후나 스레드 채널에서 None을 반환한다.
+        그 경우 REST API(fetch_channel)로 폴백한다. 기존 구현에는 이 폴백이 없어
+        캐시 미스가 곧 알림 유실로 이어졌다.
+        """
+        cached = self._channel_cache.get(channel_id)
+        if cached is not None:
+            return cached
+
+        bot = self._bot
+        if bot is None:
+            return None
+
+        channel = bot.get_channel(channel_id)
+        if channel is None:
+            channel = await bot.fetch_channel(channel_id)
+
+        self._channel_cache[channel_id] = channel
+        return channel
+
+    async def send(self, payload: EmbedPayload) -> DeliveryResult:
+        """NotificationService가 호출하는 실제 전송 진입점."""
+        if not HAS_DISCORD:
+            return DeliveryResult.UNAVAILABLE
+
+        bot = self._bot
+        if bot is None or not bot.is_ready():
+            return DeliveryResult.UNAVAILABLE
+
+        channel_id_str = get_settings().discord_notification_channel_id
+        if not channel_id_str:
+            return DeliveryResult.UNAVAILABLE
 
         try:
-            channel_id = int(channel_id_str)
-        except ValueError:
-            logger.error(f"Discord 알림 채널 ID가 올바르지 않습니다: {channel_id_str!r}")
-            return
+            channel_id = int(str(channel_id_str).strip())
+        except (TypeError, ValueError):
+            logger.error(
+                f"Discord 알림 채널 ID가 숫자가 아닙니다: {channel_id_str!r}. "
+                "채널 우클릭 > 'ID 복사'로 얻은 값을 넣어주세요."
+            )
+            return DeliveryResult.PERMANENT_FAIL
+
+        embed = discord.Embed(
+            title=payload.title,
+            description=payload.description,
+            color=discord.Color(payload.color),
+        )
+        for name, value in payload.fields:
+            embed.add_field(name=name, value=value, inline=False)
 
         try:
-            channel = self._bot.get_channel(channel_id)
-            if channel is None:
-                logger.warning(f"Discord 채널을 찾을 수 없습니다: {channel_id_str}")
-                return
+            channel = await self._resolve_channel(channel_id)
+            if channel is None or not hasattr(channel, "send"):
+                logger.error(f"Discord 채널 {channel_id}에 메시지를 보낼 수 없습니다.")
+                return DeliveryResult.PERMANENT_FAIL
 
-            embed = _make_embed(title=title, description=description, color=color, fields=fields)
-            await channel.send(embed=embed)  # type: ignore[union-attr]
-            logger.debug(f"Discord 알림 전송 완료: {title}")
+            await channel.send(  # type: ignore[union-attr]
+                content=payload.mention or None,
+                embed=embed,
+                allowed_mentions=discord.AllowedMentions(everyone=True, roles=True),
+            )
+            return DeliveryResult.DELIVERED
 
+        except discord.Forbidden:
+            self._channel_cache.pop(channel_id, None)
+            logger.error(
+                f"Discord 채널 {channel_id}에 메시지 전송 권한이 없습니다. "
+                "봇에게 '메시지 보내기' 및 '링크 첨부' 권한을 부여하세요."
+            )
+            return DeliveryResult.PERMANENT_FAIL
+        except discord.NotFound:
+            self._channel_cache.pop(channel_id, None)
+            logger.error(f"Discord 채널 {channel_id}을(를) 찾을 수 없습니다. 채널 ID를 확인하세요.")
+            return DeliveryResult.PERMANENT_FAIL
+        except discord.HTTPException as e:
+            self._channel_cache.pop(channel_id, None)
+            if e.status == 429:
+                logger.warning("Discord 레이트 리밋 — 알림을 재시도 큐로 되돌립니다.")
+                return DeliveryResult.RETRY
+            if 500 <= e.status < 600:
+                return DeliveryResult.RETRY
+            logger.error(f"Discord 알림 전송 실패 (HTTP {e.status}): {e.text[:300]}")
+            return DeliveryResult.PERMANENT_FAIL
+        except (ConnectionError, asyncio.TimeoutError) as e:
+            logger.warning(f"Discord 알림 전송 중 네트워크 오류: {e}")
+            return DeliveryResult.RETRY
         except Exception as e:
             logger.error(f"Discord 알림 전송 실패: {e}")
+            return DeliveryResult.RETRY
 
     def _register_commands(self, bot: commands.Bot) -> None:
         """Bot 명령어를 등록한다 (프리픽스 + 슬래시)."""
@@ -257,6 +394,16 @@ class DiscordBotService:
         @bot.event
         async def on_ready() -> None:
             logger.info(f"🤖 Discord Bot 로그인: {bot.user}")
+            self._channel_cache.clear()
+            self._reconnect_failures = 0  # 연결 성공 → 백오프 초기화
+
+            # 연결이 살아났으니 대기 중인 알림을 즉시 흘려보낸다.
+            if self._on_ready is not None:
+                try:
+                    self._on_ready()
+                except Exception as e:
+                    logger.error(f"알림 큐 flush 트리거 실패: {e}")
+
             # 글로벌 sync()는 전파에 최대 1시간 소요 → 서버별 즉시 동기화로 대체
             total = 0
             for guild in bot.guilds:
@@ -372,6 +519,87 @@ class DiscordBotService:
             await interaction.followup.send(
                 embed=_make_embed("⏹ 녹화 중지", f"**{display_name}**\n자동 녹화 OFF", "blue")
             )
+
+        # ── 알림 진단 커맨드 ────────────────────────────────
+
+        def _get_diag_embed() -> discord.Embed:
+            """알림 파이프라인 상태를 보여준다 (알림 누락 원인 추적용)."""
+            # 연결 전에는 latency가 nan이므로 유한값일 때만 표시한다.
+            raw_latency = bot.latency
+            latency = (
+                f"{raw_latency * 1000:.0f}ms"
+                if isinstance(raw_latency, float) and math.isfinite(raw_latency)
+                else "N/A"
+            )
+            embed = discord.Embed(title="🩺 알림 파이프라인 진단", color=discord.Color.blue())
+            embed.add_field(name="게이트웨이 지연", value=latency, inline=True)
+
+            settings = get_settings()
+            embed.add_field(
+                name="알림 채널 ID",
+                value=f"`{settings.discord_notification_channel_id or '미설정'}`",
+                inline=True,
+            )
+
+            if self._notifier is None:
+                embed.add_field(name="알림 큐", value="서비스 미연결", inline=False)
+                return embed
+
+            stats = self._notifier.get_stats()
+            embed.add_field(
+                name="큐 상태",
+                value=(
+                    f"대기 `{stats['pending']}` · 전송 `{stats['delivered']}` · "
+                    f"폐기 `{stats['dropped']}` · 만료 `{stats['expired']}`"
+                ),
+                inline=False,
+            )
+            transports = "\n".join(
+                f"{'🟢' if t['available'] else ('🟡' if t['configured'] else '⚪')} "
+                f"**{t['name']}** — 설정 {'O' if t['configured'] else 'X'} / "
+                f"가용 {'O' if t['available'] else 'X'}"
+                for t in stats["transports"]
+            )
+            embed.add_field(name="전송 채널", value=transports or "없음", inline=False)
+            embed.add_field(
+                name="전송 대상 알림",
+                value=f"`{settings.discord_notify_events or 'all'}`",
+                inline=False,
+            )
+            return embed
+
+        @bot.command(name="diag")
+        async def cmd_diag(ctx: commands.Context) -> None:
+            """알림 파이프라인 진단: !diag."""
+            await ctx.send(embed=_get_diag_embed())
+
+        @bot.tree.command(name="diag", description="알림 큐와 전송 채널 상태를 진단합니다")
+        async def slash_diag(interaction: discord.Interaction) -> None:
+            await interaction.response.send_message(embed=_get_diag_embed())
+
+        def _send_test_notification() -> str:
+            """알림 큐를 통해 테스트 알림을 발행하고 결과 문구를 반환한다."""
+            if self._notifier is None:
+                return "❌ 알림 서비스가 연결되지 않았습니다."
+            from app.services.notifications import NotificationKind
+
+            self._notifier.notify(
+                kind=NotificationKind.SYSTEM,
+                title="🔔 테스트 알림",
+                description="알림 파이프라인이 정상 동작합니다.",
+                color="green",
+                fields={"발신": "테스트 커맨드"},
+            )
+            return "📨 테스트 알림을 큐에 넣었습니다. 알림 채널을 확인하세요."
+
+        @bot.command(name="notify-test")
+        async def cmd_notify_test(ctx: commands.Context) -> None:
+            """테스트 알림 발송: !notify-test."""
+            await ctx.send(_send_test_notification())
+
+        @bot.tree.command(name="notify-test", description="알림 채널로 테스트 알림을 보냅니다")
+        async def slash_notify_test(interaction: discord.Interaction) -> None:
+            await interaction.response.send_message(_send_test_notification())
 
         # ── X Spaces 전용 커맨드 ────────────────────────────
 

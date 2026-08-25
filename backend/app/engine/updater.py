@@ -11,7 +11,7 @@ from typing import Optional
 
 from app.core.logger import logger
 from app.version import __version__
-from app.services.discord_bot import DiscordBotService
+from app.services.notifications import NotificationKind, NotificationService
 
 # GitHub 리포지토리 정보
 GITHUB_REPO = "eruminyu/Signal-Recorder"
@@ -22,8 +22,8 @@ class UpdaterService:
     
     _CHECK_INTERVAL = 86400  # 24시간마다 체크
     
-    def __init__(self, discord_bot: Optional[DiscordBotService] = None):
-        self._discord_bot = discord_bot
+    def __init__(self, notifier: Optional[NotificationService] = None):
+        self._notifier = notifier
         self._running = False
         self._task: Optional[asyncio.Task] = None
         self._cached_update_info: Optional[dict] = None
@@ -76,7 +76,7 @@ class UpdaterService:
                 
                 # 새 버전 발견 & 알림 보낸 적 없으면 알림 발송
                 if has_update and latest_version not in self._notified_versions:
-                    await self._notify_update(latest_version, release_notes, html_url)
+                    self._notify_update(latest_version, release_notes, html_url)
                     self._notified_versions.add(latest_version)
                     
                 return self._cached_update_info
@@ -103,31 +103,27 @@ class UpdaterService:
             "checked_at": datetime.now().isoformat() if self._last_checked_at else None
         }
 
-    async def _notify_update(self, latest_version: str, release_notes: str, html_url: str):
-        """Discord 봇을 통해 신규 업데이트 알림을 전송한다."""
-        if not self._discord_bot:
+    def _notify_update(self, latest_version: str, release_notes: str, html_url: str) -> None:
+        """신규 업데이트 알림을 큐에 넣는다."""
+        if not self._notifier:
             return
-            
-        try:
-            # 릴리즈 노트가 길면 500자로 자름
-            truncated_notes = release_notes[:500] + ("..." if len(release_notes) > 500 else "")
-            
-            await self._discord_bot.send_notification(
-                title=f"🚀 신규 버전 업데이트 (v{latest_version})",
-                description=(
-                    f"**Signal-Recorder**의 새로운 버전이 출시되었습니다!\n"
-                    f"현재 버전: `v{__version__}` → 최신 버전: `v{latest_version}`\n\n"
-                    f"대시보드의 설정 메뉴나 아래 링크에서 업데이트 하세요.\n"
-                    f"[GitHub 릴리즈 페이지 이동]({html_url})"
-                ),
-                color="green",
-                fields={
-                    "주요 변경 사항": truncated_notes if truncated_notes else "내용 없음"
-                }
-            )
-            logger.info(f"Discord로 v{latest_version} 업데이트 알림을 전송했습니다.")
-        except Exception as e:
-            logger.error(f"업데이트 알림 발송 실패: {e}")
+
+        # 릴리즈 노트가 길면 500자로 자름
+        truncated_notes = release_notes[:500] + ("..." if len(release_notes) > 500 else "")
+
+        self._notifier.notify(
+            kind=NotificationKind.UPDATE_AVAILABLE,
+            title=f"🚀 신규 버전 업데이트 (v{latest_version})",
+            description=(
+                f"**Signal-Recorder**의 새로운 버전이 출시되었습니다!\n"
+                f"현재 버전: `v{__version__}` → 최신 버전: `v{latest_version}`\n\n"
+                f"대시보드의 설정 메뉴나 아래 링크에서 업데이트 하세요.\n"
+                f"[GitHub 릴리즈 페이지 이동]({html_url})"
+            ),
+            color="green",
+            fields={"주요 변경 사항": truncated_notes if truncated_notes else "내용 없음"},
+        )
+        logger.info(f"v{latest_version} 업데이트 알림을 큐에 넣었습니다.")
 
     async def _update_loop(self):
         """주기적으로 업데이트를 확인하는 백그라운드 루프"""

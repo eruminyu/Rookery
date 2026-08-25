@@ -13,6 +13,7 @@ from app.engine.auth import AuthManager
 from app.engine.base import Platform
 from app.engine.conductor import Conductor
 from app.engine.vod import VodEngine
+from app.services.notifications import NotificationService
 
 
 class RecorderService:
@@ -26,11 +27,12 @@ class RecorderService:
         self,
         conductor: Conductor,
         auth: Optional[AuthManager] = None,
+        notifier: Optional[NotificationService] = None,
     ) -> None:
         self._conductor = conductor
         self._auth = auth or AuthManager()
-        self._vod_engine = VodEngine(auth=self._auth)
-        # Discord Bot은 나중에 설정 (순환 참조 방지)
+        self._notifier = notifier
+        self._vod_engine = VodEngine(auth=self._auth, notifier=notifier)
 
     # ── 채널 관리 ────────────────────────────────────────
 

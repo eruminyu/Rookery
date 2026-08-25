@@ -54,6 +54,20 @@ def _resolve_env_file() -> str:
     return str(candidate)
 
 
+def resolve_data_dir() -> Path:
+    """영속 데이터(채널 목록, 이력, 대기 알림)를 둘 디렉터리를 반환한다.
+
+    PyInstaller onefile은 임시 압축 해제 경로에서 실행되므로 그곳에 쓰면
+    재시작 때 사라진다. exe 옆 data/ 폴더를 사용한다.
+    """
+    if getattr(sys, "frozen", False):
+        data_dir = Path(sys.executable).parent / "data"
+    else:
+        data_dir = Path(__file__).resolve().parents[2] / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
 class Settings(BaseSettings):
     """애플리케이션 전역 설정."""
 
@@ -88,6 +102,18 @@ class Settings(BaseSettings):
     # ── Discord Bot ──────────────────────────────────────
     discord_bot_token: Optional[str] = None
     discord_notification_channel_id: Optional[str] = None  # 알림을 보낼 채널 ID
+
+    # ── Discord 알림 ─────────────────────────────────────
+    # Bot 연결이 끊겨도 알림이 도착하도록 하는 폴백 경로.
+    discord_webhook_url: Optional[str] = None
+    # 전송할 알림 종류: "all" | "none" | 콤마 구분 목록 (NotificationKind 값)
+    discord_notify_events: str = "all"
+    # 멘션을 붙일 알림 종류. 기본은 멘션 없음.
+    discord_mention_events: str = ""
+    # 멘션 대상: "@here", "@everyone", "<@&역할ID>"
+    discord_mention_target: str = "@here"
+    # 큐에서 대기하는 알림의 최대 수명 (초). 초과 시 폐기해 뒷북 알림을 막는다.
+    discord_notify_ttl: int = 3600
 
     # ── 감시 주기 (초) ───────────────────────────────────
     monitor_interval: int = 30

@@ -16,7 +16,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from app.core.config import get_settings
+from app.core.config import get_settings, resolve_data_dir
 from app.core.logger import logger
 from app.engine.auth import AuthManager
 
@@ -42,8 +42,10 @@ try:
 except Exception as e:
     logger.error(f"❌ yt-dlp DASH MPD 파서 멍키패치 적용 실패: {e}")
 
+from app.services.notifications import NotificationKind
+
 if TYPE_CHECKING:
-    from app.services.discord_bot import DiscordBotService
+    from app.services.notifications import NotificationService
 
 
 class DownloadCancelledError(Exception):
@@ -111,19 +113,40 @@ class VodEngine:
     def __init__(
         self,
         auth: Optional[AuthManager] = None,
-        discord_bot: Optional[DiscordBotService] = None,
+        notifier: Optional[NotificationService] = None,
     ) -> None:
         self._auth = auth or AuthManager()
         self._tasks: dict[str, VodDownloadTask] = {}
-        self._discord_bot = discord_bot
+        self._notifier = notifier
+
 
         # 설정에서 동시 다운로드 개수 가져오기
         settings = get_settings()
         self._max_concurrent = settings.vod_max_concurrent
         self._semaphore = asyncio.Semaphore(self._max_concurrent)
 
-        self._history_file = Path("data/vod_history.json")
+        # 상대 경로를 쓰면 실행 위치(CWD)에 따라 이력이 흩어지므로 절대 경로로 고정한다.
+        self._history_file = resolve_data_dir() / "vod_history.json"
         self._load_history()
+
+    def _notify(
+        self,
+        kind: NotificationKind,
+        title: str,
+        description: str = "",
+        color: str = "green",
+        fields: Optional[dict[str, str]] = None,
+    ) -> None:
+        """알림을 큐에 넣는다. 논블로킹이며 다운로드 흐름을 막지 않는다."""
+        if self._notifier is None:
+            return
+        self._notifier.notify(
+            kind=kind,
+            title=title,
+            description=description,
+            color=color,
+            fields=fields,
+        )
 
     @property
     def state(self) -> VodDownloadState:
@@ -620,22 +643,26 @@ class VodEngine:
             logger.info(f"[{task_id}] X Spaces 다운로드 완료: {output_path.name}")
             self._save_history()
 
-            if self._discord_bot:
-                try:
-                    file_size = output_path.stat().st_size / (1024 * 1024)
-                    duration = (task.completed_at - task.started_at).total_seconds() if task.started_at else 0
-                    await self._discord_bot.send_notification(
-                        title="📥 X Spaces 다운로드 완료",
-                        description=f"파일: **{output_path.name}**",
-                        color="green",
-                        fields={
-                            "파일 크기": f"{file_size:.1f} MB",
-                            "다운로드 시간": f"{duration // 60:.0f}분 {duration % 60:.0f}초",
-                            "저장 경로": str(output_path),
-                        },
-                    )
-                except Exception as e:
-                    logger.error(f"[{task_id}] Discord X Spaces 완료 알림 전송 실패: {e}")
+            try:
+                file_size = output_path.stat().st_size / (1024 * 1024)
+            except OSError:
+                file_size = 0.0
+            duration = (
+                (task.completed_at - task.started_at).total_seconds()
+                if task.started_at
+                else 0
+            )
+            self._notify(
+                NotificationKind.VOD_COMPLETED,
+                title="📥 X Spaces 다운로드 완료",
+                description=f"파일: **{output_path.name}**",
+                color="green",
+                fields={
+                    "파일 크기": f"{file_size:.1f} MB",
+                    "다운로드 시간": f"{duration // 60:.0f}분 {duration % 60:.0f}초",
+                    "저장 경로": str(output_path),
+                },
+            )
         finally:
             try:
                 tmp_m3u8.unlink(missing_ok=True)
@@ -689,32 +716,43 @@ class VodEngine:
             logger.info(f"[{task_id}] 외부 VOD 다운로드 완료: {filepath}")
             self._save_history()
 
-            if self._discord_bot:
-                try:
-                    file_size = Path(filepath).stat().st_size / (1024 * 1024)
-                except (FileNotFoundError, OSError):
-                    file_size = 0.0
-                duration = (task.completed_at - task.started_at).total_seconds() if task.started_at and task.completed_at else 0
-
-                try:
-                    await self._discord_bot.send_notification(
-                        title="📥 VOD 다운로드 완료",
-                        description=f"제목: **{task.title}**",
-                        color="green",
-                        fields={
-                            "화질": task.quality,
-                            "파일 크기": f"{file_size:.1f} MB",
-                            "다운로드 시간": f"{duration // 60:.0f}분 {duration % 60:.0f}초" if duration > 0 else "N/A",
-                            "저장 경로": filepath,
-                        },
-                    )
-                except Exception as e:
-                    logger.error(f"[{task_id}] Discord 외부 VOD 완료 알림 전송 실패: {e}")
+            try:
+                file_size = Path(filepath).stat().st_size / (1024 * 1024)
+            except OSError:
+                file_size = 0.0
+            duration = (
+                (task.completed_at - task.started_at).total_seconds()
+                if task.started_at and task.completed_at
+                else 0
+            )
+            self._notify(
+                NotificationKind.VOD_COMPLETED,
+                title="📥 VOD 다운로드 완료",
+                description=f"제목: **{task.title}**",
+                color="green",
+                fields={
+                    "화질": task.quality,
+                    "파일 크기": f"{file_size:.1f} MB",
+                    "다운로드 시간": (
+                        f"{duration // 60:.0f}분 {duration % 60:.0f}초"
+                        if duration > 0
+                        else "N/A"
+                    ),
+                    "저장 경로": filepath,
+                },
+            )
         else:
             task.state = VodDownloadState.ERROR
             task.error_message = "다운로드 결과를 확인할 수 없습니다."
             logger.error(f"[{task_id}] {task.error_message}")
             self._save_history()
+            self._notify(
+                NotificationKind.VOD_FAILED,
+                title="❌ VOD 다운로드 실패",
+                description=f"제목: **{task.title or task.url}**",
+                color="red",
+                fields={"오류": task.error_message},
+            )
 
     def _clean_filename(self, name: str) -> str:
         """파일명에서 사용할 수 없는 특수문자를 제거한다."""
