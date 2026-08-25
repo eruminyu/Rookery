@@ -113,6 +113,8 @@ export interface Settings {
 
     // Discord 설정
     discord_notification_channel_id?: string;
+    discord_command_user_ids?: string;
+    discord_command_channel_id?: string;
 
     // 알림 설정
     discord_webhook_configured: boolean;
@@ -183,6 +185,8 @@ export interface ChatSettingsUpdate {
 export interface DiscordSettingsUpdate {
     discord_bot_token?: string;
     discord_notification_channel_id?: string;
+    discord_command_user_ids?: string;
+    discord_command_channel_id?: string;
     discord_webhook_url?: string;
     discord_notify_events?: string[];
     discord_mention_events?: string[];

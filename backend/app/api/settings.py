@@ -71,6 +71,8 @@ class DiscordSettingsUpdateRequest(BaseModel):
 
     discord_bot_token: Optional[str] = Field(None, description="Discord Bot 토큰")
     discord_notification_channel_id: Optional[str] = Field(None, description="알림을 보낼 Discord 채널 ID")
+    discord_command_user_ids: Optional[str] = Field(None, description="봇 명령어를 실행할 수 있는 사용자 ID (쉼표 구분)")
+    discord_command_channel_id: Optional[str] = Field(None, description="봇 명령어를 허용할 채널 ID (미설정 시 알림 채널 사용)")
     discord_webhook_url: Optional[str] = Field(
         None, description="Bot 장애 시 폴백으로 사용할 Discord Webhook URL"
     )
@@ -136,6 +138,8 @@ async def get_current_settings():
         "chat_archive_enabled": settings.chat_archive_enabled,
         # Discord 설정
         "discord_notification_channel_id": settings.discord_notification_channel_id,
+        "discord_command_user_ids": settings.discord_command_user_ids,
+        "discord_command_channel_id": settings.discord_command_channel_id,
         # 알림 설정 (Webhook URL은 토큰과 동등한 비밀값이므로 설정 여부만 노출)
         "discord_webhook_configured": bool(settings.discord_webhook_url),
         "discord_notify_events": _csv_to_list(settings.discord_notify_events) or ["all"],
@@ -437,6 +441,19 @@ async def update_discord_settings(req: DiscordSettingsUpdateRequest):
         settings.discord_notification_channel_id = req.discord_notification_channel_id if req.discord_notification_channel_id.strip() else None
         updates["DISCORD_NOTIFICATION_CHANNEL_ID"] = req.discord_notification_channel_id.strip()
 
+    if req.discord_command_user_ids is not None:
+        cleaned = ",".join(
+            part.strip()
+            for part in req.discord_command_user_ids.replace(";", ",").split(",")
+            if part.strip()
+        )
+        settings.discord_command_user_ids = cleaned or None
+        updates["DISCORD_COMMAND_USER_IDS"] = cleaned
+
+    if req.discord_command_channel_id is not None:
+        settings.discord_command_channel_id = req.discord_command_channel_id.strip() or None
+        updates["DISCORD_COMMAND_CHANNEL_ID"] = req.discord_command_channel_id.strip()
+
     if req.discord_webhook_url is not None:
         url = req.discord_webhook_url.strip()
         if url and not url.startswith("https://"):
@@ -473,6 +490,8 @@ async def update_discord_settings(req: DiscordSettingsUpdateRequest):
         "settings": {
             "discord_bot_configured": bool(settings.discord_bot_token),
             "discord_notification_channel_id": settings.discord_notification_channel_id,
+            "discord_command_user_ids": settings.discord_command_user_ids,
+            "discord_command_channel_id": settings.discord_command_channel_id,
             "discord_webhook_configured": bool(settings.discord_webhook_url),
             "discord_notify_events": _csv_to_list(settings.discord_notify_events) or ["all"],
             "discord_mention_events": _csv_to_list(settings.discord_mention_events),

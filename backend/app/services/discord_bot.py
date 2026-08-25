@@ -5,6 +5,10 @@ User-Hosted Bot으로 원격에서 녹화 상태 확인 및 제어.
 사용자가 DISCORD_BOT_TOKEN을 설정에 입력하면 자동 구동된다.
 명령어: !status, !list, !start, !stop (프리픽스) + /status, /list, /start, /stop (슬래시)
 
+모든 명령어는 DISCORD_COMMAND_USER_IDS / DISCORD_COMMAND_CHANNEL_ID 기반 권한 검사를
+거친다. 두 값이 비어 있으면 DISCORD_NOTIFICATION_CHANNEL_ID가 사용되며, 어느 것도
+설정되지 않으면 모든 명령어가 거부된다. (_is_authorized 참고)
+
 이 모듈은 NotificationService의 전송 채널(transport) 역할도 겸한다.
 알림 큐/재시도/유실 방지 로직은 app.services.notifications가 담당하고,
 여기서는 "지금 이 embed를 Discord 채널에 보낸다"만 책임진다.
@@ -46,6 +50,91 @@ except ImportError:
 # 재연결 백오프 (초) — 고정 대기 대신 지수 증가로 API 남용을 피한다.
 _RECONNECT_BASE_DELAY = 5.0
 _RECONNECT_MAX_DELAY = 300.0
+
+
+
+_DENIED_MESSAGE = (
+    "⛔ 이 봇을 제어할 권한이 없습니다.\n"
+    "설정 → 알림 탭에서 `명령어 허용 사용자 ID` 또는 `명령어 허용 채널 ID`를 지정하세요."
+)
+
+
+def _parse_id_list(raw: Optional[str]) -> set[int]:
+    """쉼표로 구분된 Discord ID 문자열을 정수 집합으로 변환한다."""
+    if not raw:
+        return set()
+
+    ids: set[int] = set()
+    for part in raw.replace(";", ",").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            ids.add(int(part))
+        except ValueError:
+            logger.warning(f"Discord 명령어 허용 사용자 ID가 올바르지 않습니다: {part!r}")
+    return ids
+
+
+def _parse_id(raw: Optional[str], label: str) -> Optional[int]:
+    """단일 Discord ID 문자열을 정수로 변환한다. 실패 시 None."""
+    if not raw or not raw.strip():
+        return None
+    try:
+        return int(raw.strip())
+    except ValueError:
+        logger.warning(f"{label}가 올바르지 않습니다: {raw!r}")
+        return None
+
+
+def _is_authorized(user_id: int, channel_id: Optional[int]) -> bool:
+    """봇 명령어 실행 권한을 판정한다.
+
+    아무것도 설정되지 않았을 때 열어두면 봇이 초대된 서버의 누구나 남의 녹화를
+    중단시킬 수 있으므로, 안전한 쪽으로 닫는다.
+
+    규칙:
+        - DISCORD_COMMAND_USER_IDS가 설정되면 해당 사용자만 허용한다.
+        - DISCORD_COMMAND_CHANNEL_ID가 설정되면 해당 채널에서만 허용한다.
+        - 둘 다 설정되면 두 조건을 모두 만족해야 한다.
+        - 둘 다 비어 있으면 DISCORD_NOTIFICATION_CHANNEL_ID를 채널 조건으로 사용한다.
+        - 어느 것도 설정되지 않으면 거부한다.
+    """
+    settings = get_settings()
+
+    allowed_users = _parse_id_list(settings.discord_command_user_ids)
+    allowed_channel = _parse_id(settings.discord_command_channel_id, "Discord 명령어 허용 채널 ID")
+
+    if not allowed_users and allowed_channel is None:
+        allowed_channel = _parse_id(
+            settings.discord_notification_channel_id, "Discord 알림 채널 ID"
+        )
+
+    if not allowed_users and allowed_channel is None:
+        return False
+
+    if allowed_users and user_id not in allowed_users:
+        return False
+    if allowed_channel is not None and channel_id != allowed_channel:
+        return False
+    return True
+
+
+async def _prefix_authorization_check(ctx: commands.Context) -> bool:
+    """모든 프리픽스 명령어에 적용되는 전역 권한 검사."""
+    channel_id = getattr(ctx.channel, "id", None)
+    if _is_authorized(ctx.author.id, channel_id):
+        return True
+
+    logger.warning(
+        f"Discord 명령어 권한 거부 (프리픽스): user={ctx.author} ({ctx.author.id}) "
+        f"channel={channel_id} command={ctx.command}"
+    )
+    try:
+        await ctx.reply(_DENIED_MESSAGE, mention_author=False)
+    except Exception:
+        pass
+    return False
 
 
 def _make_embed(
@@ -136,9 +225,34 @@ class DiscordBotService:
 
     def _build_bot(self) -> commands.Bot:
         """Bot 인스턴스를 생성하고 명령어를 등록한다."""
+
+        class _AuthorizedCommandTree(app_commands.CommandTree):
+            """모든 슬래시 커맨드에 권한 검사를 적용하는 CommandTree."""
+
+            async def interaction_check(self, interaction: discord.Interaction) -> bool:
+                channel_id = interaction.channel_id
+                if _is_authorized(interaction.user.id, channel_id):
+                    return True
+
+                command_name = interaction.command.name if interaction.command else "?"
+                logger.warning(
+                    f"Discord 명령어 권한 거부 (슬래시): user={interaction.user} "
+                    f"({interaction.user.id}) channel={channel_id} command={command_name}"
+                )
+                try:
+                    await interaction.response.send_message(_DENIED_MESSAGE, ephemeral=True)
+                except Exception:
+                    pass
+                return False
+
         intents = discord.Intents.default()
         intents.message_content = True
-        bot = commands.Bot(command_prefix="!", intents=intents)
+        bot = commands.Bot(
+            command_prefix="!",
+            intents=intents,
+            tree_cls=_AuthorizedCommandTree,
+        )
+        bot.add_check(_prefix_authorization_check)
         self._register_commands(bot)
         return bot
 
@@ -414,6 +528,16 @@ class DiscordBotService:
                 except Exception as e:
                     logger.error(f"슬래시 커맨드 동기화 실패 ({guild.name}): {e}")
             logger.info(f"🤖 슬래시 커맨드 동기화 완료: {total}개 (서버별 즉시 적용)")
+
+        @bot.event
+        async def on_command_error(ctx: commands.Context, error: Exception) -> None:
+            # 권한 검사 실패는 이미 안내 메시지를 보냈으므로 조용히 넘어간다.
+            if isinstance(error, commands.CheckFailure):
+                return
+            if isinstance(error, commands.CommandNotFound):
+                logger.debug(f"알 수 없는 Discord 명령어: {ctx.message.content[:100]}")
+                return
+            logger.error(f"Discord 명령어 오류 ({ctx.command}): {error}")
 
         @bot.command(name="status")
         async def cmd_status(ctx: commands.Context) -> None:

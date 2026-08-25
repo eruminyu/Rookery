@@ -102,6 +102,8 @@ class Settings(BaseSettings):
     # ── Discord Bot ──────────────────────────────────────
     discord_bot_token: Optional[str] = None
     discord_notification_channel_id: Optional[str] = None  # 알림을 보낼 채널 ID
+    discord_command_user_ids: Optional[str] = None    # 명령어 허용 사용자 ID (쉼표 구분)
+    discord_command_channel_id: Optional[str] = None  # 명령어 허용 채널 ID (미설정 시 알림 채널 사용)
 
     # ── Discord 알림 ─────────────────────────────────────
     # Bot 연결이 끊겨도 알림이 도착하도록 하는 폴백 경로.

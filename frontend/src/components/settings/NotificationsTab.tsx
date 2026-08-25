@@ -65,6 +65,8 @@ export function NotificationsTab({ settings, onSaved, onDirtyChange }: Props) {
     // ── 폼 상태 ──────────────────────────────────────
     const [botToken, setBotToken] = useState("");
     const [channelId, setChannelId] = useState("");
+    const [commandUserIds, setCommandUserIds] = useState("");
+    const [commandChannelId, setCommandChannelId] = useState("");
     const [webhookUrl, setWebhookUrl] = useState("");
     const [enabledKinds, setEnabledKinds] = useState<Set<string>>(new Set());
     const [mentionKinds, setMentionKinds] = useState<Set<string>>(new Set());
@@ -88,6 +90,8 @@ export function NotificationsTab({ settings, onSaved, onDirtyChange }: Props) {
         setEnabledKinds(
             new Set(notify.includes("all") ? allValues : notify.filter((v) => v !== "none")),
         );
+        setCommandUserIds(settings.discord_command_user_ids || "");
+        setCommandChannelId(settings.discord_command_channel_id || "");
         setMentionKinds(new Set(settings.discord_mention_events ?? []));
         setMentionTarget(settings.discord_mention_target || "@here");
         setTtlMinutes(Math.round((settings.discord_notify_ttl ?? 3600) / 60));
@@ -132,6 +136,9 @@ export function NotificationsTab({ settings, onSaved, onDirtyChange }: Props) {
                 ...(botToken.trim() ? { discord_bot_token: botToken.trim() } : {}),
                 ...(webhookUrl.trim() ? { discord_webhook_url: webhookUrl.trim() } : {}),
                 discord_notification_channel_id: channelId.trim() || undefined,
+                // 빈 문자열도 그대로 보낸다 — 허용 목록을 지우는 조작이어야 하므로.
+                discord_command_user_ids: commandUserIds.trim(),
+                discord_command_channel_id: commandChannelId.trim(),
                 discord_notify_events: allSelected ? ["all"] : [...enabledKinds],
                 discord_mention_events: [...mentionKinds],
                 discord_mention_target: mentionTarget,
@@ -305,6 +312,39 @@ export function NotificationsTab({ settings, onSaved, onDirtyChange }: Props) {
                             value={channelId || settings?.discord_notification_channel_id || ""}
                             onChange={(e) => {
                                 setChannelId(e.target.value);
+                                markDirty();
+                            }}
+                            placeholder="예: 1234567890123456789"
+                        />
+                    </Field>
+
+                    <Field
+                        label="명령어 허용 사용자 ID"
+                        htmlFor="command-user-ids"
+                        hint="쉼표로 구분합니다. 비워두면 사용자 제한 없이 채널 조건만 적용됩니다."
+                    >
+                        <Input
+                            id="command-user-ids"
+                            value={commandUserIds}
+                            onChange={(e) => {
+                                setCommandUserIds(e.target.value);
+                                markDirty();
+                            }}
+                            placeholder="예: 1234567890123456789, 9876543210987654321"
+                        />
+                    </Field>
+
+                    <Field
+                        label="명령어 허용 채널 ID"
+                        htmlFor="command-channel-id"
+                        hint="비워두면 위 알림 채널에서만 명령어가 동작합니다. 셋 다 비어 있으면 모든 명령어가 거부됩니다."
+                    >
+                        <Input
+                            id="command-channel-id"
+                            inputMode="numeric"
+                            value={commandChannelId}
+                            onChange={(e) => {
+                                setCommandChannelId(e.target.value);
                                 markDirty();
                             }}
                             placeholder="예: 1234567890123456789"
