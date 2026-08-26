@@ -38,10 +38,6 @@ build/
 # 프론트엔드 빌드 결과 (backend에 복사되는 static)
 backend/app/static/
 
-# 생성된 아이콘
-assets/icon.png
-assets/icon.ico
-
 # Runtime data & logs
 backend/data/
 backend/logs/

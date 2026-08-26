@@ -22,6 +22,12 @@ import webbrowser
 from pathlib import Path
 
 
+# Windows 기본 콘솔(cp949)에서 이모지 출력이 앱 시작을 중단하지 않게 한다.
+for stream in (sys.stdout, sys.stderr):
+    if stream is not None and hasattr(stream, "reconfigure"):
+        stream.reconfigure(errors="replace")
+
+
 # ── PyInstaller SSL 인증서 번들 설정 ────────────────────────────
 # PyInstaller 빌드 시 certifi CA 번들이 자동으로 포함되지 않아
 # aiohttp/yt-dlp 등에서 SSL 인증서 검증 실패가 발생한다.
@@ -254,7 +260,10 @@ def _run_dependency_check() -> bool:
 
 def _get_icon_path() -> Path:
     """아이콘 파일 경로를 반환한다. PyInstaller 빌드 환경을 고려."""
-    base = Path(sys.executable).parent if IS_FROZEN else Path(__file__).resolve().parent.parent
+    if IS_FROZEN:
+        base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    else:
+        base = Path(__file__).resolve().parent.parent
     icon = base / "assets" / "icon.png"
     return icon if icon.exists() else base / "assets" / "icon.ico"
 
