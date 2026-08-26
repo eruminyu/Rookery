@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 설치와 사용법
+    url: https://github.com/eruminyu/Rookery#readme
+    about: 설치, 첫 실행 설정, 문제 해결은 README에 정리되어 있습니다.
+  - name: Linux / macOS 설치
+    url: https://github.com/eruminyu/Rookery/blob/main/docs/linux-guide.md
+    about: 원라이너 설치와 서비스 등록 방법입니다.
+  - name: Docker로 실행
+    url: https://github.com/eruminyu/Rookery/blob/main/docs/docker-guide.md
+    about: 컨테이너 실행과 볼륨 설정 방법입니다.
