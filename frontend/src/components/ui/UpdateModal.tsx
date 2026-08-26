@@ -19,6 +19,8 @@ export function UpdateModal({ info, onClose }: UpdateModalProps) {
     const renderContent = () => {
         switch (info.environment) {
             case "windows-exe":
+                // 릴리즈 asset 이름에 버전이 들어간다: Rookery-v2.0.0-windows-x64.exe
+                const assetName = `Rookery-v${info.latest_version}-windows-x64.exe`;
                 return (
                     <div className="space-y-4">
                         <p className="text-sm text-ink-muted">
@@ -27,11 +29,21 @@ export function UpdateModal({ info, onClose }: UpdateModalProps) {
                         <div className="bg-surface-1 p-4 rounded-[var(--radius-control)] border border-line">
                             <ol className="list-decimal list-inside space-y-2 text-sm text-ink-muted">
                                 <li>아래 버튼을 눌러 GitHub 릴리즈 페이지로 이동합니다.</li>
-                                <li><span className="text-[var(--primary)] font-mono">Rookery.exe</span> 파일을 다운로드합니다.</li>
+                                <li><span className="text-[var(--primary)] font-mono break-all">{assetName}</span> 파일을 다운로드합니다.</li>
                                 <li>현재 실행 중인 프로그램을 종료합니다.</li>
-                                <li>다운로드한 파일로 기존 파일을 덮어쓰기 한 후 다시 실행합니다.</li>
+                                <li>
+                                    받은 파일을 <b className="text-ink-muted">기존 실행 파일과 같은 폴더</b>로 옮긴 뒤 실행합니다.
+                                </li>
+                                <li>정상 동작을 확인했으면 이전 버전 파일은 삭제해도 됩니다.</li>
                             </ol>
                         </div>
+                        <p className="text-xs text-ink-faint flex items-start gap-1.5">
+                            <span className="text-warn">⚠️</span>
+                            <span>
+                                설정(<span className="font-mono">.env</span>)과 데이터(<span className="font-mono">data/</span>)는
+                                실행 파일 옆에 저장됩니다. 다른 폴더에서 실행하면 채널 목록이 비어 보이고 초기 설정 마법사가 다시 표시됩니다.
+                            </span>
+                        </p>
                         <a
                             href={info.download_url}
                             target="_blank"
