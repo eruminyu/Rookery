@@ -15,7 +15,7 @@
 ## 🚀 방법 1: 원라이너 (권장)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Rookery/main/scripts/manage.sh | bash
 ```
 
 이 한 줄이 설치와 업데이트를 겸합니다. 설치되어 있지 않으면 설치하고, 이미 설치되어 있으면 최신 버전으로 갱신한 뒤 재시작합니다.
@@ -56,10 +56,10 @@ rookery uninstall       # 제거 (녹화 파일·데이터는 유지)
 
 ```bash
 # 설치 경로 변경 (기본: ~/rookery)
-INSTALL_DIR=/opt/rookery curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
+INSTALL_DIR=/opt/rookery curl -fsSL https://raw.githubusercontent.com/eruminyu/Rookery/main/scripts/manage.sh | bash
 
 # 명시적으로 설치만 수행 (업데이트 판단 없이)
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash -s -- install
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Rookery/main/scripts/manage.sh | bash -s -- install
 ```
 
 ---
@@ -79,8 +79,8 @@ sudo apt-get install -y python3.12 python3.12-venv ffmpeg git
 
 ```bash
 # 저장소 클론
-git clone https://github.com/eruminyu/Signal-Recorder.git
-cd Signal-Recorder
+git clone https://github.com/eruminyu/Rookery.git
+cd Rookery
 
 # 프론트엔드 빌드
 cd frontend
@@ -175,7 +175,7 @@ rookery uninstall
 rm -rf ~/rookery
 
 # 3. 재설치
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Rookery/main/scripts/manage.sh | bash
 ```
 
 > ⚠️ **`address already in use` 오류가 나는 경우**

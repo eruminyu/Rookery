@@ -12,9 +12,7 @@ FastAPI(Python 3.12) + React 19 / TypeScript / Vite / Tailwind CSS v4.
 **작업을 시작하기 전에 [`docs/handoff-2026-08-25.md`](docs/handoff-2026-08-25.md)를 읽을 것.**
 지금까지의 결정과 그 근거, 남은 일, 환경 함정이 전부 거기 있다.
 
-계획된 코드 작업은 모두 끝났다. 남은 것은 **GitHub 리포지토리 이름 변경** 하나뿐이며,
-코드의 리포 슬러그(`eruminyu/Signal-Recorder`)는 그때 함께 바꾸도록 일부러 남겨 뒀다.
-먼저 바꾸면 업데이트 체커가 404를 받고 설치 원라이너가 죽는다.
+계획된 작업은 모두 끝났다. 리포지토리는 `eruminyu/Rookery`이고 코드의 슬러그도 맞춰져 있다.
 
 살아있는 문서는 이 하나뿐이다 — `docs/handoff-2026-08-25.md`.
 `docs/done-*.md`와 `plan-*.md`는 **과거 기록**이다. 현재 상태를 반영하지 않으니

@@ -14,7 +14,7 @@ from app.version import __version__
 from app.services.notifications import NotificationKind, NotificationService
 
 # GitHub 리포지토리 정보
-GITHUB_REPO = "eruminyu/Signal-Recorder"
+GITHUB_REPO = "eruminyu/Rookery"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
 class UpdaterService:

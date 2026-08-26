@@ -123,7 +123,7 @@ TS와 MKV는 비정상 종료 시에도 이미 받은 구간을 보존하기 쉬
 
 Python을 별도로 설치하지 않고 사용할 수 있는 방법입니다.
 
-1. [Releases](https://github.com/eruminyu/Signal-Recorder/releases)에서 최신 `rookery.exe`를 받습니다.
+1. [Releases](https://github.com/eruminyu/Rookery/releases)에서 최신 `Rookery.exe`를 받습니다.
 2. 실행 파일을 열고 의존성 안내를 따릅니다.
 3. 자동으로 열리는 브라우저 또는 `http://localhost:8000`에 접속합니다.
 
@@ -132,7 +132,7 @@ Windows Defender가 서명되지 않은 실행 파일을 경고할 수 있습니
 ### Linux / macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eruminyu/Rookery/main/scripts/manage.sh | bash
 ```
 
 이 한 줄이 설치와 업데이트를 모두 처리합니다. 설치되어 있지 않으면 설치하고, 이미 설치되어 있으면 최신 버전으로 갱신한 뒤 재시작합니다. 의존성 확인, 프론트엔드 빌드, 가상환경 구성, systemd 등록까지 이어집니다.
@@ -151,7 +151,7 @@ rookery --help     # 전체 명령
 설치 경로는 기본이 `~/rookery`이며 `INSTALL_DIR`로 바꿀 수 있습니다.
 
 ```bash
-INSTALL_DIR=/opt/rookery curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
+INSTALL_DIR=/opt/rookery curl -fsSL https://raw.githubusercontent.com/eruminyu/Rookery/main/scripts/manage.sh | bash
 ```
 
 자세한 내용은 [Linux 설치 가이드](docs/linux-guide.md)를 참고하세요.
@@ -192,8 +192,8 @@ volumes:
 ### 설치와 프로덕션 빌드
 
 ```bash
-git clone https://github.com/eruminyu/Signal-Recorder.git
-cd Signal-Recorder
+git clone https://github.com/eruminyu/Rookery.git
+cd Rookery
 
 python -m venv backend/.venv
 ```

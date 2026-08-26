@@ -73,30 +73,27 @@
 
 ---
 
-## 아직 남은 것 — GitHub 리포지토리 이름
+## GitHub 리포지토리 이름 — 완료
 
-**리포 슬러그 `eruminyu/Signal-Recorder`는 의도적으로 바꾸지 않았다.**
+리포 슬러그는 **가장 마지막에** 바꿨다. 코드가 먼저 새 이름을 가리키면 실제 리포를
+바꾸기 전까지 업데이트 체커가 404를 받고 설치 원라이너도 죽는다. 실사용 중인
+프로그램이라 그 공백을 만들 수 없었다.
 
-코드에서 먼저 새 이름을 가리키면, 실제 리포를 바꾸기 전까지 업데이트 체커가
-404를 받고 설치 원라이너도 죽는다. 실사용 중인 프로그램이라 그 공백을 만들 수 없다.
-
-바꾸려면 **GitHub에서 리포 이름을 바꾼 직후** 아래를 함께 교체한다.
-
-```bash
-grep -rn "eruminyu/Signal-Recorder" --exclude-dir=.git --exclude-dir=node_modules .
-```
+`eruminyu/Signal-Recorder` → `eruminyu/Rookery` 로 바꾼 위치:
 
 - `backend/app/engine/updater.py` — `GITHUB_REPO`
-- `scripts/manage.sh` — `REPO_SLUG`
-- `README.md`, `docs/linux-guide.md`, `docs/handoff-2026-08-25.md` — clone / 원라이너 URL과 `cd` 대상 디렉토리
+- `scripts/manage.sh` — `REPO_SLUG` (`REPO_URL`과 `RAW_URL`이 여기서 파생된다)
+- `README.md`, `docs/linux-guide.md`, `docs/handoff-2026-08-25.md` — clone / 원라이너 URL과 `cd` 대상
 
-릴리즈 asset 파일명도 `Rookery.exe`로 맞춰야 한다. PyInstaller 스펙(`*.spec`)은
-gitignore 대상이라 저장소에 없으므로 빌드 머신에서 직접 고친다.
+GitHub이 옛 이름으로 오는 요청을 리다이렉트해 주므로 구버전 클라이언트의 업데이트
+확인도 당장은 동작한다. 다만 영구 보장은 아니다.
 
-GitHub은 리포 이름 변경 시 리다이렉트를 제공하지만, `raw.githubusercontent.com`과
-릴리즈 asset까지 그대로 동작하는지는 실제 릴리즈에서 확인해야 한다.
+**아직 남은 것**: 다음 릴리즈의 asset 파일명을 `Rookery.exe`로 맞추기.
+PyInstaller 스펙(`*.spec`)은 gitignore 대상이라 저장소에 없으므로
+빌드 머신에서 직접 고쳐야 한다.
 
 ---
+
 
 ## 손대지 않은 문서
 
