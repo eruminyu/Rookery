@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════
-#  Signal Recorder — 통합 관리 스크립트 (Linux / macOS)
+#  Rookery — 통합 관리 스크립트 (Linux / macOS)
 #
 #  원라이너 (설치 · 업데이트 겸용):
 #    curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
 #
 #  설치 후에는 어디서나 한 단어로 쓴다:
-#    signal-recorder update | start | stop | status | logs
+#    rookery update | start | stop | status | logs
 #
 #  설계 원칙
 #    - 이 파일 하나로 설치·업데이트가 끝난다 (curl | bash 로 실행되므로 자기완결적이어야 함)
@@ -20,8 +20,8 @@ set -euo pipefail
 REPO_SLUG="eruminyu/Signal-Recorder"
 REPO_URL="https://github.com/${REPO_SLUG}.git"
 RAW_URL="https://raw.githubusercontent.com/${REPO_SLUG}/main/scripts/manage.sh"
-APP_NAME="signal-recorder"
-SERVICE_NAME="signal-recorder"
+APP_NAME="rookery"
+SERVICE_NAME="rookery"
 DEFAULT_PORT=8000
 REQUIRED_PYTHON_MINOR=10
 REQUIRED_FFMPEG_MAJOR=6
@@ -40,12 +40,11 @@ warn()  { echo "${YELLOW}[!]${NC} $1"; }
 error() { echo "${RED}[✘]${NC} $1" >&2; exit 1; }
 step()  { echo ""; echo "${BOLD}${CYAN}▶ $1${NC}"; }
 
+# 한글은 한 글자가 두 칸을 차지해 박스 테두리를 맞추기 어렵다.
+# 터미널 폰트에 따라 어긋나므로 테두리 없이 간다.
 banner() {
   echo ""
-  echo "${CYAN}${BOLD}  ┌──────────────────────────────────────┐${NC}"
-  echo "${CYAN}${BOLD}  │   Signal Recorder                    │${NC}"
-  echo "${CYAN}${BOLD}  │   멀티 플랫폼 라이브 녹화 · 아카이빙  │${NC}"
-  echo "${CYAN}${BOLD}  └──────────────────────────────────────┘${NC}"
+  echo "${CYAN}${BOLD}  Rookery${NC} — 멀티 플랫폼 라이브 녹화 · 아카이빙"
   echo ""
 }
 
@@ -78,6 +77,7 @@ resolve_install_dir() {
   fi
 
   # 구버전 설치 경로를 쓰던 사용자를 그대로 이어받는다.
+  # Rookery로 이름을 바꾸기 전 설치본이 ~/signal-recorder에 있다.
   local legacy
   for legacy in "$HOME/signal-recorder" "$HOME/chzzk-recorder-pro"; do
     if [ -d "$legacy/.git" ]; then
@@ -343,13 +343,30 @@ service_exists() {
   has_cmd systemctl && systemctl cat "${SERVICE_NAME}.service" >/dev/null 2>&1
 }
 
+LEGACY_SERVICE_NAME="signal-recorder"
+
+# Rookery로 이름을 바꾸기 전 유닛이 남아 있으면 같은 포트를 물고 있어
+# 새 유닛이 뜨지 못한다. 등록 전에 먼저 걷어낸다.
+remove_legacy_service() {
+  has_cmd systemctl || return 0
+  systemctl cat "${LEGACY_SERVICE_NAME}.service" >/dev/null 2>&1 || return 0
+
+  warn "구버전 서비스(${LEGACY_SERVICE_NAME})를 발견했습니다. 중지 후 제거합니다."
+  sudo systemctl disable --now "$LEGACY_SERVICE_NAME" 2>/dev/null || true
+  sudo rm -f "/etc/systemd/system/${LEGACY_SERVICE_NAME}.service"
+  sudo systemctl daemon-reload
+  info "구버전 서비스 제거 완료 ✓"
+}
+
 service_install() {
   has_cmd systemctl || { warn "systemd가 없어 서비스 등록을 건너뜁니다."; return 0; }
+
+  remove_legacy_service
 
   step "systemd 서비스 등록"
   sudo tee "/etc/systemd/system/${SERVICE_NAME}.service" >/dev/null <<UNIT
 [Unit]
-Description=Signal Recorder - Live Stream Recorder
+Description=Rookery - Live Stream Recorder
 Documentation=https://github.com/${REPO_SLUG}
 After=network-online.target
 Wants=network-online.target
@@ -569,7 +586,7 @@ print_done() {
 cmd_help() {
   cat <<HELP
 
-${BOLD}Signal Recorder 관리 명령${NC}
+${BOLD}Rookery 관리 명령${NC}
 
   ${CYAN}$APP_NAME${NC} [명령]
 

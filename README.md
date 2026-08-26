@@ -1,4 +1,4 @@
-# Signal-Recorder
+# Rookery
 
 ![Version](https://img.shields.io/badge/version-1.3.0-13d9a3)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
@@ -16,11 +16,11 @@
 
 ### Live Dashboard
 
-![Signal-Recorder Live Dashboard](assets/screenshots/dashboard-latest.jpg)
+![Rookery Live Dashboard](assets/screenshots/dashboard-latest.jpg)
 
 ### VOD Downloader
 
-![Signal-Recorder VOD Downloader](assets/screenshots/vod-downloader-latest.jpg)
+![Rookery VOD Downloader](assets/screenshots/vod-downloader-latest.jpg)
 
 ## 무엇이 달라졌나요?
 
@@ -123,7 +123,7 @@ TS와 MKV는 비정상 종료 시에도 이미 받은 구간을 보존하기 쉬
 
 Python을 별도로 설치하지 않고 사용할 수 있는 방법입니다.
 
-1. [Releases](https://github.com/eruminyu/Signal-Recorder/releases)에서 최신 `signal-recorder.exe`를 받습니다.
+1. [Releases](https://github.com/eruminyu/Signal-Recorder/releases)에서 최신 `rookery.exe`를 받습니다.
 2. 실행 파일을 열고 의존성 안내를 따릅니다.
 3. 자동으로 열리는 브라우저 또는 `http://localhost:8000`에 접속합니다.
 
@@ -140,18 +140,18 @@ curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scrip
 설치가 끝나면 어디서나 한 단어로 관리합니다.
 
 ```bash
-signal-recorder status     # 상태 확인
-signal-recorder update     # 최신 버전으로 갱신
-signal-recorder start      # 시작
-signal-recorder stop       # 중지
-signal-recorder logs       # 로그 실시간 보기
-signal-recorder --help     # 전체 명령
+rookery status     # 상태 확인
+rookery update     # 최신 버전으로 갱신
+rookery start      # 시작
+rookery stop       # 중지
+rookery logs       # 로그 실시간 보기
+rookery --help     # 전체 명령
 ```
 
-설치 경로는 기본이 `~/signal-recorder`이며 `INSTALL_DIR`로 바꿀 수 있습니다.
+설치 경로는 기본이 `~/rookery`이며 `INSTALL_DIR`로 바꿀 수 있습니다.
 
 ```bash
-INSTALL_DIR=/opt/signal-recorder curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
+INSTALL_DIR=/opt/rookery curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
 ```
 
 자세한 내용은 [Linux 설치 가이드](docs/linux-guide.md)를 참고하세요.
@@ -284,7 +284,7 @@ MONITOR_INTERVAL=30
 
 | 경로 | 내용 |
 |---|---|
-| `backend/data/signal_recorder.db` | 채널, 녹화·VOD 이력, 태그, 알림 큐 |
+| `backend/data/rookery.db` | 채널, 녹화·VOD 이력, 태그, 알림 큐 |
 | `backend/recordings/` | 기본 녹화·다운로드 파일 |
 | `logs/` | 서비스 로그 (프로젝트 루트 기준) |
 | `{DOWNLOAD_DIR}/x_spaces_urls/` | 캡처된 X Spaces master URL 백업 |
@@ -306,7 +306,7 @@ npm run build
 ## 프로젝트 구조
 
 ```text
-Signal-Recorder/
+Rookery/
 ├── backend/
 │   ├── app/
 │   │   ├── api/          # FastAPI 라우터
@@ -367,7 +367,7 @@ Settings → 인증에서 `NID_AUT`, `NID_SES`를 새 값으로 저장한 뒤 �
 
 [MIT License](LICENSE)로 배포됩니다.
 
-Signal-Recorder는 FFmpeg를 직접 번들하지 않습니다. FFmpeg에는 빌드 구성에 따라 LGPL 또는 GPL이 적용될 수 있으므로 [FFmpeg License](https://ffmpeg.org/legal.html)를 확인하세요.
+Rookery는 FFmpeg를 직접 번들하지 않습니다. FFmpeg에는 빌드 구성에 따라 LGPL 또는 GPL이 적용될 수 있으므로 [FFmpeg License](https://ffmpeg.org/legal.html)를 확인하세요.
 
 - 다운로드한 콘텐츠를 무단 재배포하거나 상업적으로 이용하지 마세요.
 - 플랫폼 인증 정보와 계정 보안은 사용자가 직접 관리해야 합니다.

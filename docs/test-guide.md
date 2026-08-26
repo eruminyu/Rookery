@@ -23,7 +23,7 @@
 
 ### 사전 준비
 ```powershell
-cd c:\Project\Signal-Recorder\backend
+cd c:\Project\Rookery\backend
 .venv\Scripts\pip install -r requirements.txt
 ```
 
@@ -31,14 +31,14 @@ cd c:\Project\Signal-Recorder\backend
 
 **터미널 1 — 백엔드**
 ```powershell
-cd c:\Project\Signal-Recorder\backend
+cd c:\Project\Rookery\backend
 .venv\Scripts\python run.py
 # 서버 시작 로그 확인: "Uvicorn running on http://0.0.0.0:8000"
 ```
 
 **터미널 2 — 프론트엔드**
 ```powershell
-cd c:\Project\Signal-Recorder\frontend
+cd c:\Project\Rookery\frontend
 npm install
 npm run dev
 # 브라우저: http://localhost:3000
@@ -62,14 +62,14 @@ npm run dev
 
 ### Step A: 프론트엔드 빌드
 ```powershell
-cd c:\Project\Signal-Recorder\frontend
+cd c:\Project\Rookery\frontend
 npm run build
 # 완료 후 확인: backend\app\static\index.html 파일 존재 여부
 ```
 
 ### Step B: FastAPI 단독 실행 (Vite 없이)
 ```powershell
-cd c:\Project\Signal-Recorder\backend
+cd c:\Project\Rookery\backend
 .venv\Scripts\python run.py
 # 브라우저: http://localhost:8000
 ```
@@ -92,15 +92,15 @@ cd c:\Project\Signal-Recorder\backend
 
 > [!IMPORTANT]
 > `.exe` 빌드 전 반드시 **Step A**의 `npm run build`를 먼저 완료해야 한다.
-> `bin/` 폴더에 `ffmpeg.exe`를 배치하거나 `signal_recorder.spec`의 `binaries` 항목 주석을 해제해야 FFmpeg가 번들에 포함된다.
+> `bin/` 폴더에 `ffmpeg.exe`를 배치하거나 `rookery.spec`의 `binaries` 항목 주석을 해제해야 FFmpeg가 번들에 포함된다.
 
 ```powershell
 # PyInstaller 설치 (최초 1회)
 .venv\Scripts\pip install pyinstaller
 
 # 빌드 (프로젝트 루트에서 실행)
-cd c:\Project\Signal-Recorder
-.venv\Scripts\pyinstaller signal_recorder.spec
+cd c:\Project\Rookery
+.venv\Scripts\pyinstaller rookery.spec
 
 # 빌드 결과물: dist\ChzzkRecorder\ChzzkRecorder.exe
 ```
@@ -120,7 +120,7 @@ docker --version
 docker compose version
 
 # 프로젝트 루트로 이동 (git clone 또는 scp로 전달)
-cd /path/to/Signal-Recorder
+cd /path/to/Rookery
 ```
 
 ### `.env` 파일 준비 (최소 설정)
@@ -132,7 +132,7 @@ cp .env.example .env
 
 ### 빌드 및 실행
 ```bash
-docker build -t signal-recorder .
+docker build -t rookery .
 docker compose up -d
 docker compose logs -f
 ```
@@ -146,7 +146,7 @@ docker compose logs -f
 ### 정리
 ```bash
 docker compose down
-docker image rm signal-recorder
+docker image rm rookery
 ```
 
 ---
@@ -157,7 +157,7 @@ docker image rm signal-recorder
 ```bash
 sudo apt update && sudo apt install -y python3.12 python3.12-venv ffmpeg git
 
-cd /path/to/Signal-Recorder
+cd /path/to/Rookery
 ```
 
 ### 설치 스크립트 실행
@@ -180,17 +180,17 @@ cd frontend && npm install && npm run build
 
 ### 서버 실행
 ```bash
-cd /path/to/Signal-Recorder/backend
+cd /path/to/Rookery/backend
 ../.venv/bin/python run.py
 # 브라우저: http://[VM_IP]:8000 → 마법사 팝업 확인
 ```
 
 ### systemd 서비스 등록 (선택사항)
 ```bash
-signal-recorder service install
+rookery service install
 
-sudo systemctl status signal-recorder
-sudo journalctl -u signal-recorder -f
+sudo systemctl status rookery
+sudo journalctl -u rookery -f
 ```
 
 ### 체크리스트

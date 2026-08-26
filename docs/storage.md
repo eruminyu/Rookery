@@ -6,15 +6,15 @@ v1.3.0부터 영속 상태를 SQLite 파일 하나로 통합했다.
 
 | 실행 방식 | 경로 |
 |-----------|------|
-| `.exe` (PyInstaller) | `<exe 폴더>/data/signal_recorder.db` |
-| 개발 환경 | `backend/data/signal_recorder.db` |
-| Docker | `/app/backend/data/signal_recorder.db` (`./data` 볼륨에 마운트) |
+| `.exe` (PyInstaller) | `<exe 폴더>/data/rookery.db` |
+| 개발 환경 | `backend/data/rookery.db` |
+| Docker | `/app/backend/data/rookery.db` (`./data` 볼륨에 마운트) |
 
 `sqlite3`는 Python 표준 라이브러리이므로 단일 exe 빌드나 리눅스 설치에
 추가 요구사항이 생기지 않는다.
 
-WAL 모드로 동작하므로 실행 중에는 `signal_recorder.db-wal`,
-`signal_recorder.db-shm` 파일이 함께 존재한다. 앱을 정상 종료하면
+WAL 모드로 동작하므로 실행 중에는 `rookery.db-wal`,
+`rookery.db-shm` 파일이 함께 존재한다. 앱을 정상 종료하면
 WAL이 본 파일로 합쳐지므로, **백업은 앱을 종료한 뒤 `.db` 파일 하나만
 복사하면 된다.**
 
@@ -43,7 +43,7 @@ WAL이 본 파일로 합쳐지므로, **백업은 앱을 종료한 뒤 `.db` 파
 레거시 채널 키(`:` 없는 구버전 Chzzk 키)는 이관 과정에서
 `chzzk:<채널ID>` 형식으로 자동 변환된다.
 
-되돌리고 싶다면 앱을 끄고 `signal_recorder.db`를 지운 뒤
+되돌리고 싶다면 앱을 끄고 `rookery.db`를 지운 뒤
 `.migrated` 파일들의 접미사를 떼면 이전 버전으로 돌아간다.
 
 ## 스키마 버전 관리

@@ -1,5 +1,5 @@
 """
-Signal-Recorder: 멀티 플랫폼 엔진 공통 인터페이스
+Rookery: 멀티 플랫폼 엔진 공통 인터페이스
 Platform Enum, LiveStatus TypedDict, PlatformEngine Protocol을 정의한다.
 """
 

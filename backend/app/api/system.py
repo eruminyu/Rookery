@@ -1,5 +1,5 @@
 """
-Signal-Recorder: System API (시스템 및 업데이트 관리)
+Rookery: System API (시스템 및 업데이트 관리)
 """
 
 import sys

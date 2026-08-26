@@ -1,6 +1,6 @@
 """
 아이콘 생성 스크립트.
-Pillow만으로 Signal-Recorder 아이콘(.png, .ico)을 생성한다.
+Pillow만으로 Rookery 아이콘(.png, .ico)을 생성한다.
 사용법: python scripts/generate_icon.py
 """
 from __future__ import annotations
@@ -18,7 +18,7 @@ ASSET_DIR.mkdir(exist_ok=True)
 
 
 def create_icon(size: int = 512) -> Image.Image:
-    """Signal-Recorder 앱 아이콘을 생성한다."""
+    """Rookery 앱 아이콘을 생성한다."""
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 

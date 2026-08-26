@@ -9,7 +9,12 @@ import json
 
 import pytest
 
-from app.store.db import Database
+from app.store.db import (
+    DB_FILENAME,
+    LEGACY_DB_FILENAME,
+    Database,
+    _resolve_db_path,
+)
 from app.store.migrate_json import MIGRATION_FLAG, migrate_json_files
 from app.store.repositories import (
     ChannelRepository,
@@ -383,3 +388,60 @@ class TestJsonMigration:
             "태그": 0,
             "대기 알림": 0,
         }
+class TestDbFilenameMigration:
+    """Rookery 리네이밍 시 구버전 DB 파일을 잃지 않는지 검증한다.
+
+    backend/data/는 gitignore 대상이라 DB는 사용자 로컬에만 있다.
+    이관에 실패하면 빈 DB가 생겨 채널 목록과 이력이 사라진 것처럼 보인다.
+    """
+
+    def test_renames_legacy_file(self, tmp_path):
+        (tmp_path / LEGACY_DB_FILENAME).write_bytes(b"sqlite")
+
+        result = _resolve_db_path(tmp_path)
+
+        assert result == tmp_path / DB_FILENAME
+        assert result.exists()
+        assert not (tmp_path / LEGACY_DB_FILENAME).exists()
+
+    def test_moves_wal_and_shm_together(self, tmp_path):
+        """WAL은 본체 파일명에 묶여 있어 같이 옮기지 않으면 트랜잭션을 잃는다."""
+        (tmp_path / LEGACY_DB_FILENAME).write_bytes(b"sqlite")
+        (tmp_path / f"{LEGACY_DB_FILENAME}-wal").write_bytes(b"wal")
+        (tmp_path / f"{LEGACY_DB_FILENAME}-shm").write_bytes(b"shm")
+
+        _resolve_db_path(tmp_path)
+
+        assert (tmp_path / f"{DB_FILENAME}-wal").read_bytes() == b"wal"
+        assert (tmp_path / f"{DB_FILENAME}-shm").read_bytes() == b"shm"
+        assert not (tmp_path / f"{LEGACY_DB_FILENAME}-wal").exists()
+
+    def test_keeps_existing_new_file(self, tmp_path):
+        """이미 새 이름 DB가 있으면 구버전을 덮어쓰지 않는다."""
+        (tmp_path / DB_FILENAME).write_bytes(b"new")
+        (tmp_path / LEGACY_DB_FILENAME).write_bytes(b"old")
+
+        result = _resolve_db_path(tmp_path)
+
+        assert result.read_bytes() == b"new"
+        assert (tmp_path / LEGACY_DB_FILENAME).read_bytes() == b"old"
+
+    def test_fresh_install(self, tmp_path):
+        result = _resolve_db_path(tmp_path)
+
+        assert result == tmp_path / DB_FILENAME
+        assert not result.exists()
+
+    def test_migrated_db_keeps_rows(self, tmp_path):
+        """이관 후에도 실제 데이터를 읽을 수 있어야 한다."""
+        legacy = Database(tmp_path / LEGACY_DB_FILENAME)
+        legacy.connect()
+        ChannelRepository(legacy).upsert("chzzk:abc", "chzzk", "abc", auto_record=True)
+        legacy.close()
+
+        migrated = Database(_resolve_db_path(tmp_path))
+        migrated.connect()
+        rows = ChannelRepository(migrated).list_all()
+        migrated.close()
+
+        assert [r["composite_key"] for r in rows] == ["chzzk:abc"]

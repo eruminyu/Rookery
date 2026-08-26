@@ -1,4 +1,4 @@
-# Signal-Recorder
+# Rookery
 
 치지직·TwitCasting·X Spaces·YouTube 라이브를 감시해 자동 녹화하고, VOD 다운로드와
 채팅 아카이브·통계·Discord 알림까지 하나의 웹 UI에서 관리하는 **개인용** 도구.
@@ -10,17 +10,14 @@ FastAPI(Python 3.12) + React 19 / TypeScript / Vite / Tailwind CSS v4.
 
 `refactor/notification-pipeline` 브랜치에서 진행 중이다.
 **작업을 시작하기 전에 [`docs/handoff-2026-08-25.md`](docs/handoff-2026-08-25.md)를 읽을 것.**
-지금까지의 결정과 그 근거, 남은 작업, 환경 함정이 전부 거기 있다.
+지금까지의 결정과 그 근거, 남은 일, 환경 함정이 전부 거기 있다.
 
-살아있는 문서는 이 셋뿐이다.
+계획된 코드 작업은 모두 끝났다. 남은 것은 **GitHub 리포지토리 이름 변경** 하나뿐이며,
+코드의 리포 슬러그(`eruminyu/Signal-Recorder`)는 그때 함께 바꾸도록 일부러 남겨 뒀다.
+먼저 바꾸면 업데이트 체커가 404를 받고 설치 원라이너가 죽는다.
 
-| 문서 | 내용 |
-|------|------|
-| `docs/handoff-2026-08-25.md` | 결정 기록과 근거, 현재 상태 |
-| `docs/codex-task-discord-notifications.md` | 다음 작업 — 알림 설정 웹훅 우선 재배치 |
-| `docs/plan-rename-rookery.md` | 그다음 — Rookery 리네이밍 |
-
-`docs/done-*.md`와 나머지 `plan-*.md`는 **과거 기록**이다. 현재 상태를 반영하지 않으니
+살아있는 문서는 이 하나뿐이다 — `docs/handoff-2026-08-25.md`.
+`docs/done-*.md`와 `plan-*.md`는 **과거 기록**이다. 현재 상태를 반영하지 않으니
 참고만 하고 고치지 말 것.
 
 ## 검증
@@ -33,7 +30,7 @@ cd frontend && npx tsc --noEmit -p tsconfig.json
 cd frontend && npm run build
 ```
 
-- **기준선: `189 passed, 29 skipped`.** 줄어들면 안 된다.
+- **기준선: `194 passed, 29 skipped`.** 줄어들면 안 된다.
 - 샌드박스에서 `PermissionError: ...Temp\pytest-of-user`로 무더기 실패하면 코드 문제가
   아니라 임시 디렉토리 권한 문제다. `--basetemp=<쓰기 가능한 경로>`로 우회한다.
 - 셸에 node가 PATH에 없을 수 있다. `C:\Program Files\nodejs`를 직접 잡는다.

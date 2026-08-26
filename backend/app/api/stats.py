@@ -1,5 +1,5 @@
 """
-Signal-Recorder: Stats API Router
+Rookery: Stats API Router
 라이브 녹화 및 VOD 다운로드 통계를 집계하여 반환한다.
 """
 

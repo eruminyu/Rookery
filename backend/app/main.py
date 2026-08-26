@@ -1,5 +1,5 @@
 """
-Signal-Recorder: FastAPI 진입점
+Rookery: FastAPI 진입점
 Lifespan 컨텍스트 매니저를 통해 Conductor 라이프사이클을 관리한다.
 """
 
@@ -193,7 +193,7 @@ STATIC_DIR = _resolve_static_dir()
 
 # ── FastAPI 앱 ───────────────────────────────────────────
 app = FastAPI(
-    title="Signal-Recorder",
+    title="Rookery",
     description="다중 플랫폼 스트리밍 및 VOD 전문 녹화 솔루션",
     version=__version__,
     lifespan=lifespan,
@@ -226,7 +226,7 @@ app.include_router(system_router)
 @app.get("/health", tags=["Health"])
 async def health_check_root():
     """헬스 체크 엔드포인트."""
-    return {"message": "Signal-Recorder Engine Started"}
+    return {"message": "Rookery Engine Started"}
 
 
 @app.get("/health/detail", tags=["Health"])

@@ -32,19 +32,19 @@ Docker로 배포하는 경우에는 이 스크립트를 쓰지 않습니다. [Do
 
 ### 설치 후 관리
 
-설치가 끝나면 `signal-recorder` 명령이 `~/.local/bin`에 등록됩니다.
+설치가 끝나면 `rookery` 명령이 `~/.local/bin`에 등록됩니다.
 
 ```bash
-signal-recorder status          # 상태 요약
-signal-recorder status --full   # 상세 점검 (프로세스·DB·디스크·로그)
-signal-recorder update          # 최신 버전으로 갱신 후 재시작
-signal-recorder start           # 시작
-signal-recorder stop            # 중지
-signal-recorder restart         # 재시작
-signal-recorder logs            # 로그 실시간 보기
-signal-recorder service install # systemd 등록
-signal-recorder service remove  # systemd 해제
-signal-recorder uninstall       # 제거 (녹화 파일·데이터는 유지)
+rookery status          # 상태 요약
+rookery status --full   # 상세 점검 (프로세스·DB·디스크·로그)
+rookery update          # 최신 버전으로 갱신 후 재시작
+rookery start           # 시작
+rookery stop            # 중지
+rookery restart         # 재시작
+rookery logs            # 로그 실시간 보기
+rookery service install # systemd 등록
+rookery service remove  # systemd 해제
+rookery uninstall       # 제거 (녹화 파일·데이터는 유지)
 ```
 
 > `~/.local/bin`이 PATH에 없다는 경고가 나오면 셸 설정에 아래를 추가하세요.
@@ -55,8 +55,8 @@ signal-recorder uninstall       # 제거 (녹화 파일·데이터는 유지)
 ### 옵션
 
 ```bash
-# 설치 경로 변경 (기본: ~/signal-recorder)
-INSTALL_DIR=/opt/signal-recorder curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
+# 설치 경로 변경 (기본: ~/rookery)
+INSTALL_DIR=/opt/rookery curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
 
 # 명시적으로 설치만 수행 (업데이트 판단 없이)
 curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash -s -- install
@@ -107,18 +107,18 @@ python run.py
 
 ### 백그라운드 실행 (systemd)
 
-`/etc/systemd/system/signal-recorder.service` 생성:
+`/etc/systemd/system/rookery.service` 생성:
 
 ```ini
 [Unit]
-Description=Signal Recorder
+Description=Rookery
 After=network-online.target
 
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/home/ubuntu/Signal-Recorder/backend
-ExecStart=/home/ubuntu/Signal-Recorder/.venv/bin/python run.py
+WorkingDirectory=/home/ubuntu/Rookery/backend
+ExecStart=/home/ubuntu/Rookery/.venv/bin/python run.py
 Restart=on-failure
 RestartSec=10
 
@@ -128,9 +128,9 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable signal-recorder
-sudo systemctl start signal-recorder
-sudo systemctl status signal-recorder
+sudo systemctl enable rookery
+sudo systemctl start rookery
+sudo systemctl status rookery
 ```
 
 ---
@@ -164,15 +164,15 @@ sudo firewall-cmd --reload
 
 ## 🔄 재설치 / 완전 초기화
 
-대부분의 경우 재설치할 필요 없이 `signal-recorder update` 로 충분합니다.
+대부분의 경우 재설치할 필요 없이 `rookery update` 로 충분합니다.
 완전히 지우고 다시 깔아야 한다면:
 
 ```bash
 # 1. 서비스와 실행 환경 정리 (녹화 파일과 data/ 는 남습니다)
-signal-recorder uninstall
+rookery uninstall
 
 # 2. 저장소까지 지우려면
-rm -rf ~/signal-recorder
+rm -rf ~/rookery
 
 # 3. 재설치
 curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scripts/manage.sh | bash
@@ -181,7 +181,7 @@ curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scrip
 > ⚠️ **`address already in use` 오류가 나는 경우**
 > 기존 서비스가 포트를 점유하고 있는 상태입니다. 먼저 중지하세요.
 > ```bash
-> signal-recorder stop
+> rookery stop
 > ```
 
 ---
@@ -194,6 +194,6 @@ curl -fsSL https://raw.githubusercontent.com/eruminyu/Signal-Recorder/main/scrip
 | `python3.12` 없음 | `sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt install python3.12` |
 | `ffmpeg` 명령 없음 | `sudo apt install ffmpeg` |
 | 포트 접속 불가 | 방화벽 확인, `sudo ufw allow 8000/tcp` |
-| `address already in use` 오류 | `sudo systemctl stop signal-recorder` 후 재실행 |
+| `address already in use` 오류 | `sudo systemctl stop rookery` 후 재실행 |
 | Permission denied | `chown -R $USER:$USER ./recordings ./data ./logs` |
 | Docker 그룹 권한 오류 | 로그아웃 후 재로그인 (또는 `newgrp docker`) |

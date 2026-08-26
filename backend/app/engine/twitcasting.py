@@ -1,5 +1,5 @@
 """
-Signal-Recorder: TwitCasting 엔진
+Rookery: TwitCasting 엔진
 TwitCasting API v2로 라이브 상태를 확인하고,
 라이브 URL을 반환한다. 스트림 다운로드는 YtdlpLivePipeline에서 처리한다.
 """

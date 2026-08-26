@@ -21,7 +21,10 @@ export const THEMES: ThemePreset[] = [
     { id: "red", label: "레드", primary: "#EF4444", dark: "#DC2626" },
 ];
 
-const DEFAULT_TITLE = "Signal Recorder";
+const DEFAULT_TITLE = "Rookery";
+
+/** Rookery로 이름을 바꾸기 전의 기본 타이틀. 표기가 두 가지로 쓰였다. */
+const LEGACY_DEFAULT_TITLES = ["Signal Recorder", "Signal-Recorder"];
 const DEFAULT_CUSTOM_COLOR = "#6366F1"; // 기본 커스텀 색 (인디고)
 const STORAGE_KEYS = {
     theme: "chzzk_theme",
@@ -75,6 +78,23 @@ function applyCustomColor(hex: string) {
     el.style.setProperty("--primary-ring", ring);
 }
 
+/**
+ * 저장된 페이지 타이틀을 읽되, 옛 기본값이면 새 기본값으로 승격한다.
+ *
+ * 타이틀은 브라우저별로 커스터마이징되어 localStorage에 남는다. 기본값 상수만
+ * 바꾸면 기존 사용자 화면에는 계속 옛 이름이 보인다. 반대로 사용자가 직접
+ * 지정한 값은 그대로 둬야 하므로, 옛 기본값과 정확히 일치할 때만 승격한다.
+ */
+function readStoredTitle(): string {
+    const stored = localStorage.getItem(STORAGE_KEYS.title);
+    if (!stored) return DEFAULT_TITLE;
+    if (LEGACY_DEFAULT_TITLES.includes(stored)) {
+        localStorage.removeItem(STORAGE_KEYS.title);
+        return DEFAULT_TITLE;
+    }
+    return stored;
+}
+
 function applyTitle(title: string) {
     document.title = title || DEFAULT_TITLE;
 }
@@ -110,9 +130,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const [customColor, setCustomColorState] = useState<string>(() =>
         localStorage.getItem(STORAGE_KEYS.customColor) || DEFAULT_CUSTOM_COLOR
     );
-    const [pageTitle, setPageTitleState] = useState<string>(() =>
-        localStorage.getItem(STORAGE_KEYS.title) || DEFAULT_TITLE
-    );
+    const [pageTitle, setPageTitleState] = useState<string>(readStoredTitle);
     const [iconUrl, setIconUrlState] = useState<string>(() =>
         localStorage.getItem(STORAGE_KEYS.iconUrl) || ""
     );

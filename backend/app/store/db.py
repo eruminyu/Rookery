@@ -1,5 +1,5 @@
 """
-Signal-Recorder: SQLite 연결 관리
+Rookery: SQLite 연결 관리
 
 JSON 파일 여러 개로 흩어져 있던 영속 상태를 단일 DB 파일로 통합한다.
 sqlite3는 Python 표준 라이브러리이므로 단일 exe 빌드나 리눅스 설치에
@@ -27,7 +27,9 @@ from app.core.config import resolve_data_dir
 from app.core.logger import logger
 from app.store.schema import LATEST_VERSION, apply_migrations
 
-DB_FILENAME = "signal_recorder.db"
+DB_FILENAME = "rookery.db"
+# Rookery로 이름을 바꾸기 전에 쓰던 파일명.
+LEGACY_DB_FILENAME = "signal_recorder.db"
 
 
 class Database:
@@ -162,12 +164,44 @@ _database: Optional[Database] = None
 _database_lock = threading.Lock()
 
 
+def _resolve_db_path(data_dir: Path) -> Path:
+    """사용할 DB 경로를 정하고, 구버전 파일이 있으면 새 이름으로 옮긴다.
+
+    backend/data/는 gitignore 대상이라 DB는 사용자 로컬에만 존재한다.
+    파일명 상수만 바꾸면 빈 DB가 새로 생겨서 채널 목록·녹화 이력·태그가
+    통째로 사라진 것처럼 보인다.
+    """
+    new_path = data_dir / DB_FILENAME
+    old_path = data_dir / LEGACY_DB_FILENAME
+
+    if new_path.exists() or not old_path.exists():
+        return new_path
+
+    try:
+        # WAL/SHM은 본체 파일명에 묶여 있다. 함께 옮겨야 비정상 종료 직전의
+        # 트랜잭션이 보존된다.
+        for suffix in ("", "-wal", "-shm"):
+            src = old_path.with_name(old_path.name + suffix)
+            if src.exists():
+                src.rename(new_path.with_name(new_path.name + suffix))
+        logger.info(f"기존 DB를 이관했습니다: {LEGACY_DB_FILENAME} → {DB_FILENAME}")
+        return new_path
+    except OSError as e:
+        # 이관에 실패했는데 새 빈 DB를 만들면 데이터가 사라진 것처럼 보인다.
+        # 그것이 최악이므로 옛 파일을 그대로 쓴다.
+        logger.error(f"DB 이관 실패 ({e}). 기존 파일을 그대로 사용합니다: {LEGACY_DB_FILENAME}")
+        return old_path
+
+
 def get_database() -> Database:
-    """전역 Database 인스턴스를 반환한다 (없으면 생성 및 연결)."""
+    """전역 Database 인스턴스를 반환한다 (없으면 생성 및 연결).
+
+    호출 전에 구버전 DB 파일명을 확인해 필요하면 이관한다.
+    """
     global _database
     with _database_lock:
         if _database is None:
-            _database = Database(resolve_data_dir() / DB_FILENAME)
+            _database = Database(_resolve_db_path(resolve_data_dir()))
             _database.connect()
         return _database
 

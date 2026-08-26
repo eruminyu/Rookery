@@ -67,7 +67,7 @@ export function AppearanceTab({ onDirtyChange }: Props) {
 
             <Field label="페이지 타이틀" hint="브라우저 탭 제목이 변경됩니다 (최대 32자)">
                 <div className="flex gap-2">
-                    <Input type="text" maxLength={32} value={titleInput} onChange={(event) => setTitleInput(event.target.value)} placeholder="Signal Recorder" className="flex-1" />
+                    <Input type="text" maxLength={32} value={titleInput} onChange={(event) => setTitleInput(event.target.value)} placeholder="Rookery" className="flex-1" />
                     <Button variant="primary" onClick={() => setPageTitle(titleInput)}>적용</Button>
                 </div>
             </Field>
@@ -83,7 +83,7 @@ export function AppearanceTab({ onDirtyChange }: Props) {
                 icon={RotateCcw}
                 onClick={() => {
                     resetAll();
-                    setTitleInput("Signal Recorder");
+                    setTitleInput("Rookery");
                 }}
                 className="w-full"
             >

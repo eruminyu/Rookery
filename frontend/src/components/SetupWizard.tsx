@@ -311,7 +311,7 @@ export function SetupWizard({ onComplete, isDocker = false }: SetupWizardProps) 
                     <div className="mb-6">
                         <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-semibold text-[var(--primary)] uppercase tracking-widest">
-                                Signal-Recorder
+                                Rookery
                             </span>
                         </div>
                         <h2 className="text-2xl font-bold text-ink">

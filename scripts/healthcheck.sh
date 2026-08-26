@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Signal-Recorder 운영 서버 점검 (읽기 전용)
+# Rookery 운영 서버 점검 (읽기 전용)
 #
 # 녹화가 진행 중인 상태에서 실행해도 안전하도록 설계했다:
 #   - 파일을 쓰거나 지우지 않는다
@@ -14,7 +14,13 @@
 set -uo pipefail
 
 BASE="${BASE:-http://127.0.0.1:8000}"
-APP_DIR="${APP_DIR:-$HOME/signal-recorder}"
+# Rookery로 이름을 바꾸기 전 설치본은 ~/signal-recorder 에 있다.
+if [ -z "${APP_DIR:-}" ]; then
+    for cand in "$HOME/rookery" "$HOME/signal-recorder"; do
+        [ -d "$cand" ] && APP_DIR="$cand" && break
+    done
+    APP_DIR="${APP_DIR:-$HOME/rookery}"
+fi
 
 section() { printf '\n\033[1m── %s ─────────────────────────────\033[0m\n' "$1"; }
 kv()      { printf '  %-26s %s\n' "$1" "$2"; }
@@ -41,8 +47,8 @@ else
 fi
 
 if command -v systemctl >/dev/null 2>&1; then
-    kv "systemd" "$(systemctl is-active signal-recorder 2>/dev/null || echo '(미등록)')"
-    kv "부팅 시 자동시작" "$(systemctl is-enabled signal-recorder 2>/dev/null || echo '(미등록)')"
+    kv "systemd" "$(systemctl is-active rookery 2>/dev/null || echo '(미등록)')"
+    kv "부팅 시 자동시작" "$(systemctl is-enabled rookery 2>/dev/null || echo '(미등록)')"
 fi
 
 # ── 2. 실행 중인 프로세스 ───────────────────────────
@@ -113,7 +119,10 @@ fi
 # ── 5. 저장소 ───────────────────────────────────────
 section "저장소"
 DB=""
-for cand in "$APP_DIR/backend/data/signal_recorder.db" ./backend/data/signal_recorder.db; do
+# 앱을 아직 한 번도 띄우지 않았으면 이관이 안 돌아 구버전 파일명 그대로다.
+for cand in \
+    "$APP_DIR/backend/data/rookery.db" ./backend/data/rookery.db \
+    "$APP_DIR/backend/data/signal_recorder.db" ./backend/data/signal_recorder.db; do
     [ -f "$cand" ] && DB="$cand" && break
 done
 

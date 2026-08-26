@@ -27,7 +27,7 @@ export function UpdateModal({ info, onClose }: UpdateModalProps) {
                         <div className="bg-surface-1 p-4 rounded-[var(--radius-control)] border border-line">
                             <ol className="list-decimal list-inside space-y-2 text-sm text-ink-muted">
                                 <li>아래 버튼을 눌러 GitHub 릴리즈 페이지로 이동합니다.</li>
-                                <li><span className="text-[var(--primary)] font-mono">Signal_Recorder.exe</span> 파일을 다운로드합니다.</li>
+                                <li><span className="text-[var(--primary)] font-mono">Rookery.exe</span> 파일을 다운로드합니다.</li>
                                 <li>현재 실행 중인 프로그램을 종료합니다.</li>
                                 <li>다운로드한 파일로 기존 파일을 덮어쓰기 한 후 다시 실행합니다.</li>
                             </ol>
@@ -46,12 +46,12 @@ export function UpdateModal({ info, onClose }: UpdateModalProps) {
             case "docker":
             case "linux-native":
             default:
-                // 네이티브는 manage.sh가 설치한 signal-recorder 명령으로 끝난다.
+                // 네이티브는 manage.sh가 설치한 rookery 명령으로 끝난다.
                 // Docker는 manage.sh 대상이 아니므로 compose를 직접 쓴다.
                 const isDocker = info.environment === "docker";
                 const updateCommand = isDocker
                     ? "git pull && docker compose up --build -d"
-                    : "signal-recorder update";
+                    : "rookery update";
                 return (
                     <div className="space-y-4">
                         <p className="text-sm text-ink-muted">

@@ -2,7 +2,7 @@
 
 ## 프로젝트
 
-- 경로: `C:\Workspace\Signal-Recorder`
+- 경로: `C:\Workspace\Rookery`
 - 브랜치: `refactor/notification-pipeline` (이 브랜치에서 작업)
 - 스택: FastAPI(Python 3.12) + React 19 / TypeScript / Vite / Tailwind CSS v4
 - Python 실행: `backend\.venv\Scripts\python.exe` (venv 구성됨)
@@ -78,7 +78,7 @@
 
 ## 작업 B — Rookery 리네이밍 (이번 범위 밖)
 
-프로젝트명을 `Signal-Recorder` → `Rookery`로 변경하는 계획이 별도로 있다.
+프로젝트명을 `Rookery` → `Rookery`로 변경하는 계획이 별도로 있다.
 전체 내용은 [`docs/plan-rename-rookery.md`](plan-rename-rookery.md) 참조.
 
 **작업 A가 병합된 뒤 별도 브랜치에서 진행한다.** 리네이밍은 60여 파일을

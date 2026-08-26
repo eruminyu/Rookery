@@ -25,6 +25,26 @@
 - **`auth.py` `get_streamlink_options()`**: Streamlink 쿠키 주입 헬퍼 메서드
 
 ### Changed
+- **프로젝트명 변경: Signal-Recorder → Rookery**
+  - `Signal`이 메신저 앱과 충돌해 검색에서 묻히고, `Recorder`가 기능의 일부만 설명했다.
+    표기도 4종(`Signal-Recorder` / `signal-recorder` / `signal_recorder` / `Signal Recorder`)이 혼재했다
+  - 코드 식별자(`channel`, `recording` 등 도메인 용어)와 저장 폴더 `recordings/` 는 그대로 둔다
+  - **DB 파일 `signal_recorder.db` → `rookery.db`**: 기동 시 자동 이관한다.
+    `-wal` / `-shm` 사이드카도 함께 옮기고, 이관에 실패하면 빈 DB를 만드는 대신
+    기존 파일을 그대로 사용한다
+  - **systemd 유닛 `signal-recorder` → `rookery`**: 등록 전에 구버전 유닛을 중지·제거한다.
+    남아 있으면 같은 포트를 물고 있어 새 유닛이 뜨지 못한다
+  - **설치 경로 `~/signal-recorder` → `~/rookery`**: 기존 설치가 있으면 그대로 이어받는다
+  - **관리 명령 `signal-recorder` → `rookery`**
+  - 브라우저에 저장된 페이지 타이틀이 옛 기본값과 정확히 일치하면 새 기본값으로 승격한다.
+    사용자가 직접 지정한 값은 건드리지 않는다
+  - **아직 남은 것**: GitHub 리포지토리 이름. 코드의 리포 슬러그는 실제 리포를 바꾸기 전까지
+    그대로 둔다 — 먼저 바꾸면 업데이트 체커가 404를 받고 설치 원라이너가 죽는다
+- **알림 설정 화면을 웹훅 우선으로 재배치**
+  - Bot 카드가 먼저 오고 Webhook이 "폴백"으로 뒤에 있어, 알림만 필요한 사용자도
+    개발자 포털에서 앱을 만들어야 하는 것처럼 보였다
+  - Webhook을 기본 경로로 올리고, Bot은 접힌 고급 섹션으로 내렸다
+    (이미 설정한 사용자에게는 펼친 채로 보여준다)
 - **설치·실행·업데이트 스크립트를 하나로 통합** (`scripts/manage.sh`, `scripts/manage.bat`)
   - 제거: `install.sh`, `install-docker.sh`, `update-docker.sh`, `setup_service.sh`,
     `signal-recorder.service`, `install.bat`, `start.bat`, `start-dev.bat`

@@ -1,5 +1,5 @@
 """
-Signal-Recorder: ChatArchiver
+Rookery: ChatArchiver
 실시간 채팅을 수집하고 JSONL 파일로 저장한다.
 """
 
