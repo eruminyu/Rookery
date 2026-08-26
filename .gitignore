@@ -94,3 +94,6 @@ cookies.txt
 # TypeScript 증분 빌드 캐시
 frontend/tsconfig.tsbuildinfo
 *.tsbuildinfo
+
+# AI 코딩 도구용 로컬 작업 지침 (공개 규칙은 CONTRIBUTING.md 참고)
+CLAUDE.md

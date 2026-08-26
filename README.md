@@ -45,7 +45,7 @@ Bot은 원격 제어가 필요할 때만 펼치는 선택 항목입니다.
 - **Discord 명령이 슬래시 커맨드 전용이 되었습니다.** `!` 프리픽스 명령이 사라진 대신
   Message Content Intent를 켤 필요가 없습니다
 
-자세한 내용은 [릴리즈 노트](release_notes.txt)와 [변경 이력](docs/CHANGELOG.md)을 참고하세요.
+자세한 내용은 [변경 이력](docs/CHANGELOG.md)과 [릴리즈 페이지](https://github.com/eruminyu/Rookery/releases)를 참고하세요.
 
 ## 화면과 사용성
 
@@ -328,6 +328,8 @@ npm run build
 
 멀티 플랫폼 점검 절차는 [테스트 가이드](docs/test-guide.md)를 참고하세요.
 
+코드를 고칠 때 지켜야 할 규칙은 [기여 가이드](CONTRIBUTING.md)에 정리해 두었습니다.
+
 ## 프로젝트 구조
 
 ```text
@@ -347,7 +349,7 @@ Rookery/
 │       ├── hooks/        # 실시간 채널 스트림
 │       └── pages/        # 7개 주요 화면
 ├── assets/screenshots/   # README 실행 화면
-├── docs/                 # 설치·설계·운영 문서
+├── docs/                 # 설치·운영 가이드
 └── scripts/              # 설치·실행·업데이트 통합 스크립트와 운영 점검
 ```
 
