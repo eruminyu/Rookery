@@ -31,6 +31,7 @@ import {
     Button,
     Card,
     CardHeader,
+    CollapsibleCard,
     Divider,
     Field,
     Input,
@@ -267,21 +268,64 @@ export function NotificationsTab({ settings, onSaved, onDirtyChange }: Props) {
                 )}
             </Card>
 
-            {/* ══ Discord Bot ═══════════════════════════ */}
+            {/* ══ Webhook — 기본 알림 경로 ═════════════ */}
             <Card>
                 <CardHeader
-                    icon={Bot}
-                    title="Discord Bot"
-                    description="원격에서 녹화를 제어하고 알림을 받습니다."
+                    icon={Webhook}
+                    title="Webhook"
+                    description="Discord 채널 설정에서 URL 하나만 복사하면 끝납니다. 알림만 받을 거라면 이것으로 충분합니다."
                     action={
-                        <StatusDot
-                            active={!!botReady}
-                            label={botReady ? "설정됨" : "미설정"}
-                            tone={botReady ? "ok" : "warn"}
-                        />
+                        <div className="flex items-center gap-2">
+                            <Badge tone="ok">권장</Badge>
+                            <StatusDot
+                                active={!!settings?.discord_webhook_configured}
+                                label={settings?.discord_webhook_configured ? "설정됨" : "미설정"}
+                                tone={settings?.discord_webhook_configured ? "ok" : "warn"}
+                            />
+                        </div>
                     }
                 />
 
+                <Field
+                    label="Webhook URL"
+                    htmlFor="webhook-url"
+                    hint="Discord 채널 설정 → 연동 → 웹후크에서 만듭니다. Bot을 만들지 않아도 모든 알림이 정상 동작합니다."
+                >
+                    <Input
+                        id="webhook-url"
+                        type="password"
+                        autoComplete="off"
+                        value={webhookUrl}
+                        onChange={(e) => {
+                            setWebhookUrl(e.target.value);
+                            markDirty();
+                        }}
+                        placeholder={
+                            settings?.discord_webhook_configured
+                                ? "설정됨 — 변경하려면 입력"
+                                : "https://discord.com/api/webhooks/..."
+                        }
+                    />
+                </Field>
+            </Card>
+
+            {/* ══ Discord Bot — 원격 제어용 (선택) ══════ */}
+            {/*
+              Bot은 개발자 포털에서 앱을 만들어야 해서 진입 장벽이 높다.
+              대부분은 위 Webhook으로 충분하므로 접어두고, 이미 설정한
+              사용자에게는 펼친 채로 보여준다.
+            */}
+            <CollapsibleCard
+                icon={Bot}
+                title="디스코드에서 원격 제어까지 하려면"
+                description="Bot을 등록하면 /status, /start, /stop 같은 슬래시 커맨드로 녹화를 제어할 수 있습니다. 알림만 받을 거라면 설정하지 않아도 됩니다."
+                defaultOpen={!!botReady}
+                action={
+                    // 봇은 선택 사항이므로 미설정을 경고로 보이지 않게 둔다.
+                    // active=false면 tone과 무관하게 회색 점으로 렌더된다.
+                    <StatusDot active={!!botReady} label={botReady ? "설정됨" : "미설정"} />
+                }
+            >
                 <div className="space-y-4">
                     <Field
                         label="Bot 토큰"
@@ -351,45 +395,8 @@ export function NotificationsTab({ settings, onSaved, onDirtyChange }: Props) {
                         />
                     </Field>
                 </div>
-            </Card>
+            </CollapsibleCard>
 
-            {/* ══ Webhook 폴백 ══════════════════════════ */}
-            <Card>
-                <CardHeader
-                    icon={Webhook}
-                    title="Webhook 폴백"
-                    description="Bot 연결이 끊겨도 이 경로로 알림이 전달됩니다."
-                    action={
-                        <StatusDot
-                            active={!!settings?.discord_webhook_configured}
-                            label={settings?.discord_webhook_configured ? "설정됨" : "미설정"}
-                            tone={settings?.discord_webhook_configured ? "ok" : "warn"}
-                        />
-                    }
-                />
-
-                <Field
-                    label="Webhook URL"
-                    htmlFor="webhook-url"
-                    hint="Discord 채널 설정 → 연동 → 웹후크에서 만듭니다. Bot 없이 이것만 설정해도 알림은 정상 동작합니다."
-                >
-                    <Input
-                        id="webhook-url"
-                        type="password"
-                        autoComplete="off"
-                        value={webhookUrl}
-                        onChange={(e) => {
-                            setWebhookUrl(e.target.value);
-                            markDirty();
-                        }}
-                        placeholder={
-                            settings?.discord_webhook_configured
-                                ? "설정됨 — 변경하려면 입력"
-                                : "https://discord.com/api/webhooks/..."
-                        }
-                    />
-                </Field>
-            </Card>
 
             {/* ══ 알림 종류 ═════════════════════════════ */}
             <Card>

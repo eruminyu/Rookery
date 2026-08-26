@@ -7,6 +7,8 @@
 import {
     createElement,
     forwardRef,
+    useId,
+    useState,
     type ButtonHTMLAttributes,
     type HTMLAttributes,
     type InputHTMLAttributes,
@@ -14,7 +16,7 @@ import {
     type SelectHTMLAttributes,
 } from "react";
 import { clsx } from "clsx";
-import { Loader2, type LucideIcon } from "lucide-react";
+import { ChevronDown, Loader2, type LucideIcon } from "lucide-react";
 
 /* ── PageHeader ──────────────────────────────────────── */
 
@@ -165,6 +167,86 @@ export function CardHeader({
             </div>
             {action && <div className="shrink-0">{action}</div>}
         </header>
+    );
+}
+
+/* ── CollapsibleCard ────────────────────────────────── */
+
+/**
+ * 헤더를 눌러 본문을 여닫는 카드.
+ *
+ * 대부분의 사용자에게 필요 없지만 일부에게는 꼭 필요한 설정을 접어두어,
+ * 기본 경로가 무엇인지 화면만 보고 알 수 있게 한다.
+ * 접힌 상태에서도 action(상태 배지 등)은 계속 보인다.
+ */
+export function CollapsibleCard({
+    icon,
+    title,
+    description,
+    action,
+    tone,
+    defaultOpen = false,
+    children,
+}: {
+    icon?: LucideIcon;
+    title: string;
+    description?: ReactNode;
+    action?: ReactNode;
+    tone?: "primary" | "danger" | "warn" | "ok";
+    defaultOpen?: boolean;
+    children: ReactNode;
+}) {
+    const [open, setOpen] = useState(defaultOpen);
+    const bodyId = useId();
+
+    const toneColor =
+        tone === "danger" ? "var(--color-danger)"
+        : tone === "warn" ? "var(--color-warn)"
+        : tone === "ok" ? "var(--color-ok)"
+        : "var(--primary)";
+
+    return (
+        <Card>
+            <div className={clsx("flex items-start justify-between gap-4", open && "mb-5")}>
+                {/* 헤더 전체가 토글이다. action은 버튼 밖에 둬야 중첩 클릭이 꼬이지 않는다. */}
+                <button
+                    type="button"
+                    onClick={() => setOpen((v) => !v)}
+                    aria-expanded={open}
+                    aria-controls={bodyId}
+                    className="flex items-start gap-3 min-w-0 flex-1 text-left group"
+                >
+                    {icon && (
+                        <span
+                            className="mt-0.5 w-9 h-9 rounded-[var(--radius-control)] grid place-items-center shrink-0"
+                            style={{
+                                backgroundColor: "color-mix(in srgb, " + toneColor + " 14%, transparent)",
+                                color: toneColor,
+                            }}
+                        >
+                            {createElement(icon, { className: "w-[18px] h-[18px]" })}
+                        </span>
+                    )}
+                    <div className="min-w-0">
+                        <h3 className="text-[15px] font-semibold text-ink leading-tight flex items-center gap-1.5">
+                            {title}
+                            <ChevronDown
+                                className={clsx(
+                                    "w-4 h-4 text-ink-faint transition-transform group-hover:text-ink-muted",
+                                    open && "rotate-180",
+                                )}
+                            />
+                        </h3>
+                        {description && (
+                            <p className="text-[13px] text-ink-faint mt-1 leading-relaxed">{description}</p>
+                        )}
+                    </div>
+                </button>
+                {action && <div className="shrink-0">{action}</div>}
+            </div>
+
+            {open && <div id={bodyId}>{children}</div>}
+        </Card>
     );
 }
 
