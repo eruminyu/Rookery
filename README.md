@@ -22,7 +22,21 @@
 
 ![Rookery VOD Downloader](assets/screenshots/vod-downloader-latest.jpg)
 
-## 무엇이 달라졌나요?
+## v2.0.0에서 달라진 것
+
+- **이름이 `Signal-Recorder`에서 `Rookery`로 바뀌었습니다.** 저장소 주소도 함께 바뀌었으며,
+  DB 파일·systemd 유닛·설치 경로는 업데이트 시 자동으로 이전됩니다
+- **설치·실행·업데이트가 한 줄로 통합되었습니다.** 흩어져 있던 스크립트 8개를 `scripts/manage.sh`
+  하나로 합쳤고, 설치 후에는 `rookery` 명령으로 관리합니다
+- **알림 설정이 Webhook 우선으로 바뀌었습니다.** 봇을 만들지 않아도 URL 하나면 모든 알림이 동작합니다
+- **Discord 봇 명령에 권한 검사가 추가되었습니다.** 이전에는 봇이 초대된 서버의 누구나 녹화를
+  제어할 수 있었습니다. 이제 허용 사용자·채널을 지정합니다
+- **Discord 명령이 슬래시 커맨드 전용이 되었습니다.** `!` 프리픽스 명령이 사라진 대신
+  Message Content Intent를 켤 필요가 없습니다
+
+자세한 내용은 [릴리즈 노트](release_notes.txt)와 [변경 이력](docs/CHANGELOG.md)을 참고하세요.
+
+## 화면과 사용성
 
 - 방송 제어 화면에 맞춘 다크 컨트롤룸 디자인과 반응형 사이드바
 - 공통 페이지 헤더, 상태 배지, 지표 카드, 빈 상태 및 확인 모달로 일관된 화면 구성
@@ -323,7 +337,7 @@ Rookery/
 │       └── pages/        # 7개 주요 화면
 ├── assets/screenshots/   # README 실행 화면
 ├── docs/                 # 설치·설계·운영 문서
-└── scripts/              # 네이티브·Docker 설치 및 실행 스크립트
+└── scripts/              # 설치·실행·업데이트 통합 스크립트와 운영 점검
 ```
 
 ## 문제 해결
