@@ -263,26 +263,64 @@ ensure_base_tools() {
 }
 
 # ── 저장소 / 빌드 ─────────────────────────────────────────────
-# 최신이라 할 일이 없으면 1을 반환한다.
+# 반환값: 0 = 갱신함, 1 = 이미 최신, 2 = 실패
+#
+# 호출부가 `if sync_repo` 형태라 이 함수 안에서는 set -e가 동작하지 않는다.
+# (bash는 조건문에서 실행되는 명령의 실패를 종료 사유로 보지 않는다.)
+# 그래서 모든 실패를 명시적으로 잡아 2로 돌려준다. 예전에는 이게 없어서
+# git pull이 실패해도 "업데이트 완료"를 찍고 넘어갔다.
 sync_repo() {
   step "저장소 동기화"
-  if is_installed; then
-    git -C "$INSTALL_DIR" fetch origin --quiet
-    local local_rev remote_rev
-    local_rev="$(git -C "$INSTALL_DIR" rev-parse HEAD)"
-    remote_rev="$(git -C "$INSTALL_DIR" rev-parse origin/main)"
-    if [ "$local_rev" = "$remote_rev" ]; then
-      info "이미 최신입니다."
-      return 1
-    fi
-    git -C "$INSTALL_DIR" pull --ff-only origin main
-    info "코드 업데이트 완료 ✓"
-  else
+
+  if ! is_installed; then
     info "$INSTALL_DIR 에 클론 중..."
-    git clone --quiet "$REPO_URL" "$INSTALL_DIR"
+    git clone --quiet "$REPO_URL" "$INSTALL_DIR" || return 2
     info "클론 완료 ✓"
+    return 0
   fi
-  return 0
+
+  # 리포 이름이 여러 번 바뀌었다(Chzzk_downloader → Signal-Recorder → Rookery).
+  # GitHub 리다이렉트로 당장은 동작하지만 영구 보장이 아니므로 정식 주소로 맞춘다.
+  local current_remote
+  current_remote="$(git -C "$INSTALL_DIR" remote get-url origin 2>/dev/null || true)"
+  if [ -n "$current_remote" ] && [ "$current_remote" != "$REPO_URL" ]; then
+    git -C "$INSTALL_DIR" remote set-url origin "$REPO_URL" || true
+    info "원격 주소를 갱신했습니다 → $REPO_URL"
+  fi
+
+  git -C "$INSTALL_DIR" fetch origin --quiet || return 2
+
+  local local_rev remote_rev
+  local_rev="$(git -C "$INSTALL_DIR" rev-parse HEAD)" || return 2
+  remote_rev="$(git -C "$INSTALL_DIR" rev-parse origin/main)" || return 2
+  if [ "$local_rev" = "$remote_rev" ]; then
+    info "이미 최신입니다."
+    return 1
+  fi
+
+  if git -C "$INSTALL_DIR" pull --ff-only origin main --quiet; then
+    info "코드 업데이트 완료 ✓"
+    return 0
+  fi
+
+  # 예전 버전이 추적하던 빌드 산출물(frontend/tsconfig.tsbuildinfo 등)이
+  # 지금은 gitignore 대상이라, 로컬 변경으로 남아 병합을 막는다.
+  # 지우면 사용자가 직접 고친 파일까지 날릴 수 있으므로 stash로 치운다.
+  warn "로컬 변경이 병합을 막고 있습니다. stash로 치우고 다시 시도합니다."
+  local stash_name="rookery-update-$(date +%Y%m%d-%H%M%S)"
+  if ! git -C "$INSTALL_DIR" stash push -u -m "$stash_name" >/dev/null 2>&1; then
+    warn "stash에 실패했습니다."
+    return 2
+  fi
+
+  if git -C "$INSTALL_DIR" pull --ff-only origin main --quiet; then
+    info "코드 업데이트 완료 ✓"
+    info "치워둔 로컬 변경: git -C $INSTALL_DIR stash list  (${stash_name})"
+    return 0
+  fi
+
+  warn "stash 이후에도 병합에 실패했습니다."
+  return 2
 }
 
 setup_dirs() {
@@ -422,7 +460,8 @@ UNIT
 
   $SUDO systemctl daemon-reload
   $SUDO systemctl enable --now "$SERVICE_NAME"
-  info "서비스 등록 완료 ✓  ($SUDO systemctl status $SERVICE_NAME)"
+  info "서비스 등록 완료 ✓"
+  info "상태 확인: ${SUDO:+$SUDO }systemctl status $SERVICE_NAME"
 }
 
 service_remove() {
@@ -445,7 +484,12 @@ cmd_install() {
   ensure_python
   ensure_node
 
-  sync_repo || true
+  # 0 = 갱신함, 1 = 이미 최신(둘 다 정상), 2 = 실패.
+  # 실패했는데 계속 가면 없거나 낡은 코드로 빌드하게 된다.
+  local rc=0
+  sync_repo || rc=$?
+  [ "$rc" -le 1 ] || error "저장소를 가져오지 못했습니다. 위 메시지를 확인한 뒤 다시 시도하세요."
+
   setup_dirs
   build_frontend
   setup_python_env
@@ -465,12 +509,19 @@ cmd_update() {
   require_install
   banner
 
-  # 최신이면 sync_repo가 1을 반환한다 — 빌드까지 헛돌 필요 없다.
-  # 다만 코드가 최신이어도 구버전 유닛 이전은 남아 있을 수 있으므로,
-  # 여기서 곧장 빠져나가지 않고 아래 서비스 처리까지는 진행한다.
-  local updated=0
-  if sync_repo; then
-    updated=1
+  # 0 = 갱신함, 1 = 이미 최신, 2 = 실패.
+  # 최신이어도 구버전 유닛 이전은 남아 있을 수 있어 여기서 곧장 빠져나가지 않는다.
+  # 다만 실패했다면 옛 코드로 빌드·재시작하게 되므로 반드시 멈춰야 한다.
+  local updated=0 rc=0
+  sync_repo || rc=$?
+  case "$rc" in
+    0) updated=1 ;;
+    1) ;;
+    *) error "저장소 동기화에 실패했습니다. 위 메시지를 확인한 뒤 다시 시도하세요.
+  코드가 갱신되지 않았으므로 서비스는 건드리지 않았습니다." ;;
+  esac
+
+  if [ "$updated" -eq 1 ]; then
     detect_os
     ensure_node
     build_frontend
@@ -485,7 +536,7 @@ cmd_update() {
   # 구버전 유닛으로 돌고 있던 서버를 새 유닛으로 옮긴다.
   # 그냥 두면 옛 서비스가 계속 포트를 잡고 있어, 안내대로 start를 해도 충돌한다.
   if ! service_exists && legacy_service_exists; then
-    warn "구버전 서비스($(find_legacy_services | tr '\n' ' '))로 실행 중입니다. ${SERVICE_NAME} 유닛으로 옮깁니다."
+    warn "구버전 서비스($(find_legacy_services | paste -sd' ' -))로 실행 중입니다. ${SERVICE_NAME} 유닛으로 옮깁니다."
     service_install
     wait_for_health "$(current_port)" || true
     info "업데이트 완료 — 버전 $(app_version)"
