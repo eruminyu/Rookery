@@ -345,6 +345,10 @@ service_exists() {
 
 LEGACY_SERVICE_NAME="signal-recorder"
 
+legacy_service_exists() {
+  has_cmd systemctl && systemctl cat "${LEGACY_SERVICE_NAME}.service" >/dev/null 2>&1
+}
+
 # Rookery로 이름을 바꾸기 전 유닛이 남아 있으면 같은 포트를 물고 있어
 # 새 유닛이 뜨지 못한다. 등록 전에 먼저 걷어낸다.
 remove_legacy_service() {
@@ -433,19 +437,35 @@ cmd_update() {
   banner
 
   # 최신이면 sync_repo가 1을 반환한다 — 빌드까지 헛돌 필요 없다.
-  if ! sync_repo; then
+  # 다만 코드가 최신이어도 구버전 유닛 이전은 남아 있을 수 있으므로,
+  # 여기서 곧장 빠져나가지 않고 아래 서비스 처리까지는 진행한다.
+  local updated=0
+  if sync_repo; then
+    updated=1
+    detect_os
+    ensure_node
+    build_frontend
+
+    step "Python 의존성 갱신"
+    "$(venv_pip)" install -r "$INSTALL_DIR/backend/requirements.txt" -q
+    info "갱신 완료 ✓"
+  fi
+
+  link_self
+
+  # 구버전 유닛으로 돌고 있던 서버를 새 유닛으로 옮긴다.
+  # 그냥 두면 옛 서비스가 계속 포트를 잡고 있어, 안내대로 start를 해도 충돌한다.
+  if ! service_exists && legacy_service_exists; then
+    warn "구버전 서비스(${LEGACY_SERVICE_NAME})로 실행 중입니다. ${SERVICE_NAME} 유닛으로 옮깁니다."
+    service_install
+    wait_for_health "$(current_port)" || true
+    info "업데이트 완료 — 버전 $(app_version)"
     return 0
   fi
 
-  detect_os
-  ensure_node
-  build_frontend
-
-  step "Python 의존성 갱신"
-  "$(venv_pip)" install -r "$INSTALL_DIR/backend/requirements.txt" -q
-  info "갱신 완료 ✓"
-
-  link_self
+  if [ "$updated" -eq 0 ]; then
+    return 0
+  fi
 
   if service_exists; then
     sudo systemctl restart "$SERVICE_NAME"
