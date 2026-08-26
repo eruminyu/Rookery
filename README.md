@@ -12,13 +12,24 @@
 
 ## 최신 UI
 
-아래 이미지는 현재 소스(v2.0.0)를 로컬에서 직접 실행해 촬영한 화면입니다.
+아래 이미지는 v2.0.0을 실제로 운영 중인 화면입니다. 채널명 일부는 가려두었습니다.
 
 ### Live Dashboard
 
+여러 채널의 라이브 상태와 녹화 여부를 한 화면에서 확인하고 제어합니다.
+
 ![Rookery Live Dashboard](assets/screenshots/dashboard-latest.jpg)
 
+### 알림 설정 — Webhook 우선
+
+Discord 채널 설정에서 URL 하나만 복사하면 모든 알림이 동작합니다.
+Bot은 원격 제어가 필요할 때만 펼치는 선택 항목입니다.
+
+![Rookery 알림 설정](assets/screenshots/notifications-latest.jpg)
+
 ### VOD Downloader
+
+치지직 VOD·클립과 yt-dlp가 지원하는 외부 영상을 대기열로 관리합니다.
 
 ![Rookery VOD Downloader](assets/screenshots/vod-downloader-latest.jpg)
 
