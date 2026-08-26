@@ -227,6 +227,32 @@ class DiscordBotService:
                     pass
                 return False
 
+            async def on_error(
+                self,
+                interaction: discord.Interaction,
+                error: app_commands.AppCommandError,
+            ) -> None:
+                """핸들러가 예외로 죽어도 사용자에게 결과를 알린다.
+
+                defer만 하고 followup을 못 보내면 Discord는 "생각 중" 상태에
+                영원히 머문다. 사용자 입장에서는 원인을 알 길이 없다.
+                """
+                # 권한 거부는 이미 안내를 보냈으므로 중복으로 알리지 않는다.
+                if isinstance(error, app_commands.CheckFailure):
+                    return
+
+                command_name = interaction.command.name if interaction.command else "?"
+                logger.error(f"Discord 명령 처리 실패 ({command_name}): {error}", exc_info=error)
+
+                notice = "⚠️ 명령을 처리하지 못했습니다. 서버 로그를 확인하세요."
+                try:
+                    if interaction.response.is_done():
+                        await interaction.followup.send(notice, ephemeral=True)
+                    else:
+                        await interaction.response.send_message(notice, ephemeral=True)
+                except Exception:
+                    pass
+
         intents = discord.Intents.default()
         bot = commands.Bot(
             # 프리픽스 명령을 쓰지 않으므로 메시지 본문을 읽을 필요가 없다.
@@ -431,13 +457,18 @@ class DiscordBotService:
                 for ch in channels
                 if ch.get("recording") and ch["recording"].get("state") == "recording"
             )
+            # ImportError만 잡으면 psutil이 다른 이유로 실패했을 때 예외가 그대로
+            # 올라가 핸들러가 죽고, 사용자에게는 "생각 중"만 남는다.
+            # 시스템 정보는 부가 정보이므로 실패해도 나머지는 보여준다.
             try:
                 import psutil
+
                 cpu = psutil.cpu_percent()
                 mem = psutil.virtual_memory().percent
                 disk = psutil.disk_usage("/").percent
                 sys_info = f"CPU: {cpu}% | RAM: {mem}% | Disk: {disk}%"
-            except ImportError:
+            except Exception as e:
+                logger.warning(f"시스템 정보 조회 실패: {e}")
                 sys_info = f"OS: {platform.system()} {platform.release()}"
 
             embed = discord.Embed(
