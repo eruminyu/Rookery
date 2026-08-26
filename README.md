@@ -181,27 +181,6 @@ INSTALL_DIR=/opt/rookery curl -fsSL https://raw.githubusercontent.com/eruminyu/R
 
 자세한 내용은 [Linux 설치 가이드](docs/linux-guide.md)를 참고하세요.
 
-### Docker
-
-Docker로 띄우는 경우 위 스크립트는 쓰지 않습니다. 저장소 루트에서 바로 실행하세요.
-
-```bash
-docker compose up --build -d
-```
-
-
-기본 포트는 `8000`이며 `.env`의 `PORT`로 변경할 수 있습니다. 데이터는 다음 경로에 영속화됩니다.
-
-```yaml
-volumes:
-  - ./config:/app/config
-  - ./recordings:/app/backend/recordings
-  - ./data:/app/backend/data
-  - ./logs:/app/backend/logs
-```
-
-호스트 저장 경로를 바꾸려면 콜론 왼쪽 경로만 수정하세요. 자세한 내용은 [Docker 가이드](docs/docker-guide.md)를 참고하세요.
-
 ## 소스에서 실행
 
 ### 요구 사항
@@ -292,7 +271,7 @@ Bot 토큰과 알림 채널 ID 또는 Webhook URL 중 하나를 입력합니다.
 
 ## 설정과 데이터
 
-서버 설정은 프로젝트 루트의 `.env`를 사용합니다. Windows 실행 파일은 실행 파일 옆 `.env`, Docker는 `config/.env`를 사용합니다. 대부분의 항목은 웹 설정 화면에서 저장할 수 있습니다.
+서버 설정은 프로젝트 루트의 `.env`를 사용합니다. Windows 실행 파일은 실행 파일 옆 `.env`를 사용합니다. 대부분의 항목은 웹 설정 화면에서 저장할 수 있습니다.
 
 자주 사용하는 환경 변수:
 
@@ -365,7 +344,7 @@ FFmpeg 6 이상과 yt-dlp를 시스템 PATH에 추가하거나 프로젝트 또�
 <details>
 <summary>포트 8000이 이미 사용 중입니다.</summary>
 
-`.env`에서 `PORT=8001`처럼 변경합니다. Docker는 같은 값을 Compose 포트 매핑에 사용합니다.
+`.env`에서 `PORT=8001`처럼 변경합니다.
 
 </details>
 
