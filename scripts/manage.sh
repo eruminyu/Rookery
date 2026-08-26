@@ -50,6 +50,19 @@ banner() {
 
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
+# root로 돌리는 서버가 흔한데, 최소 이미지에는 sudo가 아예 없는 경우가 있다.
+# 이미 root면 sudo를 붙이지 않고, 아니면 있을 때만 쓴다.
+SUDO=""
+SUDO_E=""
+if [ "$(id -u)" -ne 0 ]; then
+  if command -v sudo >/dev/null 2>&1; then
+    SUDO="sudo"
+    SUDO_E="sudo -E"
+  else
+    echo "${YELLOW}[!]${NC} sudo를 찾을 수 없습니다. 권한이 필요한 단계에서 실패할 수 있습니다." >&2
+  fi
+fi
+
 # curl | bash 로 실행되면 stdin이 스크립트 본문이라 read가 깨진다.
 # 사용자에게 물을 때는 항상 터미널을 직접 연다.
 confirm() {
@@ -122,10 +135,10 @@ detect_os() {
 
 pkg_install() {
   case "$PKG_MANAGER" in
-    apt)    sudo apt-get install -y "$@" ;;
-    dnf)    sudo dnf install -y "$@" ;;
-    yum)    sudo yum install -y "$@" ;;
-    pacman) sudo pacman -S --noconfirm "$@" ;;
+    apt)    $SUDO apt-get install -y "$@" ;;
+    dnf)    $SUDO dnf install -y "$@" ;;
+    yum)    $SUDO yum install -y "$@" ;;
+    pacman) $SUDO pacman -S --noconfirm "$@" ;;
     brew)   brew install "$@" ;;
     *)      error "패키지 매니저를 알 수 없습니다. $* 를 수동 설치한 뒤 다시 실행하세요." ;;
   esac
@@ -158,8 +171,8 @@ install_ffmpeg_static() {
   bin="$(find "$tmpdir" -type f -name ffmpeg | head -1)"
   probe="$(find "$tmpdir" -type f -name ffprobe | head -1)"
   [ -n "$bin" ] || error "ffmpeg 압축 해제 실패."
-  sudo install -m 755 "$bin" /usr/local/bin/ffmpeg
-  [ -n "$probe" ] && sudo install -m 755 "$probe" /usr/local/bin/ffprobe
+  $SUDO install -m 755 "$bin" /usr/local/bin/ffmpeg
+  [ -n "$probe" ] && $SUDO install -m 755 "$probe" /usr/local/bin/ffprobe
 }
 
 ensure_ffmpeg() {
@@ -197,13 +210,13 @@ ensure_python() {
     info "Python 3.12 설치 중..."
     case "$PKG_MANAGER" in
       apt)
-        sudo apt-get update -qq
-        sudo apt-get install -y software-properties-common
-        sudo add-apt-repository -y ppa:deadsnakes/ppa
-        sudo apt-get update -qq
-        sudo apt-get install -y python3.12 python3.12-venv
+        $SUDO apt-get update -qq
+        $SUDO apt-get install -y software-properties-common
+        $SUDO add-apt-repository -y ppa:deadsnakes/ppa
+        $SUDO apt-get update -qq
+        $SUDO apt-get install -y python3.12 python3.12-venv
         ;;
-      dnf)  sudo dnf install -y python3.12 ;;
+      dnf)  $SUDO dnf install -y python3.12 ;;
       brew) brew install python@3.12 ;;
       *)    error "Python 3.${REQUIRED_PYTHON_MINOR}+ 를 찾을 수 없습니다. 수동 설치 후 다시 실행하세요." ;;
     esac
@@ -216,7 +229,7 @@ ensure_python() {
   if [ "$PKG_MANAGER" = "apt" ] && ! "$PYTHON_CMD" -c 'import ensurepip' 2>/dev/null; then
     local py_minor
     py_minor="$("$PYTHON_CMD" -c 'import sys; print(sys.version_info.minor)')"
-    sudo apt-get install -y "python3.${py_minor}-venv" 2>/dev/null || sudo apt-get install -y python3-venv
+    $SUDO apt-get install -y "python3.${py_minor}-venv" 2>/dev/null || $SUDO apt-get install -y python3-venv
     info "venv 패키지 설치 완료 ✓"
   fi
 }
@@ -236,8 +249,8 @@ ensure_node() {
   if [ "$PKG_MANAGER" = "brew" ]; then
     brew install node@22
   else
-    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - 2>/dev/null \
-      || curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash - 2>/dev/null \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | $SUDO_E bash - 2>/dev/null \
+      || curl -fsSL https://rpm.nodesource.com/setup_22.x | $SUDO bash - 2>/dev/null \
       || error "Node.js 설치 실패. https://nodejs.org 에서 수동 설치하세요."
     pkg_install nodejs
   fi
@@ -343,22 +356,38 @@ service_exists() {
   has_cmd systemctl && systemctl cat "${SERVICE_NAME}.service" >/dev/null 2>&1
 }
 
-LEGACY_SERVICE_NAME="signal-recorder"
+# 이름이 두 번 바뀌었다: chzzk-recorder-pro → signal-recorder → rookery.
+# 어느 시절에 설치했든 옛 유닛이 남아 있으면 포트를 물고 있어 새 유닛이 뜨지 못한다.
+LEGACY_SERVICE_NAMES="signal-recorder chzzk-recorder-pro"
+
+# 남아 있는 구버전 유닛 이름을 출력한다 (없으면 아무것도 출력하지 않음).
+find_legacy_services() {
+  has_cmd systemctl || return 0
+  local name
+  for name in $LEGACY_SERVICE_NAMES; do
+    if systemctl cat "${name}.service" >/dev/null 2>&1; then
+      echo "$name"
+    fi
+  done
+}
 
 legacy_service_exists() {
-  has_cmd systemctl && systemctl cat "${LEGACY_SERVICE_NAME}.service" >/dev/null 2>&1
+  [ -n "$(find_legacy_services)" ]
 }
 
 # Rookery로 이름을 바꾸기 전 유닛이 남아 있으면 같은 포트를 물고 있어
 # 새 유닛이 뜨지 못한다. 등록 전에 먼저 걷어낸다.
 remove_legacy_service() {
-  has_cmd systemctl || return 0
-  systemctl cat "${LEGACY_SERVICE_NAME}.service" >/dev/null 2>&1 || return 0
+  local found name
+  found="$(find_legacy_services)"
+  [ -n "$found" ] || return 0
 
-  warn "구버전 서비스(${LEGACY_SERVICE_NAME})를 발견했습니다. 중지 후 제거합니다."
-  sudo systemctl disable --now "$LEGACY_SERVICE_NAME" 2>/dev/null || true
-  sudo rm -f "/etc/systemd/system/${LEGACY_SERVICE_NAME}.service"
-  sudo systemctl daemon-reload
+  for name in $found; do
+    warn "구버전 서비스(${name})를 발견했습니다. 중지 후 제거합니다."
+    $SUDO systemctl disable --now "$name" 2>/dev/null || true
+    $SUDO rm -f "/etc/systemd/system/${name}.service"
+  done
+  $SUDO systemctl daemon-reload
   info "구버전 서비스 제거 완료 ✓"
 }
 
@@ -368,7 +397,7 @@ service_install() {
   remove_legacy_service
 
   step "systemd 서비스 등록"
-  sudo tee "/etc/systemd/system/${SERVICE_NAME}.service" >/dev/null <<UNIT
+  $SUDO tee "/etc/systemd/system/${SERVICE_NAME}.service" >/dev/null <<UNIT
 [Unit]
 Description=Rookery - Live Stream Recorder
 Documentation=https://github.com/${REPO_SLUG}
@@ -391,16 +420,16 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 UNIT
 
-  sudo systemctl daemon-reload
-  sudo systemctl enable --now "$SERVICE_NAME"
-  info "서비스 등록 완료 ✓  (sudo systemctl status $SERVICE_NAME)"
+  $SUDO systemctl daemon-reload
+  $SUDO systemctl enable --now "$SERVICE_NAME"
+  info "서비스 등록 완료 ✓  ($SUDO systemctl status $SERVICE_NAME)"
 }
 
 service_remove() {
   has_cmd systemctl || return 0
-  sudo systemctl disable --now "$SERVICE_NAME" 2>/dev/null || true
-  sudo rm -f "/etc/systemd/system/${SERVICE_NAME}.service"
-  sudo systemctl daemon-reload
+  $SUDO systemctl disable --now "$SERVICE_NAME" 2>/dev/null || true
+  $SUDO rm -f "/etc/systemd/system/${SERVICE_NAME}.service"
+  $SUDO systemctl daemon-reload
   info "서비스 제거 완료 ✓"
 }
 
@@ -456,7 +485,7 @@ cmd_update() {
   # 구버전 유닛으로 돌고 있던 서버를 새 유닛으로 옮긴다.
   # 그냥 두면 옛 서비스가 계속 포트를 잡고 있어, 안내대로 start를 해도 충돌한다.
   if ! service_exists && legacy_service_exists; then
-    warn "구버전 서비스(${LEGACY_SERVICE_NAME})로 실행 중입니다. ${SERVICE_NAME} 유닛으로 옮깁니다."
+    warn "구버전 서비스($(find_legacy_services | tr '\n' ' '))로 실행 중입니다. ${SERVICE_NAME} 유닛으로 옮깁니다."
     service_install
     wait_for_health "$(current_port)" || true
     info "업데이트 완료 — 버전 $(app_version)"
@@ -468,7 +497,7 @@ cmd_update() {
   fi
 
   if service_exists; then
-    sudo systemctl restart "$SERVICE_NAME"
+    $SUDO systemctl restart "$SERVICE_NAME"
     info "서비스 재시작 완료 ✓"
     wait_for_health "$(current_port)" || true
   else
@@ -481,7 +510,7 @@ cmd_update() {
 cmd_start() {
   require_install
   if service_exists; then
-    sudo systemctl start "$SERVICE_NAME"
+    $SUDO systemctl start "$SERVICE_NAME"
     info "서비스 시작 ✓"
     wait_for_health "$(current_port)" || true
   else
@@ -494,7 +523,7 @@ cmd_start() {
 cmd_stop() {
   require_install
   if service_exists; then
-    sudo systemctl stop "$SERVICE_NAME"
+    $SUDO systemctl stop "$SERVICE_NAME"
     info "서비스 중지 ✓"
   elif pkill -f 'uvicorn.*app.main' 2>/dev/null; then
     info "프로세스 종료 ✓"
@@ -506,7 +535,7 @@ cmd_stop() {
 cmd_restart() {
   require_install
   if service_exists; then
-    sudo systemctl restart "$SERVICE_NAME"
+    $SUDO systemctl restart "$SERVICE_NAME"
     info "서비스 재시작 ✓"
     wait_for_health "$(current_port)" || true
   else
@@ -556,7 +585,7 @@ cmd_status() {
 cmd_logs() {
   require_install
   if service_exists; then
-    sudo journalctl -u "$SERVICE_NAME" -f -n 200
+    $SUDO journalctl -u "$SERVICE_NAME" -f -n 200
   else
     local log="$INSTALL_DIR/logs/service.log"
     [ -f "$log" ] || error "로그 파일이 없습니다: $log"
