@@ -7,7 +7,6 @@
 | 방식 | 대상 | 특징 |
 |------|------|------|
 | **원라이너** | 대부분의 경우 | 한 줄로 설치·업데이트·실행까지 전부 처리 |
-| **Docker** | 격리 배포 | [Docker 가이드](docker-guide.md) 참고 |
 | **수동 설치** | 개발/고급 사용자 | 단계별로 직접 제어 |
 
 ---
@@ -20,7 +19,6 @@ curl -fsSL https://raw.githubusercontent.com/eruminyu/Rookery/main/scripts/manag
 
 이 한 줄이 설치와 업데이트를 겸합니다. 설치되어 있지 않으면 설치하고, 이미 설치되어 있으면 최신 버전으로 갱신한 뒤 재시작합니다.
 
-Docker로 배포하는 경우에는 이 스크립트를 쓰지 않습니다. [Docker 가이드](docker-guide.md)를 참고하세요.
 
 **자동으로 처리되는 것**
 
@@ -196,4 +194,3 @@ curl -fsSL https://raw.githubusercontent.com/eruminyu/Rookery/main/scripts/manag
 | 포트 접속 불가 | 방화벽 확인, `sudo ufw allow 8000/tcp` |
 | `address already in use` 오류 | `sudo systemctl stop rookery` 후 재실행 |
 | Permission denied | `chown -R $USER:$USER ./recordings ./data ./logs` |
-| Docker 그룹 권한 오류 | 로그아웃 후 재로그인 (또는 `newgrp docker`) |

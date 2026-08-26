@@ -6,7 +6,6 @@
 |---|---|---|
 | Windows (빌드 전) | 기능/API 최종 검증 | Python + Vite dev server |
 | Windows (빌드 후) | 통합 서버 및 `.exe` 검증 | PyInstaller 빌드 후 실행 |
-| Ubuntu VM (Docker) | 컨테이너 배포 검증 | `docker compose up` |
 | Ubuntu VM (설치형) | Linux Native 배포 검증 | `manage.sh` + Native 실행 |
 
 > [!NOTE]
@@ -112,46 +111,7 @@ cd c:\Project\Rookery
 
 ---
 
-## 3. Ubuntu VM — Docker 테스트
-
-### 사전 준비
-```bash
-docker --version
-docker compose version
-
-# 프로젝트 루트로 이동 (git clone 또는 scp로 전달)
-cd /path/to/Rookery
-```
-
-### `.env` 파일 준비 (최소 설정)
-```bash
-cp .env.example .env
-# 빌드 후 테스트에서는 .env에 인증 정보를 넣지 않아도 됨
-# → 서버 실행 후 마법사를 통해 WebUI에서 설정 가능
-```
-
-### 빌드 및 실행
-```bash
-docker build -t rookery .
-docker compose up -d
-docker compose logs -f
-```
-
-### 체크리스트
-- [ ] `http://[VM_IP]:8000` 접속 → 마법사 팝업 표시
-- [ ] 마법사에서 저장 경로를 `/recordings`로 설정 후 완료
-- [ ] `docker compose ps` → `healthy` 상태 확인
-- [ ] `docker compose down && docker compose up -d` 후 `data/.setup_complete` 유지 확인 (볼륨 영속성)
-
-### 정리
-```bash
-docker compose down
-docker image rm rookery
-```
-
----
-
-## 4. Ubuntu VM — 설치형(Native) 테스트
+## 3. Ubuntu VM — 설치형(Native) 테스트
 
 ### 사전 준비
 ```bash
@@ -200,7 +160,7 @@ sudo journalctl -u rookery -f
 
 ---
 
-## 5. 멀티 플랫폼 기능 테스트
+## 4. 멀티 플랫폼 기능 테스트
 
 ### TwitCasting 채널 감시 테스트
 
@@ -265,4 +225,3 @@ sudo ufw allow 8000
 ip addr show | grep 'inet '
 ```
 
-Docker의 경우 `docker-compose.yml`의 포트 바인딩이 `0.0.0.0:8000:8000`인지 확인한다.
