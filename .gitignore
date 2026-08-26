@@ -31,7 +31,9 @@ bin/
 # PyInstaller 빌드 산출물
 dist/
 build/
-*.spec
+# PyInstaller 스펙은 빌드 산출물이 아니라 빌드 설정이다.
+# 무시해 뒀더니 기기를 바꿀 때 통째로 사라졌다. 저장소에 둔다.
+# (스펙 안의 경로는 절대 경로가 아니라 상대 경로여야 한다)
 
 # 프론트엔드 빌드 결과 (backend에 복사되는 static)
 backend/app/static/
