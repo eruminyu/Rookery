@@ -512,15 +512,17 @@ class DiscordBotService:
         @bot.tree.command(name="status", description="현재 녹화 상태와 시스템 리소스를 확인합니다")
         async def slash_status(interaction: discord.Interaction) -> None:
             await interaction.response.defer()
-            await interaction.followup.send(embed=_get_status_embed())
+            embed = await asyncio.to_thread(_get_status_embed)
+            await interaction.followup.send(embed=embed)
 
         @bot.tree.command(name="list", description="감시 중인 채널 목록을 표시합니다")
         async def slash_list(interaction: discord.Interaction) -> None:
-            embed, err = _get_list_embed()
+            await interaction.response.defer()
+            embed, err = await asyncio.to_thread(_get_list_embed)
             if err:
-                await interaction.response.send_message(err)
+                await interaction.followup.send(err)
             else:
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
 
         @bot.tree.command(name="start", description="채널 녹화를 시작하고 자동 녹화를 ON으로 설정합니다")
         @app_commands.describe(channel_id="감시 중인 채널 ID (/list에서 확인)")
@@ -528,9 +530,10 @@ class DiscordBotService:
             interaction: discord.Interaction,
             channel_id: str,
         ) -> None:
-            ch = _find_channel(channel_id)
+            await interaction.response.defer()
+            ch = await asyncio.to_thread(_find_channel, channel_id)
             if ch is None:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ 등록되지 않은 채널 ID입니다: `{channel_id}`", ephemeral=True
                 )
                 return
@@ -538,7 +541,6 @@ class DiscordBotService:
             display_name = ch.get("channel_name") or channel_id
             composite_key = ch["composite_key"]
 
-            await interaction.response.defer()
             await self._service.start_channel(composite_key)
             await interaction.followup.send(
                 embed=_make_embed("🎬 녹화 시작", f"**{display_name}**\n자동 녹화 ON", "green")
@@ -550,9 +552,10 @@ class DiscordBotService:
             interaction: discord.Interaction,
             channel_id: str,
         ) -> None:
-            ch = _find_channel(channel_id)
+            await interaction.response.defer()
+            ch = await asyncio.to_thread(_find_channel, channel_id)
             if ch is None:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ 등록되지 않은 채널 ID입니다: `{channel_id}`", ephemeral=True
                 )
                 return
@@ -560,7 +563,6 @@ class DiscordBotService:
             display_name = ch.get("channel_name") or channel_id
             composite_key = ch["composite_key"]
 
-            await interaction.response.defer()
             await self._service.stop_channel(composite_key)
             await interaction.followup.send(
                 embed=_make_embed("⏹ 녹화 중지", f"**{display_name}**\n자동 녹화 OFF", "blue")
@@ -616,7 +618,9 @@ class DiscordBotService:
 
         @bot.tree.command(name="diag", description="알림 큐와 전송 채널 상태를 진단합니다")
         async def slash_diag(interaction: discord.Interaction) -> None:
-            await interaction.response.send_message(embed=_get_diag_embed())
+            await interaction.response.defer()
+            embed = await asyncio.to_thread(_get_diag_embed)
+            await interaction.followup.send(embed=embed)
 
         def _send_test_notification() -> str:
             """알림 큐를 통해 테스트 알림을 발행하고 결과 문구를 반환한다."""
@@ -635,22 +639,26 @@ class DiscordBotService:
 
         @bot.tree.command(name="notify-test", description="알림 채널로 테스트 알림을 보냅니다")
         async def slash_notify_test(interaction: discord.Interaction) -> None:
-            await interaction.response.send_message(_send_test_notification())
+            await interaction.response.defer()
+            message = await asyncio.to_thread(_send_test_notification)
+            await interaction.followup.send(message)
 
         # ── X Spaces 전용 커맨드 ────────────────────────────
 
         @bot.tree.command(name="rescan", description="설정된 폴링 주기를 무시하고 모든 채널을 즉시 스캔합니다")
         async def slash_rescan(interaction: discord.Interaction) -> None:
-            self._service.scan_now()
-            await interaction.response.send_message("🔍 전체 채널 즉시 스캔을 시작했습니다.")
+            await interaction.response.defer()
+            await asyncio.to_thread(self._service.scan_now)
+            await interaction.followup.send("🔍 전체 채널 즉시 스캔을 시작했습니다.")
 
         @bot.tree.command(name="spaces", description="캡처된 X Spaces m3u8 URL 목록을 표시합니다")
         async def slash_spaces(interaction: discord.Interaction) -> None:
-            embed, err = _get_spaces_embed()
+            await interaction.response.defer()
+            embed, err = await asyncio.to_thread(_get_spaces_embed)
             if err:
-                await interaction.response.send_message(err)
+                await interaction.followup.send(err)
             else:
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
 
         @bot.tree.command(name="download-space", description="X Spaces m3u8 URL로 다운로드를 시작합니다")
         @app_commands.describe(url="m3u8 URL (캡처된 URL 또는 직접 입력)")
