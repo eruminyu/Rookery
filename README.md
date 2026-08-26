@@ -1,6 +1,6 @@
 # Rookery
 
-![Version](https://img.shields.io/badge/version-1.3.0-13d9a3)
+![Version](https://img.shields.io/badge/version-2.0.0-13d9a3)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827)
@@ -12,7 +12,7 @@
 
 ## 최신 UI
 
-아래 이미지는 현재 소스(v1.3.0)를 로컬에서 직접 실행해 촬영한 화면입니다.
+아래 이미지는 현재 소스(v2.0.0)를 로컬에서 직접 실행해 촬영한 화면입니다.
 
 ### Live Dashboard
 

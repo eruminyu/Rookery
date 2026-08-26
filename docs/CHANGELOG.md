@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+---
+
+## [2.0.0] - 2026-08-26
+
 ### Added
 - **즉시 스캔 버튼**: Dashboard에 「즉시 스캔」 버튼 추가 (파란색, RefreshCw 아이콘)
   - `POST /api/platforms/scan-now` 신규 엔드포인트
@@ -150,6 +154,7 @@
 
 ---
 
-[Unreleased]: https://github.com/eruminyu/Rookery/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/eruminyu/Rookery/compare/v1.1.7...v2.0.0
 [1.1.0]: https://github.com/eruminyu/Rookery/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/eruminyu/Rookery/releases/tag/v1.0.0
