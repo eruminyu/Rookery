@@ -1,5 +1,6 @@
 import { AlertCircle, AlertTriangle, Eye, GripVertical, MessageSquare, Play, Square, Trash2, Users, Video } from "lucide-react";
 import { clsx } from "clsx";
+import { getChannelKey } from "../../utils/channel";
 import { formatDuration } from "../../utils/format";
 import { TagManager } from "../ui/TagManager";
 import { Button, Card, Switch } from "../ui/primitives";
@@ -20,7 +21,7 @@ export function ChannelRow(props: ChannelItemProps) {
                 isDragging && "opacity-45",
                 isDropTarget && "ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-surface-0",
             )}
-            data-channel-key={channel.composite_key || channel.channel_id}
+            data-channel-key={getChannelKey(channel)}
         >
             <div
                 role="button"

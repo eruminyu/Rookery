@@ -281,4 +281,7 @@ if __name__ == "__main__":
         host=settings.host,
         port=settings.port,
         reload=True,
+        # uvicorn이 자기 stderr 핸들러를 달면 INFO가 ERROR로 둔갑한다.
+        # app.core.logger._attach_uvicorn_logging 참고.
+        log_config=None,
     )

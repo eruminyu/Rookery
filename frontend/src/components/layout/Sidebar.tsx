@@ -3,49 +3,20 @@ import { NavLink } from "react-router-dom";
 import {
     AlertCircle,
     AlertTriangle,
-    BarChart3,
     Bell,
     CheckCircle2,
-    Download,
     Gift,
-    LayoutDashboard,
     Menu,
-    MessageSquare,
-    Radio,
     Search,
-    Settings,
-    Terminal,
     Tv,
     X,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { api, type UpdateInfo } from "../../api/client";
+import { NAV_GROUPS } from "../../config/navigation";
 import { useTheme } from "../../context/ThemeContext";
 import { useVod } from "../../contexts/VodContext";
-import { useToast } from "../ui/Toast";
-
-const NAV_GROUPS = [
-    {
-        title: "모니터링",
-        items: [{ name: "Live Dashboard", to: "/", icon: LayoutDashboard }],
-    },
-    {
-        title: "미디어 허브",
-        items: [
-            { name: "VOD Downloader", to: "/vod", icon: Download },
-            { name: "X Spaces", to: "/archive", icon: Radio },
-            { name: "Chat Logs", to: "/chat", icon: MessageSquare },
-        ],
-    },
-    {
-        title: "워크스페이스",
-        items: [
-            { name: "Statistics", to: "/stats", icon: BarChart3 },
-            { name: "System Logs", to: "/system-logs", icon: Terminal },
-            { name: "Settings", to: "/settings", icon: Settings },
-        ],
-    },
-];
+import { useToastHistory } from "../ui/Toast";
 
 export function Sidebar() {
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -54,7 +25,7 @@ export function Sidebar() {
     const notificationRef = useRef<HTMLDivElement>(null);
     const { pageTitle, iconUrl } = useTheme();
     const { activeCount, tasks } = useVod();
-    const { history, markAllRead } = useToast();
+    const { history, markAllRead } = useToastHistory();
     const unreadCount = history.filter((item) => !item.read).length;
     const primaryTask = tasks.find((task) => task.state === "downloading");
 
@@ -174,7 +145,7 @@ export function Sidebar() {
     return (
         <>
             <button onClick={() => setMobileOpen(true)} className="fixed top-4 left-4 z-100 grid lg:hidden icon-button bg-surface-1 border border-line shadow-[var(--shadow-raise)]" aria-label="메뉴 열기"><Menu className="w-5 h-5" /></button>
-            <aside className="hidden lg:flex w-[248px] bg-surface-1/95 backdrop-blur-xl border-r border-line flex-col h-screen shrink-0">{navigation}</aside>
+            <aside className="hidden lg:flex relative z-30 w-[248px] bg-surface-1/95 backdrop-blur-xl border-r border-line flex-col h-screen shrink-0">{navigation}</aside>
             {mobileOpen && (
                 <div className="fixed inset-0 z-99 lg:hidden">
                     <button className="absolute inset-0 bg-surface-0/80 backdrop-blur-sm animate-backdrop w-full" onClick={() => setMobileOpen(false)} aria-label="메뉴 닫기" />

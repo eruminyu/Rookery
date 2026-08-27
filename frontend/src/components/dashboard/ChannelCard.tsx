@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, AlertTriangle, Eye, GripVertical, MessageSquare, Play, Square, Trash2, Users, Video } from "lucide-react";
-import type { KeyboardEvent, MouseEvent, PointerEvent } from "react";
 import { clsx } from "clsx";
 import { PLATFORM_LABELS, type Channel, type Platform } from "../../api/client";
+import type { ReorderProps } from "../../hooks/useChannelReorder";
+import { getChannelKey } from "../../utils/channel";
 import { formatBytes, formatDuration } from "../../utils/format";
 import { TagManager } from "../ui/TagManager";
 import { Button, Card, Switch } from "../ui/primitives";
@@ -14,7 +15,7 @@ export const PLATFORM_BADGE_STYLES: Record<Platform, string> = {
     youtube: "bg-youtube/10 text-youtube border-youtube/25",
 };
 
-export interface ChannelItemProps {
+export interface ChannelItemProps extends ReorderProps {
     channel: Channel;
     onStartRecord: (channel: Channel) => void;
     onStopRecord: (channel: Channel) => void;
@@ -25,14 +26,6 @@ export interface ChannelItemProps {
     onAddTag: (channel: Channel, tag: string) => void;
     onRemoveTag: (channel: Channel, tag: string) => void;
     onCreateTag: (tag: string) => void;
-    onReorderPointerDown: (event: PointerEvent<HTMLElement>) => void;
-    onReorderPointerMove: (event: PointerEvent<HTMLElement>) => void;
-    onReorderPointerUp: (event: PointerEvent<HTMLElement>) => void;
-    onReorderMouseMove: (event: MouseEvent<HTMLElement>) => void;
-    onReorderMouseUp: (event: MouseEvent<HTMLElement>) => void;
-    onReorderKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
-    isDragging: boolean;
-    isDropTarget: boolean;
 }
 
 export function useRecordingDuration(channel: Channel) {
@@ -98,7 +91,7 @@ export function ChannelCard(props: ChannelItemProps) {
                 isDragging && "opacity-45 scale-[0.985]",
                 isDropTarget && "ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-surface-0",
             )}
-            data-channel-key={channel.composite_key || channel.channel_id}
+            data-channel-key={getChannelKey(channel)}
         >
             <div className="relative bg-surface-0 overflow-hidden w-full aspect-video">
                 {channel.is_live && channel.thumbnail_url ? (

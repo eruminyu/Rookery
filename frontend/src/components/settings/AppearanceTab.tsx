@@ -3,6 +3,7 @@ import { ImageIcon, Palette, RotateCcw } from "lucide-react";
 import type { Settings as SettingsType } from "../../api/client";
 import { THEMES, type ThemeId, useTheme } from "../../context/ThemeContext";
 import { Button, Card, CardHeader, Field, Input } from "../ui/primitives";
+import { useToast } from "../ui/Toast";
 
 interface Props {
     settings: SettingsType | null;
@@ -15,6 +16,7 @@ interface Props {
 export function AppearanceTab({ onDirtyChange }: Props) {
     const { themeId, customColor, pageTitle, setTheme, setCustomColor, setPageTitle, setIconUrl, resetAll } = useTheme();
     const [titleInput, setTitleInput] = useState(pageTitle);
+    const toast = useToast();
     const iconInputRef = useRef<HTMLInputElement>(null);
     const colorPickerRef = useRef<HTMLInputElement>(null);
     const dirty = titleInput !== pageTitle;
@@ -25,7 +27,7 @@ export function AppearanceTab({ onDirtyChange }: Props) {
         const file = event.target.files?.[0];
         if (!file) return;
         if (file.size > 512 * 1024) {
-            alert("파일 크기는 512KB 이하여야 합니다.");
+            toast.error("파일 크기는 512KB 이하여야 합니다.");
             return;
         }
         const reader = new FileReader();

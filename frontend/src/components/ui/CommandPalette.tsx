@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import { Command } from "cmdk";
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Download, Settings, MessageSquare, Radio, BarChart2 } from "lucide-react";
+import { NAV_ITEMS } from "../../config/navigation";
 
 export function CommandPalette() {
     const [open, setOpen] = useState(false);
@@ -46,42 +46,16 @@ export function CommandPalette() {
                     </Command.Empty>
                     
                     <Command.Group heading="이동 (Navigation)" className="px-2 py-1.5 text-xs font-semibold text-ink-faint">
-                        <Command.Item
-                            onSelect={() => runCommand(() => navigate("/"))}
-                            className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
-                        >
-                            <LayoutDashboard className="w-4 h-4" /> Live Dashboard
-                        </Command.Item>
-                        <Command.Item
-                            onSelect={() => runCommand(() => navigate("/vod"))}
-                            className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
-                        >
-                            <Download className="w-4 h-4" /> VOD Download
-                        </Command.Item>
-                        <Command.Item
-                            onSelect={() => runCommand(() => navigate("/archive"))}
-                            className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
-                        >
-                            <Radio className="w-4 h-4" /> X Spaces
-                        </Command.Item>
-                        <Command.Item
-                            onSelect={() => runCommand(() => navigate("/chat"))}
-                            className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
-                        >
-                            <MessageSquare className="w-4 h-4" /> Chat Logs
-                        </Command.Item>
-                        <Command.Item
-                            onSelect={() => runCommand(() => navigate("/stats"))}
-                            className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
-                        >
-                            <BarChart2 className="w-4 h-4" /> Stats
-                        </Command.Item>
-                        <Command.Item
-                            onSelect={() => runCommand(() => navigate("/settings"))}
-                            className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
-                        >
-                            <Settings className="w-4 h-4" /> Settings
-                        </Command.Item>
+                        {NAV_ITEMS.map((item) => (
+                            <Command.Item
+                                key={item.to}
+                                value={item.name}
+                                onSelect={() => runCommand(() => navigate(item.to))}
+                                className="flex items-center gap-2 px-3 py-2.5 mt-1 text-sm text-ink-muted rounded-[var(--radius-control)] cursor-pointer hover:bg-surface-3 aria-selected:bg-surface-3 aria-selected:text-ink transition-colors"
+                            >
+                                {createElement(item.icon, { className: "w-4 h-4" })} {item.name}
+                            </Command.Item>
+                        ))}
                     </Command.Group>
                 </Command.List>
             </div>

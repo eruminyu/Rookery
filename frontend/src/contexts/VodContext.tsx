@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { api, VodTask } from "../api/client";
+import { useToast } from "../components/ui/Toast";
 import { getErrorMessage } from "../utils/error";
 
 export interface VodContextType {
@@ -20,6 +21,7 @@ export interface VodContextType {
 const VodContext = createContext<VodContextType | null>(null);
 
 export function VodProvider({ children }: { children: ReactNode }) {
+    const toast = useToast();
     const [tasks, setTasks] = useState<VodTask[]>([]);
     const [activeCount, setActiveCount] = useState(0);
     const [queuedCount, setQueuedCount] = useState(0);
@@ -84,7 +86,7 @@ export function VodProvider({ children }: { children: ReactNode }) {
         try {
             await api.openVodFileLocation(taskId);
         } catch (e: unknown) {
-            alert(getErrorMessage(e, "파일 위치를 열 수 없습니다."));
+            toast.error(getErrorMessage(e, "파일 위치를 열 수 없습니다."));
         }
     };
 

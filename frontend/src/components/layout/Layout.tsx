@@ -8,7 +8,7 @@ export function Layout() {
             <div className="app-canvas flex h-screen text-ink font-sans overflow-hidden">
                 <Sidebar />
                 <main className="relative flex-1 overflow-auto px-4 pb-8 pt-16 sm:px-6 lg:px-8 lg:py-8">
-                    <div className="page-content relative z-10 max-w-[1480px] mx-auto">
+                    <div className="page-content relative max-w-[1480px] mx-auto">
                         <Outlet />
                     </div>
                 </main>

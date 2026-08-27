@@ -325,6 +325,9 @@ def _run_server(settings, stop_event: threading.Event) -> None:
         reload=False,
         loop="asyncio",
         log_level="info",
+        # None이어야 uvicorn이 자기 stderr 핸들러를 달지 않는다.
+        # 그래야 app.core.logger가 잡아둔 라우팅이 유지된다.
+        log_config=None,
     )
     server = uvicorn.Server(config)
 
@@ -379,4 +382,6 @@ if __name__ == "__main__":
             reload=False,
             loop="asyncio",
             log_level="info",
+            # 위 _run_server와 같은 이유로 None.
+            log_config=None,
         )

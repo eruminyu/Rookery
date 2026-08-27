@@ -11,11 +11,38 @@ import threading
 from pathlib import Path
 
 
+# stderr에 찍히는 줄에서 레벨을 읽어내기 위한 접두어.
+# yt-dlp가 "WARNING: ...", "ERROR: ..." 꼴로 쓰고 여러 라이브러리가 같은 관습을 따른다.
+_LEVEL_PREFIXES: tuple[tuple[str, int], ...] = (
+    ("CRITICAL:", logging.CRITICAL),
+    ("WARNING:", logging.WARNING),
+    ("ERROR:", logging.ERROR),
+    ("DEBUG:", logging.DEBUG),
+    ("INFO:", logging.INFO),
+)
+
+
+def _classify_stderr_line(line: str) -> tuple[int, str]:
+    """stderr 한 줄에서 로그 레벨과 본문을 뽑는다.
+
+    접두어가 없으면 ERROR로 본다. 레벨 표시 없이 stderr에 쓰는 출력은
+    대개 트레이스백처럼 실제로 문제인 것들이기 때문이다.
+    """
+    stripped = line.lstrip()
+    upper = stripped.upper()
+    for prefix, level in _LEVEL_PREFIXES:
+        if upper.startswith(prefix):
+            body = stripped[len(prefix):].strip()
+            return level, body or stripped
+    return logging.ERROR, line
+
+
 class _StderrToLogger:
     """sys.stderr를 로거로 리다이렉트하는 래퍼.
 
-    FFmpeg subprocess 에러, uvicorn 내부 오류 등 stderr로 가는 모든 출력을
-    로거를 통해 타임스탬프와 함께 기록한다.
+    yt-dlp 경고나 파이썬 트레이스백처럼 stderr로 가는 출력을 로거를 통해
+    타임스탬프와 함께 기록한다. 줄 앞의 "WARNING:" 같은 접두어로 레벨을 맞춘다 —
+    예전에는 전부 ERROR로 찍어서, 정상 기동 메시지까지 에러처럼 보였다.
 
     재진입 방지가 핵심이다. 콘솔 핸들러가 출력에 실패하면 logging은
     handleError()에서 sys.stderr에 쓰는데, 그 stderr가 다시 이 래퍼이므로
@@ -37,9 +64,10 @@ class _StderrToLogger:
                 pass
             return
 
+        level, message = _classify_stderr_line(line)
         self._local.busy = True
         try:
-            self._logger.error(line)
+            self._logger.log(level, message)
         except Exception:
             try:
                 sys.__stderr__.write(line + "\n")
@@ -68,6 +96,14 @@ class _StderrToLogger:
             return sys.__stderr__.isatty()
         except Exception:
             return False
+
+
+def _make_formatter() -> logging.Formatter:
+    """콘솔·파일·uvicorn 핸들러가 같은 줄 모양을 쓰도록 한곳에서 만든다."""
+    return logging.Formatter(
+        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 
 
 def _make_console_handler() -> logging.StreamHandler:
@@ -114,10 +150,7 @@ def setup_logger(
     logging.raiseExceptions = False
 
     # ── 포맷터 ───────────────────────────────────────────
-    fmt = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    fmt = _make_formatter()
 
     # ── 콘솔 핸들러 ─────────────────────────────────────
     console_handler = _make_console_handler()
@@ -151,6 +184,34 @@ def setup_logger(
     return logger
 
 
+def _attach_uvicorn_logging(target: logging.Logger) -> None:
+    """uvicorn 로그를 우리 로거의 핸들러로 흘려보낸다.
+
+    uvicorn은 기본 설정에서 자기 핸들러로 stderr에 찍는다. 그런데 위
+    _StderrToLogger가 stderr를 통째로 가로채므로 "Application startup complete."
+    같은 INFO가 ERROR로 둔갑했다. 로그가 온통 ERROR라 진짜 에러를 골라낼 수 없었다.
+
+    uvicorn 쪽에 log_config=None을 넘겨야 uvicorn이 자기 핸들러를 달지 않아
+    이 설정이 살아남는다 (backend/run.py, backend/app/main.py 참고).
+    """
+    # uvicorn.error(기동·종료 메시지)와 uvicorn.asgi는 부모 'uvicorn'으로
+    # 전파되므로 부모 한 곳에만 붙이면 된다.
+    parent = logging.getLogger("uvicorn")
+    parent.handlers = list(target.handlers)
+    parent.setLevel(target.level)
+    # 나중에 루트에 핸들러가 생기면 같은 줄이 두 번 찍힌다.
+    parent.propagate = False
+
+    # 접근 로그는 요청 한 건에 한 줄이다. 프론트가 2초마다 상태를 폴링하므로
+    # service.log에 넣으면 하루 수만 줄이 쌓인다 — 지금처럼 콘솔에만 남긴다.
+    access_handler = _make_console_handler()
+    access_handler.setFormatter(_make_formatter())
+    access = logging.getLogger("uvicorn.access")
+    access.handlers = [access_handler]
+    access.setLevel(target.level)
+    access.propagate = False
+
+
 # ── 기본 로거 인스턴스 ──────────────────────────────────
 def _get_default_logger():
     from app.core.config import get_settings
@@ -161,6 +222,7 @@ def _get_default_logger():
         level = logging.INFO
     _logger = setup_logger(level=level, log_dir="logs")
     sys.stderr = _StderrToLogger(_logger)  # type: ignore[assignment]
+    _attach_uvicorn_logging(_logger)
     return _logger
 
 logger = _get_default_logger()
