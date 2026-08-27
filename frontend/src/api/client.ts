@@ -488,6 +488,11 @@ export const api = {
         const res = await client.post<{ tags: string[] }>("/tags", { name });
         return res.data;
     },
+    /** 태그를 전역에서 지운다. 백엔드가 모든 채널에서도 함께 떼어낸다. */
+    deleteTag: async (name: string) => {
+        const res = await client.delete<{ status: string; deleted: string }>(`/tags/${encodeURIComponent(name)}`);
+        return res.data;
+    },
     updateChannelTags: async (channel_id: string, tags: string[]) => {
         const res = await client.patch<{ status: string; tags: string[] }>(`/tags/channel/${encodeURIComponent(channel_id)}`, { tags });
         return res.data;

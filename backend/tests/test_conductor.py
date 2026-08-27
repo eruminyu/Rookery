@@ -269,3 +269,56 @@ class TestConductor:
         # 30일 창을 벗어난 날짜라 0건이지만, 기록 자체는 저장소에 남아 있다.
         assert isinstance(counts, dict)
         assert conductor1._history_repo.detection_counts(days=36500)[key] == 1
+
+
+class TestGlobalTagDeletion:
+    """태그를 전역에서 지우면 붙어 있던 채널에서도 떨어져야 한다.
+
+    화면에 삭제 버튼이 생기면서 실제로 눌리는 경로가 됐다. 메모리에서만 지우고
+    저장소를 놓치면 재시작할 때 태그가 되살아난다 — 그 경계를 여기서 잡는다.
+    """
+
+    def _conductor_with_tagged_channels(self):
+        conductor = Conductor()
+        conductor.add_channel(channel_id="ch_a", auto_record=True)
+        conductor.add_channel(channel_id="ch_b", auto_record=True)
+        key_a = Conductor.make_composite_key(Platform.CHZZK, "ch_a")
+        key_b = Conductor.make_composite_key(Platform.CHZZK, "ch_b")
+        conductor.set_channel_tags(key_a, ["게임", "저녁방송"])
+        conductor.set_channel_tags(key_b, ["게임"])
+        return conductor, key_a, key_b
+
+    def test_tag_is_stripped_from_every_channel(self):
+        conductor, key_a, key_b = self._conductor_with_tagged_channels()
+
+        assert conductor.remove_tag_from_all_channels("게임") is True
+
+        assert conductor._channels[key_a].tags == ["저녁방송"]
+        assert conductor._channels[key_b].tags == []
+
+    def test_removal_survives_restart(self):
+        """저장소까지 반영돼야 재시작 후에도 태그가 돌아오지 않는다."""
+        conductor, key_a, key_b = self._conductor_with_tagged_channels()
+        conductor.remove_tag_from_all_channels("게임")
+
+        restarted = Conductor()  # 새 인스턴스 = 앱 재시작
+
+        assert restarted._channels[key_a].tags == ["저녁방송"]
+        assert restarted._channels[key_b].tags == []
+
+    def test_other_tags_are_left_alone(self):
+        conductor, key_a, _ = self._conductor_with_tagged_channels()
+
+        conductor.remove_tag_from_all_channels("게임")
+
+        assert "저녁방송" in conductor._channels[key_a].tags
+
+    def test_unused_tag_reports_no_change(self):
+        """아무 채널도 쓰지 않는 태그를 지우면 채널 쪽은 건드리지 않는다."""
+        conductor, key_a, key_b = self._conductor_with_tagged_channels()
+
+        assert conductor.remove_tag_from_all_channels("아무도안씀") is False
+
+        assert conductor._channels[key_a].tags == ["게임", "저녁방송"]
+        assert conductor._channels[key_b].tags == ["게임"]
+

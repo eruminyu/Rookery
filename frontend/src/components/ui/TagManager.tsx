@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Tag, X, Plus, Check } from "lucide-react";
+import { Tag, X, Plus, Check, Trash2 } from "lucide-react";
 import { clsx } from "clsx";
 
 interface TagManagerProps {
@@ -8,6 +8,13 @@ interface TagManagerProps {
     onAddTag: (tag: string) => void;
     onRemoveTag: (tag: string) => void;
     onCreateTag: (tag: string) => void;
+    /**
+     * 태그를 전역에서 지운다.
+     *
+     * 넘기지 않으면 삭제 버튼이 아예 그려지지 않는다. 채널 카드에서는 일부러 넘기지
+     * 않는다 — "이 채널에서 떼기"와 "전역에서 지우기"가 나란히 놓이면 잘못 누르기 쉽다.
+     */
+    onDeleteTag?: (tag: string) => void;
     disabled?: boolean;
 }
 
@@ -17,6 +24,7 @@ export function TagManager({
     onAddTag,
     onRemoveTag,
     onCreateTag,
+    onDeleteTag,
     disabled = false,
 }: TagManagerProps) {
     const [isOpen, setIsOpen] = useState(false);
@@ -137,19 +145,31 @@ export function TagManager({
                             </button>
                         )}
                         {filteredAvailable.map((tag) => (
-                            <button
-                                key={tag}
-                                onClick={() => toggleTag(tag)}
-                                className={clsx(
-                                    "w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center justify-between",
-                                    selectedTags.includes(tag)
-                                        ? "text-[var(--primary)] bg-[var(--primary-dim)]"
-                                        : "text-ink-muted hover:bg-surface-3 hover:text-ink"
+                            // 버튼 안에 버튼을 넣을 수 없어 행을 감싼다.
+                            <div key={tag} className="flex items-center group/tag">
+                                <button
+                                    onClick={() => toggleTag(tag)}
+                                    className={clsx(
+                                        "flex-1 min-w-0 text-left px-3 py-1.5 text-xs transition-colors flex items-center justify-between",
+                                        selectedTags.includes(tag)
+                                            ? "text-[var(--primary)] bg-[var(--primary-dim)]"
+                                            : "text-ink-muted hover:bg-surface-3 hover:text-ink"
+                                    )}
+                                >
+                                    <span className="truncate mr-2">{tag}</span>
+                                    {selectedTags.includes(tag) && <Check className="w-3 h-3 shrink-0" />}
+                                </button>
+                                {onDeleteTag && (
+                                    <button
+                                        onClick={() => onDeleteTag(tag)}
+                                        title={`'${tag}' 태그를 전역에서 삭제`}
+                                        aria-label={`${tag} 태그를 전역에서 삭제`}
+                                        className="shrink-0 px-2 py-1.5 text-ink-faint opacity-0 group-hover/tag:opacity-100 focus-visible:opacity-100 hover:text-danger transition-opacity focus:outline-none"
+                                    >
+                                        <Trash2 className="w-3 h-3" />
+                                    </button>
                                 )}
-                            >
-                                <span className="truncate mr-2">{tag}</span>
-                                {selectedTags.includes(tag) && <Check className="w-3 h-3 shrink-0" />}
-                            </button>
+                            </div>
                         ))}
                         {filteredAvailable.length === 0 && !isExactMatchFree && (
                             <div className="px-3 py-2 text-xs text-ink-faint text-center">

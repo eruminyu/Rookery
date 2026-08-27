@@ -19,6 +19,7 @@ interface Props {
     selectedTags: string[];
     onSelectedTagsChange: (tags: string[]) => void;
     onCreateTag: (tag: string) => void;
+    onDeleteTag: (tag: string) => void;
     viewMode: ViewMode;
     onViewModeChange: (mode: ViewMode) => void;
     recordingCount: number;
@@ -33,6 +34,7 @@ export function DashboardFilters({
     selectedTags,
     onSelectedTagsChange,
     onCreateTag,
+    onDeleteTag,
     viewMode,
     onViewModeChange,
     recordingCount,
@@ -86,6 +88,7 @@ export function DashboardFilters({
                     onAddTag={(tag) => onSelectedTagsChange([...selectedTags, tag])}
                     onRemoveTag={(tag) => onSelectedTagsChange(selectedTags.filter((item) => item !== tag))}
                     onCreateTag={onCreateTag}
+                    onDeleteTag={onDeleteTag}
                 />
             </div>
         </div>

@@ -158,6 +158,33 @@ export default function Dashboard() {
         }
     };
 
+    const handleDeleteGlobalTag = async (tagName: string) => {
+        // 전역 삭제라 이 태그가 붙어 있던 채널에서도 함께 떨어진다.
+        // 몇 개가 영향받는지 먼저 보여주고 확인을 받는다.
+        const affected = channels.filter((channel) => (channel.tags || []).includes(tagName)).length;
+        const ok = await confirm({
+            title: "태그 삭제",
+            message: affected > 0
+                ? `'${tagName}' 태그를 삭제하면 이 태그가 붙은 채널 ${affected}개에서도 함께 떨어집니다.\n채널과 녹화 파일은 그대로 남습니다.`
+                : `'${tagName}' 태그를 삭제할까요?`,
+            confirmText: "삭제",
+            variant: "danger",
+        });
+        if (!ok) return;
+
+        try {
+            await api.deleteTag(tagName);
+            const data = await api.getTags();
+            setGlobalTags(data.tags);
+            // 지운 태그가 필터에 걸려 있으면 아무 채널도 안 보이게 되므로 함께 푼다.
+            setSelectedFilterTags((current) => current.filter((tag) => tag !== tagName));
+            fetchChannels();
+            toast.success(`'${tagName}' 태그를 삭제했습니다.`);
+        } catch (error) {
+            toast.error(getErrorMessage(error, "태그 삭제에 실패했습니다."));
+        }
+    };
+
     const liveCount = channels.filter((channel) => channel.is_live).length;
     const recordingCount = channels.filter((channel) => channel.recording?.is_recording).length;
     const filteredChannels = orderedChannels.filter((channel) => {
@@ -210,6 +237,7 @@ export default function Dashboard() {
                     selectedTags={selectedFilterTags}
                     onSelectedTagsChange={setSelectedFilterTags}
                     onCreateTag={handleCreateGlobalTag}
+                    onDeleteTag={handleDeleteGlobalTag}
                     viewMode={viewMode}
                     onViewModeChange={setViewMode}
                     recordingCount={recordingCount}
