@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+---
+
+## [2.0.3] - 2026-08-28
+
 ### Added
 - **태그 삭제** — 태그를 만들 수만 있고 지울 수는 없었다. 백엔드에는 삭제 API가
   있었는데 화면에 버튼이 없었다.
@@ -256,7 +260,8 @@
 
 ---
 
-[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.2...HEAD
+[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.3...HEAD
+[2.0.3]: https://github.com/eruminyu/Rookery/compare/v2.0.2...v2.0.3
 [2.0.2]: https://github.com/eruminyu/Rookery/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/eruminyu/Rookery/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/eruminyu/Rookery/compare/v1.1.7...v2.0.0
