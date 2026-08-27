@@ -343,17 +343,70 @@ setup_python_env() {
   info "의존성 설치 완료 ✓"
 }
 
+# 명령을 걸어둘 후보 디렉터리.
+#
+# /usr/local/bin을 먼저 쓴다. root의 기본 PATH에 들어 있어 셸 설정을 건드리지
+# 않아도 바로 잡히고, ffmpeg도 이미 같은 곳에 설치하므로 규칙이 하나로 맞는다.
+# ~/.local/bin은 root의 기본 PATH에 없다 — 여기로 내려가면 안내가 한 단계 더 필요하다.
+SYSTEM_BINDIR="/usr/local/bin"
+USER_BINDIR="$HOME/.local/bin"
+
+# 이름이 바뀌기 전에 걸어둔 명령. systemd 유닛과 달리 지금까지 정리하지 않아
+# 옛 이름이 낡은 경로를 가리킨 채 남아 있었다.
+LEGACY_COMMAND_NAMES="signal-recorder chzzk-recorder-pro"
+
+# 우리가 만든 심볼릭 링크만 지운다. 같은 이름의 진짜 파일은 건드리지 않는다.
+remove_legacy_commands() {
+  local dir name link
+  for dir in "$SYSTEM_BINDIR" "$USER_BINDIR"; do
+    for name in $LEGACY_COMMAND_NAMES; do
+      link="$dir/$name"
+      [ -L "$link" ] || continue
+      case "$(readlink "$link" 2>/dev/null)" in
+        */scripts/manage.sh) ;;
+        *) continue ;;
+      esac
+      rm -f "$link" 2>/dev/null || $SUDO rm -f "$link" 2>/dev/null || true
+      [ -e "$link" ] || info "구버전 명령 정리: $link"
+    done
+  done
+}
+
+# 한 디렉터리에 링크를 시도한다. 권한이 없으면 sudo로 한 번 더 시도하고,
+# 그래도 안 되면 실패를 돌려 다음 후보로 넘어가게 한다.
+link_into() {
+  local dir="$1" target="$2"
+  [ -d "$dir" ] || return 1
+  ln -sf "$target" "$dir/$APP_NAME" 2>/dev/null && return 0
+  [ -n "$SUDO" ] || return 1
+  # sudo 프롬프트가 보여야 하므로 여기서는 stderr를 가리지 않는다.
+  $SUDO ln -sf "$target" "$dir/$APP_NAME"
+}
+
 # 어디서나 한 단어로 부를 수 있도록 이 스크립트를 PATH에 연결한다.
 link_self() {
-  local bindir="$HOME/.local/bin"
-  mkdir -p "$bindir"
-  ln -sf "$INSTALL_DIR/scripts/manage.sh" "$bindir/$APP_NAME"
-  chmod +x "$INSTALL_DIR/scripts/manage.sh" 2>/dev/null || true
+  local target="$INSTALL_DIR/scripts/manage.sh"
+  chmod +x "$target" 2>/dev/null || true
+  remove_legacy_commands
+
+  if link_into "$SYSTEM_BINDIR" "$target"; then
+    info "명령 등록: $SYSTEM_BINDIR/$APP_NAME ✓"
+    return 0
+  fi
+
+  mkdir -p "$USER_BINDIR"
+  if ! link_into "$USER_BINDIR" "$target"; then
+    warn "$APP_NAME 명령을 등록하지 못했습니다. 스크립트를 직접 실행하세요:
+    $target update"
+    return 0
+  fi
+  info "명령 등록: $USER_BINDIR/$APP_NAME ✓"
 
   case ":$PATH:" in
-    *":$bindir:"*) ;;
-    *) warn "$bindir 가 PATH에 없습니다. 셸 설정에 아래를 추가하세요:
-    export PATH=\"\$HOME/.local/bin:\$PATH\"" ;;
+    *":$USER_BINDIR:"*) ;;
+    *) warn "$USER_BINDIR 가 PATH에 없어 '$APP_NAME' 명령이 바로 잡히지 않습니다.
+    아래를 실행한 뒤 셸을 새로 열거나 'source ~/.bashrc' 하세요:
+    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc" ;;
   esac
 }
 
@@ -660,7 +713,8 @@ cmd_uninstall() {
   confirm "계속하시겠습니까?" || { info "취소했습니다."; return 0; }
 
   service_remove
-  rm -f "$HOME/.local/bin/$APP_NAME"
+  rm -f "$SYSTEM_BINDIR/$APP_NAME" 2>/dev/null || $SUDO rm -f "$SYSTEM_BINDIR/$APP_NAME" 2>/dev/null || true
+  rm -f "$USER_BINDIR/$APP_NAME"
   rm -rf "$INSTALL_DIR/.venv"
   info "제거 완료. 저장소와 데이터는 $INSTALL_DIR 에 남아 있습니다."
 }

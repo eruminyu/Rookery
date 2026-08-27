@@ -7,18 +7,52 @@ interface UpdateModalProps {
     onClose: () => void;
 }
 
-export function UpdateModal({ info, onClose }: UpdateModalProps) {
+/**
+ * 설치와 업데이트를 겸하는 원라이너. scripts/manage.sh 상단의 RAW_URL과 같은 주소다.
+ *
+ * `rookery` 명령을 못 찾는 사람에게는 이게 유일한 탈출구인데, 예전에는 본문에서
+ * "원라이너를 실행하라"고 말만 하고 정작 그 명령을 보여주지 않아 README를 뒤져야 했다.
+ */
+const INSTALL_ONE_LINER =
+    "curl -fsSL https://raw.githubusercontent.com/eruminyu/Rookery/main/scripts/manage.sh | bash";
+
+/**
+ * 복사 버튼이 달린 명령 블록.
+ *
+ * 복사 상태를 블록마다 따로 갖는다. 상위에서 하나로 공유하면 어느 것을 눌러도
+ * 모든 블록에 체크 표시가 떠서 무엇을 복사했는지 알 수 없다.
+ */
+function CommandBlock({ command }: { command: string }) {
     const [copied, setCopied] = useState(false);
 
-    const handleCopy = (text: string) => {
-        navigator.clipboard.writeText(text);
+    const handleCopy = () => {
+        navigator.clipboard.writeText(command);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
 
+    return (
+        <div className="relative group">
+            <div className="bg-surface-1 border border-line rounded-[var(--radius-control)] p-3 overflow-x-auto">
+                <code className="text-xs text-[var(--primary)] font-mono whitespace-nowrap">
+                    {command}
+                </code>
+            </div>
+            <button
+                onClick={handleCopy}
+                aria-label="명령 복사"
+                className="absolute top-2 right-2 p-1.5 bg-surface-3 hover:bg-surface-4 text-ink-faint hover:text-ink rounded-md transition-colors"
+            >
+                {copied ? <CheckCircle2 className="w-4 h-4 text-ok" /> : <Copy className="w-4 h-4" />}
+            </button>
+        </div>
+    );
+}
+
+export function UpdateModal({ info, onClose }: UpdateModalProps) {
     const renderContent = () => {
         switch (info.environment) {
-            case "windows-exe":
+            case "windows-exe": {
                 // 릴리즈 asset 이름에 버전이 들어간다: Rookery-v2.0.0-windows-x64.exe
                 const assetName = `Rookery-v${info.latest_version}-windows-x64.exe`;
                 return (
@@ -55,39 +89,47 @@ export function UpdateModal({ info, onClose }: UpdateModalProps) {
                         </a>
                     </div>
                 );
+            }
             case "docker":
-            case "linux-native":
-            default:
-                // 네이티브는 manage.sh가 설치한 rookery 명령으로 끝난다.
                 // Docker는 manage.sh 대상이 아니므로 compose를 직접 쓴다.
-                const isDocker = info.environment === "docker";
-                const updateCommand = isDocker
-                    ? "git pull && docker compose up --build -d"
-                    : "rookery update";
                 return (
                     <div className="space-y-4">
                         <p className="text-sm text-ink-muted">
-                            {isDocker
-                                ? "Docker로 실행 중입니다. 호스트 머신의 저장소 디렉토리에서 아래 명령을 실행하세요."
-                                : "터미널에서 아래 명령을 실행하면 최신 버전으로 갱신한 뒤 자동으로 재시작됩니다."}
+                            Docker로 실행 중입니다. 호스트 머신의 저장소 디렉토리에서 아래 명령을 실행하세요.
                         </p>
-                        <div className="relative group">
-                            <div className="bg-surface-1 border border-line rounded-[var(--radius-control)] p-3 overflow-x-auto">
-                                <code className="text-xs text-[var(--primary)] font-mono whitespace-nowrap">
-                                    {updateCommand}
-                                </code>
-                            </div>
-                            <button
-                                onClick={() => handleCopy(updateCommand)}
-                                className="absolute top-2 right-2 p-1.5 bg-surface-3 hover:bg-surface-4 text-ink-faint hover:text-ink rounded-md transition-colors"
-                            >
-                                {copied ? <CheckCircle2 className="w-4 h-4 text-ok" /> : <Copy className="w-4 h-4" />}
-                            </button>
-                        </div>
+                        <CommandBlock command="git pull && docker compose up --build -d" />
                         <p className="text-xs text-ink-faint">
-                            {isDocker
-                                ? "config/ 와 recordings/ 는 호스트에 마운트되어 있어 재빌드해도 유지됩니다."
-                                : "명령을 찾을 수 없다면 설치 원라이너를 그대로 다시 실행해도 업데이트됩니다. 시스템 패키지를 다룰 때 sudo 비밀번호를 물을 수 있습니다."}
+                            config/ 와 recordings/ 는 호스트에 마운트되어 있어 재빌드해도 유지됩니다.
+                        </p>
+                    </div>
+                );
+            case "linux-native":
+            default:
+                // 네이티브는 manage.sh가 등록한 rookery 명령으로 끝난다.
+                return (
+                    <div className="space-y-4">
+                        <p className="text-sm text-ink-muted">
+                            터미널에서 아래 명령을 실행하면 최신 버전으로 갱신한 뒤 자동으로 재시작됩니다.
+                        </p>
+                        <CommandBlock command="rookery update" />
+
+                        {/*
+                          코드를 git pull로만 갱신해 온 사용자는 link_self()가 한 번도 돌지 않아
+                          rookery 명령 자체가 없다. 여기서 빠져나갈 길을 주지 않으면 막힌다.
+                        */}
+                        <div className="border-t border-line pt-4 space-y-2.5">
+                            <p className="text-sm text-ink-muted">
+                                <span className="font-mono text-warn">command not found</span> 가 나오나요?
+                            </p>
+                            <p className="text-xs text-ink-faint leading-relaxed">
+                                코드를 <span className="font-mono">git pull</span> 로만 갱신해 왔다면 명령이 등록되지 않았을 수 있습니다.
+                                아래 설치 원라이너가 업데이트를 겸하며, <span className="font-mono">rookery</span> 명령도 함께 등록합니다.
+                            </p>
+                            <CommandBlock command={INSTALL_ONE_LINER} />
+                        </div>
+
+                        <p className="text-xs text-ink-faint">
+                            시스템 패키지를 다룰 때 sudo 비밀번호를 물을 수 있습니다.
                         </p>
                     </div>
                 );
@@ -110,7 +152,7 @@ export function UpdateModal({ info, onClose }: UpdateModalProps) {
                         <X className="w-5 h-5" />
                     </button>
                 </div>
-                
+
                 <div className="p-6">
                     {renderContent()}
                 </div>

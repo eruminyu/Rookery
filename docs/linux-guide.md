@@ -30,7 +30,8 @@ curl -fsSL https://raw.githubusercontent.com/eruminyu/Rookery/main/scripts/manag
 
 ### 설치 후 관리
 
-설치가 끝나면 `rookery` 명령이 `~/.local/bin`에 등록됩니다.
+설치가 끝나면 `rookery` 명령이 등록됩니다.
+`/usr/local/bin`에 걸 수 있으면 그곳에, 권한이 없으면 `~/.local/bin`에 등록합니다.
 
 ```bash
 rookery status          # 상태 요약
@@ -45,9 +46,19 @@ rookery service remove  # systemd 해제
 rookery uninstall       # 제거 (녹화 파일·데이터는 유지)
 ```
 
-> `~/.local/bin`이 PATH에 없다는 경고가 나오면 셸 설정에 아래를 추가하세요.
+> **`rookery: command not found` 가 나온다면** 코드를 `git pull` 로만 갱신해 와서
+> 명령이 한 번도 등록되지 않은 경우입니다. 아래 원라이너가 업데이트를 겸하며
+> 명령도 함께 등록합니다.
+>
 > ```bash
-> export PATH="$HOME/.local/bin:$PATH"
+> curl -fsSL https://raw.githubusercontent.com/eruminyu/Rookery/main/scripts/manage.sh | bash
+> ```
+>
+> `~/.local/bin`에 등록됐는데 PATH에 없다는 경고가 나왔다면 셸 설정에 아래를 추가하세요.
+> root 계정은 이 경로가 기본 PATH에 없습니다.
+>
+> ```bash
+> echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 > ```
 
 ### 옵션

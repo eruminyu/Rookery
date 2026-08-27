@@ -10,6 +10,33 @@
 
 ---
 
+## [2.0.2] - 2026-08-27
+
+### Fixed
+- **`rookery` 명령을 찾을 수 없던 문제**
+  - 명령은 `manage.sh`의 심볼릭 링크이고 `link_self()`가 등록하는데, 지금까지
+    `~/.local/bin`에만 걸었다. 이 경로는 **root의 기본 PATH에 없어서**, 설치를 마쳐도
+    `rookery: command not found` 가 났다. `status` · `start` · `logs` 등 이미 구현된
+    명령 전부가 링크 하나 때문에 닿지 않았다
+  - 이제 `/usr/local/bin` 을 먼저 시도한다. root의 기본 PATH에 있고, ffmpeg도 같은 곳에
+    설치하므로 규칙이 하나로 맞는다. 권한이 없으면 종전처럼 `~/.local/bin` 으로 내려가되
+    PATH 추가 명령을 그대로 복사할 수 있게 안내한다
+  - 이름이 바뀌기 전에 걸어둔 링크(`signal-recorder`, `chzzk-recorder-pro`)를 정리한다.
+    systemd 유닛은 이미 정리하고 있었지만 명령 링크는 남아 있었다. 우리가 만든
+    심볼릭 링크만 지우며, 같은 이름의 실제 파일은 건드리지 않는다
+  - 제거(`uninstall`) 시에도 두 경로를 모두 정리한다
+- **업데이트 안내 모달이 막다른 길이던 문제**
+  - `rookery update` 만 복사 블록으로 보여주고, 정작 명령이 없을 때 필요한 설치
+    원라이너는 "그대로 다시 실행하면 된다"고 말만 하고 보여주지 않았다. 막힌 사용자는
+    README를 뒤져야 했다
+  - 원라이너를 복사 가능한 두 번째 블록으로 추가했다. 복사 상태를 블록마다 분리해
+    어느 것을 복사했는지 구분된다
+
+### Changed
+- `docs/linux-guide.md` 의 명령 등록 위치와 `command not found` 대처를 실제 동작에 맞췄다
+
+---
+
 ## [2.0.1] - 2026-08-27
 
 ### Fixed
@@ -196,7 +223,8 @@
 
 ---
 
-[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.2...HEAD
+[2.0.2]: https://github.com/eruminyu/Rookery/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/eruminyu/Rookery/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/eruminyu/Rookery/compare/v1.1.7...v2.0.0
 [1.1.0]: https://github.com/eruminyu/Rookery/compare/v1.0.0...v1.1.0
