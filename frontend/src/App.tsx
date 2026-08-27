@@ -5,7 +5,7 @@ import { Layout } from "./components/layout/Layout";
 import { ToastProvider } from "./components/ui/Toast";
 import { ConfirmProvider } from "./components/ui/ConfirmModal";
 import { SetupWizard } from "./components/SetupWizard";
-import { ThemeProvider } from "./context/ThemeContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import Dashboard from "./pages/Dashboard";
 import VodDownload from "./pages/VodDownload";
 import ArchivePage from "./pages/Archive";

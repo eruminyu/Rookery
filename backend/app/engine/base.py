@@ -46,7 +46,9 @@ class PlatformEngine(Protocol):
     X Spaces는 스트림 URL이 아니라 space_id로 녹화하므로 이 프로토콜을 따르지
     않고 Conductor가 별도 경로로 처리한다.
 
-    @runtime_checkable 덕분에 isinstance() 체크가 가능하다.
+    @runtime_checkable이라 issubclass()로 검사할 수 있다. CI에 파이썬 타입
+    체커가 없으므로 tests/test_engine_modules.py가 각 엔진의 준수 여부를 확인한다 —
+    이 규약을 어기면 그 테스트가 알려준다.
     """
 
     async def check_live_status(self, channel_id: str) -> LiveStatus:

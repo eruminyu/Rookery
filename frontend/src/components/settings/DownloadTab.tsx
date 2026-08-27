@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Download, Film, MessageSquare, RefreshCcw, Save } from "lucide-react";
+import { useSettingsSave } from "../../hooks/useSettingsSave";
 import { api, type Settings as SettingsType } from "../../api/client";
-import { getErrorMessage } from "../../utils/error";
-import { useToast } from "../ui/Toast";
 import { Button, Card, CardHeader, Field, Input, Select, SettingRow, Switch } from "../ui/primitives";
 
 interface Props {
@@ -14,7 +13,6 @@ interface Props {
 }
 
 export function DownloadTab({ settings, onSaved, onDirtyChange }: Props) {
-    const toast = useToast();
     const [keepParts, setKeepParts] = useState(false);
     const [maxRetries, setMaxRetries] = useState(3);
     const [vodMaxConcurrent, setVodMaxConcurrent] = useState(3);
@@ -22,9 +20,10 @@ export function DownloadTab({ settings, onSaved, onDirtyChange }: Props) {
     const [vodMaxSpeed, setVodMaxSpeed] = useState(0);
     const [vodFormat, setVodFormat] = useState("mp4");
     const [chatArchiveEnabled, setChatArchiveEnabled] = useState(false);
-    const [downloadSaving, setDownloadSaving] = useState(false);
-    const [vodSaving, setVodSaving] = useState(false);
-    const [chatSaving, setChatSaving] = useState(false);
+    // 세 영역이 각각 따로 저장되므로 훅도 따로 둔다 — 저장 중 표시가 서로 섞이지 않는다.
+    const { saving: downloadSaving, save: saveDownload } = useSettingsSave(onSaved);
+    const { saving: vodSaving, save: saveVod } = useSettingsSave(onSaved);
+    const { saving: chatSaving, save: saveChat } = useSettingsSave(onSaved);
 
     useEffect(() => {
         if (!settings) return;
@@ -49,49 +48,28 @@ export function DownloadTab({ settings, onSaved, onDirtyChange }: Props) {
 
     useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
-    const handleSaveVod = async () => {
-        setVodSaving(true);
-        try {
-            await api.updateVodSettings({
-                vod_max_concurrent: vodMaxConcurrent,
-                vod_default_quality: vodDefaultQuality,
-                vod_max_speed: vodMaxSpeed,
-                vod_format: vodFormat,
-            });
-            toast.success("VOD 설정이 저장되었습니다.");
-            onSaved();
-        } catch (error) {
-            toast.error(getErrorMessage(error, "VOD 설정 저장에 실패했습니다."));
-        } finally {
-            setVodSaving(false);
-        }
-    };
+    const handleSaveVod = () => saveVod({
+        request: () => api.updateVodSettings({
+            vod_max_concurrent: vodMaxConcurrent,
+            vod_default_quality: vodDefaultQuality,
+            vod_max_speed: vodMaxSpeed,
+            vod_format: vodFormat,
+        }),
+        success: "VOD 설정이 저장되었습니다.",
+        failure: "VOD 설정 저장에 실패했습니다.",
+    });
 
-    const handleSaveDownload = async () => {
-        setDownloadSaving(true);
-        try {
-            await api.updateDownloadSettings(keepParts, maxRetries);
-            toast.success("다운로드 설정이 저장되었습니다.");
-            onSaved();
-        } catch {
-            toast.error("다운로드 설정 저장에 실패했습니다.");
-        } finally {
-            setDownloadSaving(false);
-        }
-    };
+    const handleSaveDownload = () => saveDownload({
+        request: () => api.updateDownloadSettings(keepParts, maxRetries),
+        success: "다운로드 설정이 저장되었습니다.",
+        failure: "다운로드 설정 저장에 실패했습니다.",
+    });
 
-    const handleSaveChat = async () => {
-        setChatSaving(true);
-        try {
-            await api.updateChatSettings({ chat_archive_enabled: chatArchiveEnabled });
-            toast.success("채팅 설정이 저장되었습니다.");
-            onSaved();
-        } catch (error) {
-            toast.error(getErrorMessage(error, "채팅 설정 저장에 실패했습니다."));
-        } finally {
-            setChatSaving(false);
-        }
-    };
+    const handleSaveChat = () => saveChat({
+        request: () => api.updateChatSettings({ chat_archive_enabled: chatArchiveEnabled }),
+        success: "채팅 설정이 저장되었습니다.",
+        failure: "채팅 설정 저장에 실패했습니다.",
+    });
 
     return (
         <div className="space-y-6">

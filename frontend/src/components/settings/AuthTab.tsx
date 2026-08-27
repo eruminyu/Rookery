@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { AlertCircle, CheckCircle2, KeyRound, Save, Shield, Trash2, Upload } from "lucide-react";
 import { api, type Settings as SettingsType } from "../../api/client";
 import { getErrorMessage } from "../../utils/error";
+import { useSettingsSave } from "../../hooks/useSettingsSave";
 import { useConfirm } from "../ui/ConfirmModal";
 import { useToast } from "../ui/Toast";
 import { Badge, Button, Card, CardHeader, Field, Input, StatusDot } from "../ui/primitives";
@@ -26,7 +27,7 @@ export function AuthTab({ settings, onSaved, onDirtyChange }: Props) {
     const [nickname, setNickname] = useState<string | null>(null);
     const [twitcastingClientId, setTwitcastingClientId] = useState("");
     const [twitcastingClientSecret, setTwitcastingClientSecret] = useState("");
-    const [twitcastingSaving, setTwitcastingSaving] = useState(false);
+    const { saving: twitcastingSaving, save: saveTwitcasting } = useSettingsSave(onSaved);
     const [xCookieFileSet, setXCookieFileSet] = useState(false);
     const [xCookieUploading, setXCookieUploading] = useState(false);
 
@@ -71,26 +72,24 @@ export function AuthTab({ settings, onSaved, onDirtyChange }: Props) {
         }
     };
 
-    const handleSaveTwitcasting = async () => {
+    const handleSaveTwitcasting = () => {
         if (!twitcastingClientId || !twitcastingClientSecret) {
             toast.error("Client ID와 Client Secret을 모두 입력하세요.");
             return;
         }
-        setTwitcastingSaving(true);
-        try {
-            await api.updateTwitcastingSettings({
+        saveTwitcasting({
+            request: () => api.updateTwitcastingSettings({
                 client_id: twitcastingClientId,
                 client_secret: twitcastingClientSecret,
-            });
-            toast.success("TwitCasting 인증 설정이 저장되었습니다.");
-            setTwitcastingClientId("");
-            setTwitcastingClientSecret("");
-            onSaved();
-        } catch (error) {
-            toast.error(getErrorMessage(error, "TwitCasting 설정 저장에 실패했습니다."));
-        } finally {
-            setTwitcastingSaving(false);
-        }
+            }),
+            success: "TwitCasting 인증 설정이 저장되었습니다.",
+            failure: "TwitCasting 설정 저장에 실패했습니다.",
+            // 성공했을 때만 비운다. 실패하면 다시 입력하지 않아도 되도록.
+            afterSuccess: () => {
+                setTwitcastingClientId("");
+                setTwitcastingClientSecret("");
+            },
+        });
     };
 
     const handleUploadXCookie = async (event: ChangeEvent<HTMLInputElement>) => {

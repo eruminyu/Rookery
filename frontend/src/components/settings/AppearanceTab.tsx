@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { ImageIcon, Palette, RotateCcw } from "lucide-react";
 import type { Settings as SettingsType } from "../../api/client";
-import { THEMES, type ThemeId, useTheme } from "../../context/ThemeContext";
+import { THEMES, type ThemeId, useTheme } from "../../contexts/ThemeContext";
 import { Button, Card, CardHeader, Field, Input } from "../ui/primitives";
 import { useToast } from "../ui/Toast";
 

@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { Save, Settings } from "lucide-react";
 import { api, type Settings as SettingsType } from "../../api/client";
-import { getErrorMessage } from "../../utils/error";
+import { useSettingsSave } from "../../hooks/useSettingsSave";
 import { DirInput } from "../ui/DirInput";
-import { useToast } from "../ui/Toast";
 import { Button, Card, CardHeader, Field, Input, Select, SettingRow, Switch } from "../ui/primitives";
 
 interface Props {
@@ -15,7 +14,6 @@ interface Props {
 }
 
 export function GeneralTab({ settings, onSaved, onDirtyChange }: Props) {
-    const toast = useToast();
     const [downloadDir, setDownloadDir] = useState("");
     const [monitorInterval, setMonitorInterval] = useState(30);
     const [liveFormat, setLiveFormat] = useState("ts");
@@ -23,7 +21,7 @@ export function GeneralTab({ settings, onSaved, onDirtyChange }: Props) {
     const [splitDownloadDirs, setSplitDownloadDirs] = useState(false);
     const [vodChzzkDir, setVodChzzkDir] = useState("");
     const [vodExternalDir, setVodExternalDir] = useState("");
-    const [saving, setSaving] = useState(false);
+    const { saving, save } = useSettingsSave(onSaved);
 
     useEffect(() => {
         if (!settings) return;
@@ -48,26 +46,19 @@ export function GeneralTab({ settings, onSaved, onDirtyChange }: Props) {
 
     useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
-    const handleSave = async () => {
-        setSaving(true);
-        try {
-            await api.updateGeneralSettings({
-                download_dir: downloadDir,
-                monitor_interval: monitorInterval,
-                live_format: liveFormat,
-                recording_quality: recordingQuality,
-                split_download_dirs: splitDownloadDirs,
-                vod_chzzk_dir: vodChzzkDir,
-                vod_external_dir: vodExternalDir,
-            });
-            toast.success("일반 설정이 저장되었습니다.");
-            onSaved();
-        } catch (error) {
-            toast.error(getErrorMessage(error, "일반 설정 저장에 실패했습니다."));
-        } finally {
-            setSaving(false);
-        }
-    };
+    const handleSave = () => save({
+        request: () => api.updateGeneralSettings({
+            download_dir: downloadDir,
+            monitor_interval: monitorInterval,
+            live_format: liveFormat,
+            recording_quality: recordingQuality,
+            split_download_dirs: splitDownloadDirs,
+            vod_chzzk_dir: vodChzzkDir,
+            vod_external_dir: vodExternalDir,
+        }),
+        success: "일반 설정이 저장되었습니다.",
+        failure: "일반 설정 저장에 실패했습니다.",
+    });
 
     return (
         <Card className="space-y-5">

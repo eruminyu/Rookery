@@ -12,7 +12,7 @@ import json
 import pytest
 
 from app.core import http as http_module
-from app.engine.base import Platform
+from app.engine.base import Platform, PlatformEngine
 from app.engine.channel import ChannelTask
 from app.engine.events import EventBus
 from app.engine.pipeline import RecordingState
@@ -263,3 +263,40 @@ class TestSharedHttpClient:
             assert "Mozilla/5.0" in client.headers["User-Agent"]
         finally:
             await http_module.close_http_client()
+
+
+class TestPlatformEngineProtocol:
+    """base.PlatformEngine이 실제로 지켜지는지 확인한다.
+
+    이 프로토콜은 지금까지 어디서도 참조되지 않아, 엔진이 규약을 어겨도
+    드러나는 곳이 없었다. CI에는 파이썬 타입 체커가 없으므로
+    @runtime_checkable을 이용해 여기서 직접 확인한다.
+
+    메서드만 있는 프로토콜이라 인스턴스를 만들지 않고 issubclass로 볼 수 있다 —
+    엔진 생성자가 무엇을 하든 테스트가 영향을 받지 않는다.
+    """
+
+    def test_chzzk_engine_satisfies_protocol(self):
+        from app.engine.downloader import ChzzkLiveEngine
+
+        assert issubclass(ChzzkLiveEngine, PlatformEngine)
+
+    def test_twitcasting_engine_satisfies_protocol(self):
+        from app.engine.twitcasting import TwitcastingEngine
+
+        assert issubclass(TwitcastingEngine, PlatformEngine)
+
+    def test_youtube_engine_satisfies_protocol(self):
+        from app.engine.youtube import YoutubeLiveEngine
+
+        assert issubclass(YoutubeLiveEngine, PlatformEngine)
+
+    def test_x_spaces_is_deliberately_outside_the_protocol(self):
+        """X Spaces는 스트림 URL이 아니라 space_id로 녹화해 규약을 따르지 않는다.
+
+        Conductor가 별도 경로로 처리한다는 사실을 여기에 고정해 둔다. 나중에
+        누군가 get_stream_url을 얹으면 이 테스트가 그 변화를 알려준다.
+        """
+        from app.engine.x_spaces import XSpacesEngine
+
+        assert not issubclass(XSpacesEngine, PlatformEngine)

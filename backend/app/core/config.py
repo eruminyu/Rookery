@@ -30,24 +30,33 @@ def _download_ytdlp_exe(dest: Path) -> None:
         raise
 
 
-def _resolve_env_file() -> str:
-    """실행 환경에 맞는 .env 파일의 절대 경로를 문자열로 반환한다.
+def resolve_env_path() -> Path:
+    """실행 환경에 맞는 .env 파일의 절대 경로를 반환한다.
 
     탐색 순서:
         1. PyInstaller exe 빌드: exe 파일 옆
         2. 개발 환경: 프로젝트 루트
+
+    읽기(설정 로드)와 쓰기(설정 저장)가 같은 파일을 봐야 하므로
+    이 규칙은 한 곳에만 둔다. 예전에는 core/utils.py에 같은 함수가 한 벌 더
+    있어서 한쪽만 고치면 조용히 어긋날 수 있었다.
     """
     if getattr(sys, "frozen", False):
-        return str(Path(sys.executable).parent / ".env")
+        return Path(sys.executable).parent / ".env"
 
     project_root = Path(__file__).resolve().parents[3]
     candidate = project_root / ".env"
     if candidate.exists():
-        return str(candidate)
+        return candidate
     backend_env = project_root / "backend" / ".env"
     if backend_env.exists():
-        return str(backend_env)
-    return str(candidate)
+        return backend_env
+    return candidate  # 없으면 프로젝트 루트에 만든다
+
+
+def _resolve_env_file() -> str:
+    """pydantic-settings의 env_file 인자용 문자열 경로."""
+    return str(resolve_env_path())
 
 
 def resolve_data_dir() -> Path:

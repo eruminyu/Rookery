@@ -14,7 +14,7 @@ import {
 import { clsx } from "clsx";
 import { api, type UpdateInfo } from "../../api/client";
 import { NAV_GROUPS } from "../../config/navigation";
-import { useTheme } from "../../context/ThemeContext";
+import { useTheme } from "../../contexts/ThemeContext";
 import { useVod } from "../../contexts/VodContext";
 import { useToastHistory } from "../ui/Toast";
 

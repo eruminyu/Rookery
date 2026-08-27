@@ -7,34 +7,20 @@ from __future__ import annotations
 
 import re
 import subprocess
-import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+from app.core.config import resolve_env_path
 from app.core.logger import logger
 
 
 def _get_env_path() -> Path:
-    """실행 환경에 맞는 .env 파일의 절대 경로를 반환한다.
+    """설정을 쓸 .env 경로. 규칙은 config.resolve_env_path 한 곳에 있다.
 
-    탐색 순서:
-        1. PyInstaller exe 빌드: exe 파일 옆
-        2. 개발 환경: 프로젝트 루트
+    테스트가 이 이름을 통째로 갈아끼워 임시 파일로 돌리므로 함수는 남겨 둔다.
     """
-    if getattr(sys, "frozen", False):
-        # 1) 빌드된 exe 기준: exe 파일이 있는 폴더
-        return Path(sys.executable).parent / ".env"
-
-    # 2) 개발 환경: 프로젝트 루트 탐색
-    project_root = Path(__file__).resolve().parents[3]
-    candidate = project_root / ".env"
-    if candidate.exists():
-        return candidate
-    backend_env = project_root / "backend" / ".env"
-    if backend_env.exists():
-        return backend_env
-    return candidate  # 없으면 프로젝트 루트에 생성
+    return resolve_env_path()
 
 
 def extract_channel_id(channel_id: str) -> str:
