@@ -24,7 +24,7 @@ cd frontend && npx tsc --noEmit -p tsconfig.json
 cd frontend && npm run build
 ```
 
-**기준선은 `194 passed, 29 skipped`입니다.** 통과 수가 줄었다면 무언가 깨진 것이니
+**기준선은 `236 passed, 29 skipped`입니다.** 통과 수가 줄었다면 무언가 깨진 것이니
 그대로 올리지 마세요.
 
 ## 규칙
@@ -35,6 +35,11 @@ cd frontend && npm run build
 
 exe로 배포된 구버전 클라이언트가 같은 API를 호출합니다. 필드명 하나만 바뀌어도
 업데이트하지 않은 사용자의 화면이 깨집니다.
+
+`backend/tests/test_api_surface.py`가 등록된 라우트 전체를 고정하고 있습니다.
+라우트는 데코레이터로 등록돼서, 파일을 옮기다 빠뜨려도 파싱과 import는 그대로
+성공합니다. 경로를 의도적으로 바꿨다면 그 목록도 함께 고치세요 — 그 diff가
+"API를 바꿨다"는 기록이 됩니다.
 
 ### 주석은 한국어로, '왜'를 적습니다
 
@@ -102,7 +107,7 @@ python -m pytest -c backend/pytest.ini backend/tests --basetemp=/path/to/writabl
 ## 설정과 데이터
 
 설정은 프로젝트 루트의 `.env`에서 읽습니다
-(`backend/app/core/config.py`의 `_resolve_env_file`).
+(`backend/app/core/config.py`의 `resolve_env_path`).
 
 `.env`, `backend/data/`, `.venv`, `node_modules`, `backend/app/static/`은 gitignore 대상입니다.
 `backend/app/static/`은 프론트엔드 빌드 산출물이라 커밋하지 않습니다.
