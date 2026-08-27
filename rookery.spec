@@ -2,8 +2,63 @@
 # Rookery PyInstaller 빌드 스펙 (onefile 방식)
 # 사용법: pyinstaller rookery.spec --clean
 
+import re
+from pathlib import Path
+
 import certifi
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+from PyInstaller.utils.win32.versioninfo import (
+    FixedFileInfo,
+    StringFileInfo,
+    StringStruct,
+    StringTable,
+    VarFileInfo,
+    VarStruct,
+    VSVersionInfo,
+)
+
+# ── 파일 속성용 버전 ─────────────────────────────────────────
+# backend/app/version.py 하나만 보고 읽는다. 여기에 숫자를 또 적어두면
+# 릴리즈할 때마다 두 곳을 고쳐야 하고, 반드시 한쪽을 잊는다.
+APP_VERSION = re.search(
+    r'__version__ = "([^"]+)"',
+    Path("backend/app/version.py").read_text(encoding="utf-8"),
+).group(1)
+
+# 파일 버전은 항상 4자리여야 한다 (2.0.3 -> 2, 0, 3, 0).
+_VERSION_TUPLE = (tuple(int(x) for x in APP_VERSION.split(".")) + (0, 0, 0, 0))[:4]
+
+# 우클릭 → 속성 → 자세히에서 보이는 정보. 이게 없으면 배포한 실행 파일에
+# 누가 만들었는지 흔적이 남지 않는다.
+VERSION_RESOURCE = VSVersionInfo(
+    ffi=FixedFileInfo(
+        filevers=_VERSION_TUPLE,
+        prodvers=_VERSION_TUPLE,
+        mask=0x3F,
+        flags=0x0,
+        OS=0x40004,
+        fileType=0x1,
+        subtype=0x0,
+        date=(0, 0),
+    ),
+    kids=[
+        # 0x0409(en-US) + 1200(Unicode). 어느 언어의 Windows에서도 이 블록을
+        # 찾아 보여주므로 한국어 문자열을 담아도 문제가 없다.
+        StringFileInfo([
+            StringTable("040904B0", [
+                StringStruct("CompanyName", "Serian"),
+                StringStruct("FileDescription", "Rookery — 라이브 감시·녹화 및 아카이브 도구"),
+                StringStruct("FileVersion", APP_VERSION),
+                StringStruct("InternalName", "Rookery"),
+                StringStruct("LegalCopyright", "Copyright (c) 2026 Serian (github.com/eruminyu). MIT License."),
+                StringStruct("OriginalFilename", "Rookery.exe"),
+                StringStruct("ProductName", "Rookery"),
+                StringStruct("ProductVersion", APP_VERSION),
+            ]),
+        ]),
+        VarFileInfo([VarStruct("Translation", [0x0409, 1200])]),
+    ],
+)
 
 # ── 숨겨진 임포트 (자동 탐지가 안 되는 모듈) ─────────────────
 hidden_imports = [
@@ -92,4 +147,5 @@ exe = EXE(
     runtime_tmpdir=None,
     console=True,           # 의존성 감지 안내 때 CMD 창이 필요하므로 True
     icon="assets/icon.ico", # Windows 아이콘
+    version=VERSION_RESOURCE,
 )

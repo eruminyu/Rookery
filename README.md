@@ -371,7 +371,9 @@ Settings → 인증에서 `NID_AUT`, `NID_SES`를 새 값으로 저장한 뒤 �
 
 ## 라이선스와 고지
 
-[MIT License](LICENSE)로 배포됩니다.
+만든 사람: **Serian** ([@eruminyu](https://github.com/eruminyu))
+
+[MIT License](LICENSE)로 배포됩니다. Copyright (c) 2026 Serian (github.com/eruminyu).
 
 Rookery는 FFmpeg를 직접 번들하지 않습니다. FFmpeg에는 빌드 구성에 따라 LGPL 또는 GPL이 적용될 수 있으므로 [FFmpeg License](https://ffmpeg.org/legal.html)를 확인하세요.
 

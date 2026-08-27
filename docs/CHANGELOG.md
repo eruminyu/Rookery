@@ -10,6 +10,22 @@
 
 ---
 
+## [2.0.4] - 2026-08-28
+
+### Added
+- **저작자 표기** — 만든 사람이 파일 어디에도 남아 있지 않았다. 깃허브 밖으로 나간
+  파일(포크된 LICENSE, 남의 디스크에 있는 exe)에는 프로필이 따라가지 않으므로,
+  이름과 계정을 함께 박아 어디에 떨어져 있든 추적되게 했다.
+  - `LICENSE`: 저작권자를 `Serian (github.com/eruminyu)`으로 명시
+  - **exe 파일 속성**: 우클릭 → 속성 → 자세히에 제작자·저작권·제품명·버전이 나온다.
+    지금까지는 비어 있었다. 버전은 `backend/app/version.py` 하나에서 읽으므로
+    릴리즈할 때 두 곳을 고칠 일이 없다.
+  - 설정 → 정보 탭에 「이 프로그램에 대하여」 카드 추가 (버전·제작자·저장소·라이선스)
+  - `frontend/package.json`에 author·license·description·repository 추가
+  - README 라이선스 절에 만든 사람 표기
+
+---
+
 ## [2.0.3] - 2026-08-28
 
 ### Added
@@ -260,7 +276,8 @@
 
 ---
 
-[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.3...HEAD
+[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.4...HEAD
+[2.0.4]: https://github.com/eruminyu/Rookery/compare/v2.0.3...v2.0.4
 [2.0.3]: https://github.com/eruminyu/Rookery/compare/v2.0.2...v2.0.3
 [2.0.2]: https://github.com/eruminyu/Rookery/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/eruminyu/Rookery/compare/v2.0.0...v2.0.1
