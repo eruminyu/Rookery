@@ -26,6 +26,49 @@ def _loads(raw: Any, default: Any) -> Any:
         return default
 
 
+class ChatIndexRepository:
+    """채팅 로그 파일의 줄 수·바이트 오프셋 인덱스.
+
+    JSONL 원본에서 언제든 다시 만들 수 있는 파생 데이터다. 행이 사라지거나
+    파일과 어긋나면 그 파일만 다시 훑으면 되므로 정확성에 영향이 없다.
+    """
+
+    def __init__(self, db: Optional[Database] = None) -> None:
+        self._db = db or get_database()
+
+    def get(self, path: str) -> Optional[dict]:
+        row = self._db.query_one(
+            "SELECT message_count, offsets, scanned_bytes FROM chat_file_index WHERE path = ?",
+            (path,),
+        )
+        if row is None:
+            return None
+        return {
+            "message_count": row["message_count"],
+            "offsets": _loads(row["offsets"], []),
+            "scanned_bytes": row["scanned_bytes"],
+        }
+
+    def save(
+        self,
+        path: str,
+        message_count: int,
+        offsets: list[int],
+        scanned_bytes: int,
+    ) -> None:
+        self._db.execute(
+            """
+            INSERT INTO chat_file_index (path, message_count, offsets, scanned_bytes)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(path) DO UPDATE SET
+                message_count = excluded.message_count,
+                offsets       = excluded.offsets,
+                scanned_bytes = excluded.scanned_bytes
+            """,
+            (path, message_count, json.dumps(offsets), scanned_bytes),
+        )
+
+
 class ChannelRepository:
     """감시 채널 목록."""
 

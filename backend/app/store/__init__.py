@@ -11,6 +11,7 @@ from app.store.db import Database, close_database, get_database, set_database
 from app.store.migrate_json import migrate_json_files
 from app.store.repositories import (
     ChannelRepository,
+    ChatIndexRepository,
     LiveHistoryRepository,
     NotificationRepository,
     TagRepository,
@@ -24,6 +25,7 @@ __all__ = [
     "close_database",
     "migrate_json_files",
     "ChannelRepository",
+    "ChatIndexRepository",
     "LiveHistoryRepository",
     "NotificationRepository",
     "TagRepository",

@@ -97,6 +97,25 @@ MIGRATIONS: list[tuple[int, str]] = [
         );
         """,
     ),
+    (
+        2,
+        """
+        -- 채팅 로그(.jsonl) 조회용 파생 인덱스.
+        --
+        -- 원본 파일은 그대로 두고 줄 수와 체크포인트 바이트 위치만 캐시한다.
+        -- 이게 없으면 목록 화면이 열릴 때마다 모든 로그를 끝까지 읽어야 하고,
+        -- 페이지 한 장을 넘기려고 파일 전체를 파싱해야 했다.
+        --
+        -- 언제든 버려도 되는 데이터다. 행이 없거나 파일과 어긋나면
+        -- 그 파일만 다시 훑어서 채운다.
+        CREATE TABLE IF NOT EXISTS chat_file_index (
+            path            TEXT PRIMARY KEY,
+            message_count   INTEGER NOT NULL DEFAULT 0,
+            offsets         TEXT NOT NULL DEFAULT '[]',
+            scanned_bytes   INTEGER NOT NULL DEFAULT 0
+        );
+        """,
+    ),
 ]
 
 #: 코드가 기대하는 최신 스키마 버전.
