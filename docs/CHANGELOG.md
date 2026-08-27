@@ -8,6 +8,28 @@
 
 ## [Unreleased]
 
+### Changed
+- **전수 리팩토링** — 기능 변경은 없다. 죽은 코드를 걷어내고, 두 벌이던 것을 합치고,
+  한 덩어리이던 것을 나눴다.
+  - Docker 지원을 걷어낸 뒤에도 남아 있던 참조를 11개 파일에서 제거했다.
+    `/api/setup/status`의 `is_docker` 필드는 구버전 화면이 읽으므로 남긴다(항상 false).
+    이 필드 하나 때문에 설정 화면이 매번 던지던 요청도 함께 사라졌다.
+  - 죽은 심볼 제거: `XSpacesEngine.get_stream`(프로토콜 이름을 잘못 지어 아무것도
+    구현하지 않았다), `_get_active_space_by_search`(참조하는 상수가 정의돼 있지 않아
+    호출되면 NameError였다), `Database.execute_many`, `SegmentedControl`,
+    미사용 api 클라이언트 6개.
+  - `.env` 경로 탐색 규칙이 `config.py`와 `core/utils.py`에 두 벌 있던 것을
+    `config.resolve_env_path` 하나로 모았다. 읽기와 쓰기가 같은 파일을 봐야 하는데
+    한쪽만 고치면 조용히 어긋날 수 있는 구조였다.
+  - `context/`와 `contexts/`로 나뉘어 있던 디렉터리를 합쳤다.
+  - 설정 탭 다섯 곳이 똑같이 반복하던 저장 절차를 `useSettingsSave` 훅으로 모았다.
+  - `PlatformEngine` 프로토콜을 테스트로 실제 검사한다. 지금까지는 어디서도
+    참조되지 않아 엔진이 규약을 어겨도 드러날 곳이 없었다.
+  - `Conductor._monitor_channel` 186줄을 이름 붙은 단계 일곱 개로 나눴다.
+    if/elif 체인은 그대로 두고 본문만 옮겨, 녹화 여부를 가르는 판단은 건드리지 않았다.
+  - 알림 설정 탭에서 진단 카드를 분리했다(579 → 451줄). 상태 조회와 주기 갱신까지
+    그 카드가 소유한다.
+
 ---
 
 ## [2.0.2] - 2026-08-27
