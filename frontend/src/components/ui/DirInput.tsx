@@ -11,7 +11,7 @@ interface DirBrowserModalProps {
     onClose: () => void;
 }
 
-export function DirBrowserModal({ initialPath, onSelect, onClose }: DirBrowserModalProps) {
+function DirBrowserModal({ initialPath, onSelect, onClose }: DirBrowserModalProps) {
     const [data, setData] = useState<BrowseDirsResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);

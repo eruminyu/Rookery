@@ -8,7 +8,7 @@ import { formatBytes, formatDuration } from "../../utils/format";
 import { TagManager } from "../ui/TagManager";
 import { Button, Card, Switch } from "../ui/primitives";
 
-export const PLATFORM_BADGE_STYLES: Record<Platform, string> = {
+const PLATFORM_BADGE_STYLES: Record<Platform, string> = {
     chzzk: "bg-chzzk/10 text-chzzk border-chzzk/25",
     twitcasting: "bg-twitcasting/10 text-twitcasting border-twitcasting/25",
     x_spaces: "bg-xspaces/10 text-xspaces border-xspaces/25",

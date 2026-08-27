@@ -8,14 +8,13 @@ import { Button, Card, CardHeader, Field, Input, Select, SettingRow, Switch } fr
 
 interface Props {
     settings: SettingsType | null;
-    isDocker: boolean;
     /** 저장 후 상위의 설정 상태를 갱신한다. */
     onSaved: () => void;
     /** 변경사항 유무를 상위 탭 전환 경고에 알린다. */
     onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function GeneralTab({ settings, isDocker, onSaved, onDirtyChange }: Props) {
+export function GeneralTab({ settings, onSaved, onDirtyChange }: Props) {
     const toast = useToast();
     const [downloadDir, setDownloadDir] = useState("");
     const [monitorInterval, setMonitorInterval] = useState(30);
@@ -70,23 +69,15 @@ export function GeneralTab({ settings, isDocker, onSaved, onDirtyChange }: Props
         }
     };
 
-    const readonlyDirectory = (value: string, fallback?: string) => (
-        <div className="w-full bg-surface-3 border border-line-strong rounded-[var(--radius-control)] px-4 py-2.5 text-sm text-ink-faint font-mono cursor-not-allowed select-none">
-            {value || fallback}
-        </div>
-    );
-
     return (
         <Card className="space-y-5">
             <CardHeader icon={Settings} title="일반 설정" />
 
             <Field
                 label="저장 경로"
-                hint={isDocker ? "Docker 환경에서는 docker-compose.yml 볼륨 설정으로 경로를 변경하세요. (/your/path:/app/backend/recordings)" : "라이브 녹화 + 채팅 로그가 저장되는 기본 경로입니다."}
+                hint="라이브 녹화 + 채팅 로그가 저장되는 기본 경로입니다."
             >
-                {isDocker ? readonlyDirectory(downloadDir) : (
-                    <DirInput value={downloadDir} onChange={setDownloadDir} placeholder="예: E:\recordings" />
-                )}
+                <DirInput value={downloadDir} onChange={setDownloadDir} placeholder="예: E:\recordings" />
             </Field>
 
             <SettingRow
@@ -98,14 +89,10 @@ export function GeneralTab({ settings, isDocker, onSaved, onDirtyChange }: Props
             {splitDownloadDirs && (
                 <div className="space-y-4 pl-4 border-l-2 border-line-strong pt-1">
                     <Field label="치지직 VOD / 클립 저장 경로" hint="chzzk.naver.com URL 다운로드에 적용됩니다.">
-                        {isDocker ? readonlyDirectory(vodChzzkDir, "기본 저장 경로 사용") : (
-                            <DirInput value={vodChzzkDir} onChange={setVodChzzkDir} placeholder="비어있으면 기본 저장 경로 사용" />
-                        )}
+                        <DirInput value={vodChzzkDir} onChange={setVodChzzkDir} placeholder="비어있으면 기본 저장 경로 사용" />
                     </Field>
                     <Field label="외부 다운로드 저장 경로 (유튜브 등)" hint="유튜브 등 외부 URL(yt-dlp) 다운로드에 적용됩니다.">
-                        {isDocker ? readonlyDirectory(vodExternalDir, "기본 저장 경로 사용") : (
-                            <DirInput value={vodExternalDir} onChange={setVodExternalDir} placeholder="비어있으면 기본 저장 경로 사용" />
-                        )}
+                        <DirInput value={vodExternalDir} onChange={setVodExternalDir} placeholder="비어있으면 기본 저장 경로 사용" />
                     </Field>
                 </div>
             )}

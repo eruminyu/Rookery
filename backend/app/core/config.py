@@ -35,14 +35,10 @@ def _resolve_env_file() -> str:
 
     탐색 순서:
         1. PyInstaller exe 빌드: exe 파일 옆
-        2. Docker 컨테이너: /app/.env
-        3. 개발 환경: 프로젝트 루트
+        2. 개발 환경: 프로젝트 루트
     """
     if getattr(sys, "frozen", False):
         return str(Path(sys.executable).parent / ".env")
-
-    if Path("/.dockerenv").exists():
-        return "/app/.env"
 
     project_root = Path(__file__).resolve().parents[3]
     candidate = project_root / ".env"

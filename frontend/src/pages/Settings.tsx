@@ -46,7 +46,6 @@ const EMPTY_DIRTY: Record<TabId, boolean> = {
 
 export default function Settings() {
     const [settings, setSettings] = useState<SettingsType | null>(null);
-    const [isDocker, setIsDocker] = useState(false);
     const [activeTab, setActiveTab] = useState<TabId>("general");
     const [dirtyTabs, setDirtyTabs] = useState<Record<TabId, boolean>>(EMPTY_DIRTY);
     const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -66,10 +65,6 @@ export default function Settings() {
         // 시스템 탭을 열기 전에도 새 버전 표시를 놓치지 않도록 상태를 미리 읽는다.
         api.getUpdateStatus()
             .then((info) => setUpdateAvailable(info.has_update))
-            .catch(() => {});
-        fetch("/api/setup/status")
-            .then((response) => response.json())
-            .then((data) => setIsDocker(data.is_docker))
             .catch(() => {});
     }, [loadSettings]);
 
@@ -155,7 +150,7 @@ export default function Settings() {
                 })}
             </nav>
 
-            {activeTab === "general" && <GeneralTab settings={settings} isDocker={isDocker} onSaved={loadSettings} onDirtyChange={(dirty) => setTabDirty("general", dirty)} />}
+            {activeTab === "general" && <GeneralTab settings={settings} onSaved={loadSettings} onDirtyChange={(dirty) => setTabDirty("general", dirty)} />}
             {activeTab === "download" && <DownloadTab settings={settings} onSaved={loadSettings} onDirtyChange={(dirty) => setTabDirty("download", dirty)} />}
             {activeTab === "auth" && <AuthTab settings={settings} onSaved={loadSettings} onDirtyChange={(dirty) => setTabDirty("auth", dirty)} />}
             {activeTab === "notifications" && <NotificationsTab settings={settings} onSaved={loadSettings} onDirtyChange={(dirty) => setTabDirty("notifications", dirty)} />}

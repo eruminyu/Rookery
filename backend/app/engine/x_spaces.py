@@ -20,7 +20,6 @@ import asyncio
 import json
 import re
 from datetime import datetime
-from http.cookiejar import MozillaCookieJar
 from pathlib import Path
 from typing import Optional
 
@@ -177,16 +176,6 @@ class XSpacesEngine:
         except Exception as e:
             logger.error(f"[XSpaces:{channel_id}] 예상치 못한 오류: {e}", exc_info=e)
             return self._offline_status(channel_id)
-
-    def get_stream(self, channel_id: str, quality: str = "best") -> object:
-        """X Spaces는 직접 스트림 추출 미지원.
-
-        캡처된 m3u8 URL을 VodEngine으로 다운로드할 것.
-        """
-        raise NotImplementedError(
-            "X Spaces는 직접 스트림 추출을 지원하지 않습니다. "
-            "캡처된 m3u8_url을 VodEngine에 전달하세요."
-        )
 
     async def start_ytdlp_recording(
         self,
@@ -603,60 +592,6 @@ def _extract_space_from_timeline(data: dict) -> Optional[dict]:
     except Exception:
         pass
     return None
-
-
-async def _get_active_space_by_search(
-    client: httpx.AsyncClient,
-    username: str,
-) -> Optional[str]:
-    """AudioSpaceSearch GraphQL로 특정 사용자의 라이브 Space를 탐색한다.
-
-    UserTweets(QUERY_ID 만료) 대신 사용하는 안정적인 탐색 방식.
-
-    Returns:
-        space_id 문자열 또는 None (Space 없음 또는 API 실패).
-    """
-    variables = json.dumps({
-        "rawQuery": f"from:{username}",
-        "count": 5,
-        "product": "Audio",
-    })
-
-    try:
-        resp = await client.get(
-            f"https://twitter.com/i/api/graphql/{_AUDIO_SPACE_SEARCH_QUERY_ID}/AudioSpaceSearch",
-            params={"variables": variables},
-        )
-        if resp.status_code in (400, 404):
-            logger.warning(
-                f"[XSpaces:{username}] AudioSpaceSearch QUERY_ID 만료 또는 미지원 "
-                f"(HTTP {resp.status_code}). x_spaces.py의 _AUDIO_SPACE_SEARCH_QUERY_ID를 업데이트하세요."
-            )
-            return None
-        resp.raise_for_status()
-        data = resp.json()
-        spaces = (
-            data.get("data", {})
-            .get("search_by_raw_query", {})
-            .get("audio_spaces", {})
-            .get("spaces", [])
-        )
-        for space in spaces:
-            metadata = space.get("metadata", {})
-            if metadata.get("state") == SPACE_STATE_RUNNING:
-                space_id = space.get("rest_id") or metadata.get("rest_id")
-                if space_id:
-                    return space_id
-        return None
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code == 429:
-            logger.warning(f"[XSpaces:{username}] AudioSpaceSearch 레이트 리밋 (429).")
-        else:
-            logger.warning(f"[XSpaces:{username}] AudioSpaceSearch HTTP 오류: {e.response.status_code}")
-        return None
-    except Exception as e:
-        logger.debug(f"[XSpaces:{username}] AudioSpaceSearch 실패: {e}")
-        return None
 
 
 def _derive_master_url(dynamic_url: str) -> str:

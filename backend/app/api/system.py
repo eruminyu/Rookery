@@ -11,15 +11,11 @@ router = APIRouter(prefix="/api/system", tags=["System"])
 
 def _detect_environment() -> str:
     """현재 실행 환경을 감지한다."""
-    # 1. PyInstaller (Windows EXE 등)
+    # PyInstaller (Windows EXE 등)
     if getattr(sys, "frozen", False):
         return "windows-exe"
-    
-    # 2. Docker
-    if Path("/.dockerenv").exists():
-        return "docker"
-        
-    # 3. 그 외 (Linux Native / 개발환경 등)
+
+    # 그 외 (Linux Native / 개발환경 등)
     return "linux-native"
 
 @router.get("/update")

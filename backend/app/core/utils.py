@@ -20,18 +20,13 @@ def _get_env_path() -> Path:
 
     탐색 순서:
         1. PyInstaller exe 빌드: exe 파일 옆
-        2. Docker 컨테이너: /app/.env (볼륨 마운트 경로)
-        3. 개발 환경: 프로젝트 루트
+        2. 개발 환경: 프로젝트 루트
     """
     if getattr(sys, "frozen", False):
         # 1) 빌드된 exe 기준: exe 파일이 있는 폴더
         return Path(sys.executable).parent / ".env"
 
-    if Path("/.dockerenv").exists():
-        # 2) Docker 컨테이너 환경: /app/.env (docker-compose 볼륨 마운트 경로)
-        return Path("/app/.env")
-
-    # 3) 개발 환경: 프로젝트 루트 탐색
+    # 2) 개발 환경: 프로젝트 루트 탐색
     project_root = Path(__file__).resolve().parents[3]
     candidate = project_root / ".env"
     if candidate.exists():

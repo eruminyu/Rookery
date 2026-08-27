@@ -19,16 +19,17 @@ import { CommandPalette } from "./components/ui/CommandPalette";
 // SetupWizard 오버레이와 CommandPalette를 포함하며,
 // 하위 라우트(<Layout />)는 <Outlet />으로 렌더링된다.
 function RootLayout() {
-    const [setupState, setSetupState] = useState<{ needsSetup: boolean; isDocker: boolean } | null>(null);
+    // null은 "아직 확인 중" — 마법사를 깜빡 띄우지 않으려고 로딩 상태를 구분한다.
+    const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
 
     useEffect(() => {
         fetch("/api/setup/status")
             .then((r) => r.json())
-            .then((data) => setSetupState({ needsSetup: data.needs_setup, isDocker: data.is_docker }))
-            .catch(() => setSetupState({ needsSetup: false, isDocker: false }));
+            .then((data) => setNeedsSetup(data.needs_setup))
+            .catch(() => setNeedsSetup(false));
     }, []);
 
-    if (setupState === null) {
+    if (needsSetup === null) {
         return (
             <div className="app-canvas fixed inset-0 flex items-center justify-center">
                 <div className="relative z-10 flex flex-col items-center">
@@ -42,12 +43,7 @@ function RootLayout() {
 
     return (
         <>
-            {setupState.needsSetup && (
-                <SetupWizard
-                    onComplete={() => setSetupState((prev) => (prev ? { ...prev, needsSetup: false } : null))}
-                    isDocker={setupState.isDocker}
-                />
-            )}
+            {needsSetup && <SetupWizard onComplete={() => setNeedsSetup(false)} />}
             <CommandPalette />
             <Outlet />
         </>

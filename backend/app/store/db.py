@@ -125,13 +125,6 @@ class Database:
         with self.transaction() as conn:
             conn.execute(sql, params)
 
-    def execute_many(self, sql: str, rows: Sequence[Sequence[Any]]) -> None:
-        """여러 행을 한 트랜잭션으로 기록한다."""
-        if not rows:
-            return
-        with self.transaction() as conn:
-            conn.executemany(sql, rows)
-
     def query(self, sql: str, params: Sequence[Any] = ()) -> list[sqlite3.Row]:
         """조회 결과를 리스트로 반환한다."""
         conn = self._require()

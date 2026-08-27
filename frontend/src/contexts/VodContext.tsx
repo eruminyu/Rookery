@@ -6,8 +6,6 @@ import { getErrorMessage } from "../utils/error";
 export interface VodContextType {
     tasks: VodTask[];
     activeCount: number;
-    queuedCount: number;
-    totalCount: number;
     addTask: (url: string, quality?: string) => Promise<string>;
     cancelTask: (taskId: string) => Promise<void>;
     pauseTask: (taskId: string) => Promise<void>;
@@ -24,14 +22,10 @@ export function VodProvider({ children }: { children: ReactNode }) {
     const toast = useToast();
     const [tasks, setTasks] = useState<VodTask[]>([]);
     const [activeCount, setActiveCount] = useState(0);
-    const [queuedCount, setQueuedCount] = useState(0);
-    const [totalCount, setTotalCount] = useState(0);
 
     const applyStatus = useCallback((data: { tasks: VodTask[]; active_count: number; queued_count: number; total_count: number }) => {
         setTasks(data.tasks);
         setActiveCount(data.active_count);
-        setQueuedCount(data.queued_count);
-        setTotalCount(data.total_count);
     }, []);
 
     const refreshTasks = useCallback(async () => {
@@ -95,8 +89,6 @@ export function VodProvider({ children }: { children: ReactNode }) {
             value={{
                 tasks,
                 activeCount,
-                queuedCount,
-                totalCount,
                 addTask,
                 cancelTask,
                 pauseTask,

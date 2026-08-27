@@ -90,19 +90,6 @@ export function UpdateModal({ info, onClose }: UpdateModalProps) {
                     </div>
                 );
             }
-            case "docker":
-                // Docker는 manage.sh 대상이 아니므로 compose를 직접 쓴다.
-                return (
-                    <div className="space-y-4">
-                        <p className="text-sm text-ink-muted">
-                            Docker로 실행 중입니다. 호스트 머신의 저장소 디렉토리에서 아래 명령을 실행하세요.
-                        </p>
-                        <CommandBlock command="git pull && docker compose up --build -d" />
-                        <p className="text-xs text-ink-faint">
-                            config/ 와 recordings/ 는 호스트에 마운트되어 있어 재빌드해도 유지됩니다.
-                        </p>
-                    </div>
-                );
             case "linux-native":
             default:
                 // 네이티브는 manage.sh가 등록한 rookery 명령으로 끝난다.

@@ -52,14 +52,6 @@ export interface Channel {
     last_error?: string;
 }
 
-export interface VodInfo {
-    title: string;
-    duration: number;
-    thumbnail: string;
-    uploader: string;
-    formatted_duration?: string;
-}
-
 export interface VodTask {
     task_id: string;
     url: string;
@@ -298,7 +290,7 @@ export interface UpdateInfo {
     published_at: string;
     download_url: string;
     checked_at: string | null;
-    environment: "windows-exe" | "docker" | "linux-native";
+    environment: "windows-exe" | "linux-native";
 }
 
 // ── System Logs Types ───────────────────────────────────
@@ -320,10 +312,6 @@ export interface SystemLogResponse {
 
 export const api = {
     // Channels
-    getChannels: async () => {
-        const res = await client.get<Channel[]>("/stream/channels");
-        return res.data;
-    },
     addChannel: async (channel_id: string, auto_record: boolean = true) => {
         const res = await client.post("/stream/channels", {
             channel_id,
@@ -355,20 +343,8 @@ export const api = {
     },
 
     // Monitor
-    startMonitor: async () => {
-        const res = await client.post("/stream/monitor/start");
-        return res.data;
-    },
-    stopMonitor: async () => {
-        const res = await client.post("/stream/monitor/stop");
-        return res.data;
-    },
 
     // VOD
-    getVodInfo: async (url: string) => {
-        const res = await client.post<VodInfo>("/vod/info", { url });
-        return res.data;
-    },
     downloadVod: async (url: string, quality: string = "best", output_dir?: string) => {
         const res = await client.post<{ task_id: string; message: string }>("/vod/download", {
             url,
@@ -379,10 +355,6 @@ export const api = {
     },
     getAllVodStatus: async () => {
         const res = await client.get<VodStatusResponse>("/vod/status");
-        return res.data;
-    },
-    getVodTaskStatus: async (task_id: string) => {
-        const res = await client.get<VodTask>(`/vod/status/${task_id}`);
         return res.data;
     },
     cancelVodDownload: async (task_id: string) => {
@@ -514,10 +486,6 @@ export const api = {
     },
     createTag: async (name: string) => {
         const res = await client.post<{ tags: string[] }>("/tags", { name });
-        return res.data;
-    },
-    deleteTag: async (name: string) => {
-        const res = await client.delete<{ status: string; deleted: string }>(`/tags/${encodeURIComponent(name)}`);
         return res.data;
     },
     updateChannelTags: async (channel_id: string, tags: string[]) => {

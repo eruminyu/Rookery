@@ -56,7 +56,9 @@ async def get_setup_status():
     """초기 설정이 필요한지 반환한다."""
     return {
         "needs_setup": not is_setup_complete(),
-        "is_docker": Path("/.dockerenv").exists(),
+        # Docker 지원은 걷어냈지만 필드는 남긴다. 이미 설치된 구버전 화면이
+        # 이 키를 읽으므로, 없애면 그쪽에서 undefined를 만난다.
+        "is_docker": False,
     }
 
 
@@ -77,9 +79,7 @@ async def complete_setup(req: SetupCompleteRequest):
     if quality not in VALID_QUALITIES:
         raise HTTPException(status_code=400, detail=f"지원하지 않는 품질: {quality}")
 
-    # 도커 환경에서는 저장 경로를 볼륨 마운트 경로로 고정
-    is_docker = Path("/.dockerenv").exists()
-    download_dir = "/app/backend/recordings" if is_docker else req.download_dir
+    download_dir = req.download_dir
 
     # 저장 경로 생성
     save_dir = Path(download_dir)

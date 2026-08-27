@@ -516,49 +516,6 @@ export function StatusDot({
     );
 }
 
-/* ── SegmentedControl ───────────────────────────────── */
-
-/** 2~4개 중 하나를 고르는 가로 세그먼트. Select보다 즉시성이 좋다. */
-export function SegmentedControl<T extends string>({
-    value,
-    onChange,
-    options,
-    className,
-}: {
-    value: T;
-    onChange: (v: T) => void;
-    options: { value: T; label: string }[];
-    className?: string;
-}) {
-    return (
-        <div
-            role="tablist"
-            className={clsx(
-                "inline-flex p-1 gap-1 bg-surface-3 border border-line rounded-[var(--radius-control)]",
-                className,
-            )}
-        >
-            {options.map((o) => {
-                const selected = o.value === value;
-                return (
-                    <button
-                        key={o.value}
-                        role="tab"
-                        aria-selected={selected}
-                        onClick={() => onChange(o.value)}
-                        className={clsx(
-                            "px-3 py-1.5 text-[13px] font-medium rounded-[7px] transition-colors",
-                            selected ? "text-ink bg-surface-4" : "text-ink-faint hover:text-ink-muted",
-                        )}
-                    >
-                        {o.label}
-                    </button>
-                );
-            })}
-        </div>
-    );
-}
-
 /* ── EmptyState ─────────────────────────────────────── */
 
 export function EmptyState({

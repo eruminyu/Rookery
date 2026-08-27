@@ -10,7 +10,6 @@ import { Button, Input } from "./ui/primitives";
 
 interface SetupWizardProps {
     onComplete: () => void;
-    isDocker?: boolean;
 }
 
 type Step = 1 | 2 | 3;
@@ -74,7 +73,7 @@ function StepIndicator({ current, total }: { current: Step; total: number }) {
 
 // ── Step 1: 기본 설정 ────────────────────────────────
 
-function Step1({ data, onChange, isDocker }: { data: FormData; onChange: (k: keyof FormData, v: string) => void; isDocker?: boolean }) {
+function Step1({ data, onChange }: { data: FormData; onChange: (k: keyof FormData, v: string) => void }) {
     const qualities = ["best", "1080p", "720p", "480p"];
     const formats = ["ts", "mp4", "mkv"];
 
@@ -86,27 +85,13 @@ function Step1({ data, onChange, isDocker }: { data: FormData; onChange: (k: key
                     <FolderOpen className="inline w-4 h-4 mr-1 text-[var(--primary)]" />
                     녹화 저장 경로 <span className="text-danger">*</span>
                 </label>
-                {isDocker ? (
-                    <div className="w-full bg-surface-3 border border-line-strong rounded-[var(--radius-control)] px-4 py-2.5 text-sm text-ink-faint font-mono cursor-not-allowed select-none">
-                        /app/backend/recordings
-                    </div>
-                ) : (
-                    <DirInput
-                        value={data.download_dir}
-                        onChange={(val) => onChange("download_dir", val)}
-                        placeholder="예: C:\Recordings 또는 /home/user/recordings"
-                    />
-                )}
+                <DirInput
+                    value={data.download_dir}
+                    onChange={(val) => onChange("download_dir", val)}
+                    placeholder="예: C:\Recordings 또는 /home/user/recordings"
+                />
                 <p className="text-xs text-ink-faint mt-1.5 flex items-start gap-1">
-                    {isDocker ? (
-                        <>
-                            <span className="text-warn">⚠️</span>
-                            <span>Docker 환경에서는 저장 경로를 <b className="text-ink-muted">docker-compose.yml</b>의 볼륨 설정으로 지정하세요.<br />
-                            <span className="font-mono text-ink-faint">- /your/path:/app/backend/recordings</span></span>
-                        </>
-                    ) : (
-                        "경로가 없으면 자동으로 생성됩니다."
-                    )}
+                    경로가 없으면 자동으로 생성됩니다.
                 </p>
             </div>
 
@@ -253,12 +238,12 @@ function Step3({ data }: { data: FormData }) {
 
 // ── Main SetupWizard ─────────────────────────────────
 
-export function SetupWizard({ onComplete, isDocker = false }: SetupWizardProps) {
+export function SetupWizard({ onComplete }: SetupWizardProps) {
     const [step, setStep] = useState<Step>(1);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<FormData>({
-        download_dir: isDocker ? "/app/recordings" : "",
+        download_dir: "",
         output_format: "ts",
         recording_quality: "best",
         nid_aut: "",
@@ -268,7 +253,7 @@ export function SetupWizard({ onComplete, isDocker = false }: SetupWizardProps) 
     const onChange = (k: keyof FormData, v: string) =>
         setData((prev) => ({ ...prev, [k]: v }));
 
-    const canNext = step === 1 ? (isDocker || data.download_dir.trim().length > 0) : true;
+    const canNext = step === 1 ? data.download_dir.trim().length > 0 : true;
 
     const handleNext = () => {
         if (step < 3) setStep((s) => (s + 1) as Step);
