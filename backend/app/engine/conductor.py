@@ -578,16 +578,201 @@ class Conductor:
         if records:
             logger.info(f"채널 목록 로드 완료 ({len(records)}개)")
 
+    def _poll_interval_for(self, task: Optional[ChannelTask]) -> int:
+        """이 채널을 몇 초마다 확인할지 정한다.
+
+        X Spaces는 X API의 레이트 리밋이 빡빡해 짧은 주기로 돌면 차단당한다.
+        """
+        if task and task.platform == Platform.X_SPACES:
+            return self._X_SPACES_POLL_INTERVAL
+        return get_settings().monitor_interval
+
+    @staticmethod
+    def _apply_status(task: ChannelTask, status: dict) -> None:
+        """조회한 라이브 상태를 채널에 반영한다."""
+        task.is_live = status["is_live"]
+        task.last_error = None
+        task.channel_name = status.get("channel_name")
+        task.title = status.get("title")
+        task.category = status.get("category")
+        task.viewer_count = status.get("viewer_count", 0)
+        task.thumbnail_url = status.get("thumbnail_url")
+        task.profile_image_url = status.get("profile_image_url")
+
+    def _capture_space_master_url(
+        self, composite_key: str, task: ChannelTask, status: dict
+    ) -> None:
+        """X Spaces의 master URL을 Space당 한 번만 붙잡아 둔다.
+
+        dynamic m3u8 URL은 금방 만료되지만 master URL은 종료 후에도 한동안 살아 있어,
+        실시간 녹화가 실패해도 수동으로 받아낼 마지막 수단이 된다. 그래서 파일로도
+        남기고 알림으로도 보낸다.
+        """
+        task._current_space_id = status.get("space_id")
+        new_master = status.get("master_url")
+        new_m3u8 = status.get("m3u8_url")
+
+        # 이미 잡아둔 Space라면 다시 알리지 않는다.
+        if not new_master or task.master_url:
+            return
+
+        now_iso = datetime.now().isoformat()
+        task.master_url = new_master
+        task.master_url_captured_at = now_iso
+        task.captured_m3u8_url = new_m3u8
+        task.captured_m3u8_at = now_iso
+        # master URL을 파일로 저장 (녹화 실패 시 백업)
+        task.master_url_file = self._spaces.save_master_url_file(
+            task, new_master, task._current_space_id
+        )
+        logger.info(
+            f"[{composite_key}] 🎙️ Space master URL 캡처 완료 "
+            f"(space_id={task._current_space_id})"
+        )
+        self._save_capture_state(composite_key)
+        self._broadcast_status()
+        # 알림: master URL 캡처 + 자동 녹화 상태 안내
+        # (Master URL은 1024자를 넘을 수 있어 알림 계층에서 분할 전송한다)
+        rec_status = (
+            "🔴 자동 녹화 시작됨 (실시간 저장 중)"
+            if task.auto_record
+            else "⏸️ 자동 녹화 OFF — 아래 URL로 수동 다운로드 가능"
+        )
+        self._notify(
+            NotificationKind.SPACE_DETECTED,
+            title="🎙️ X Spaces 감지",
+            description=(
+                f"**@{task.channel_name or task.channel_id}** — "
+                f"{task.title or 'X Spaces'}\n{rec_status}"
+            ),
+            color="blue",
+            fields={
+                "Master URL": new_master,
+                "URL 파일": (
+                    f"`{task.master_url_file}`"
+                    if task.master_url_file
+                    else "저장 실패"
+                ),
+            },
+        )
+
+    def _record_live_detection(self, composite_key: str) -> None:
+        """라이브 감지를 하루 1회 저장소에 남긴다 (날짜 경계는 저장소가 처리).
+
+        메모리에만 두면 재시작할 때마다 통계가 초기화된다. 기록에 실패해도
+        감시는 계속돼야 하므로 예외를 삼킨다.
+        """
+        try:
+            self._history_repo.record_detection(composite_key)
+        except Exception as e:
+            logger.error(f"[{composite_key}] 라이브 감지 기록 실패: {e}")
+
+    async def _handle_live_started(
+        self, composite_key: str, task: ChannelTask, retry_count: int
+    ) -> int:
+        """방송 시작을 알리고, 자동 녹화가 켜져 있으면 녹화를 시작한다.
+
+        새 방송이 시작됐으므로 재시도 횟수는 0부터 다시 센다.
+        """
+        logger.info(
+            f"[{composite_key}] 🔴 방송 시작 감지! "
+            f"스트리머: {task.channel_name}, 제목: {task.title}"
+        )
+        # 감지 즉시 알림 — 녹화 준비(CDN 대기 5초 + yt-dlp 기동)를
+        # 기다리지 않는다. 녹화 결과는 별도 알림으로 이어진다.
+        # X Spaces는 master URL 캡처 알림이 이 역할을 대신한다.
+        if task.platform != Platform.X_SPACES:
+            self._notify(
+                NotificationKind.LIVE_DETECTED,
+                title="🔴 방송 시작",
+                description=(
+                    f"**{task.channel_name or task.channel_id}**\n"
+                    f"{task.title or '제목 없음'}"
+                ),
+                color="green",
+                fields={
+                    "플랫폼": task.platform.value,
+                    "카테고리": task.category or "N/A",
+                    "자동 녹화": "ON" if task.auto_record else "OFF",
+                },
+            )
+
+        if task.auto_record:
+            await self._start_recording(
+                composite_key,
+                channel_name=task.channel_name,
+                title=task.title,
+            )
+            return 0
+        return retry_count
+
+    async def _handle_live_ended(self, composite_key: str, task: ChannelTask) -> None:
+        """방송 종료를 처리한다."""
+        logger.info(f"[{composite_key}] ⚫ 방송 종료 감지.")
+        # X Spaces: 다음 Space를 위해 master_url 초기화
+        if task.platform == Platform.X_SPACES:
+            task.clear_space_capture()
+            self._save_capture_state(composite_key)
+            self._broadcast_status()
+            logger.info(f"[{composite_key}] 🎙️ Space 종료 — master URL 초기화 완료.")
+        await self._stop_recording(composite_key)
+
+    async def _retry_stalled_recording(
+        self, composite_key: str, task: ChannelTask, retry_count: int, max_retries: int
+    ) -> int:
+        """방송은 켜져 있는데 녹화가 멈춘 경우 다시 시작한다. 새 재시도 횟수를 돌려준다."""
+        pipe = task.pipeline
+        if pipe is None or pipe.state not in (RecordingState.ERROR, RecordingState.COMPLETED):
+            return retry_count
+
+        if retry_count < max_retries:
+            retry_count += 1
+            logger.warning(
+                f"[{composite_key}] 녹화 중단 감지. "
+                f"자동 재녹화 시도 ({retry_count}/{max_retries})..."
+            )
+            await asyncio.sleep(5)
+            # 대기하는 동안 종료 신호가 왔으면 새 녹화를 띄우지 않는다.
+            if not self._running:
+                return retry_count
+            await self._start_recording(
+                composite_key,
+                channel_name=task.channel_name,
+                title=task.title,
+                is_retry=True,
+            )
+        elif retry_count == max_retries:
+            # 한 번만 알리고 더는 시도하지 않도록 카운트를 한 칸 더 올린다.
+            retry_count += 1
+            task.last_error = "최대 재시도 횟수 초과로 녹화 중단됨"
+            logger.error(
+                f"[{composite_key}] 최대 재시도 횟수 초과. "
+                f"녹화 시작 버튼으로 수동 재시작하세요."
+            )
+        return retry_count
+
+    async def _wait_for_next_scan(self, composite_key: str, interval: float) -> None:
+        """다음 확인까지 기다린다. 즉시 스캔 요청이 오면 기다리지 않고 깨어난다."""
+        scan_event = self._scan_events.get(composite_key)
+        if scan_event is None:
+            await asyncio.sleep(interval)
+            return
+        scan_event.clear()
+        try:
+            await asyncio.wait_for(scan_event.wait(), timeout=float(interval))
+        except asyncio.TimeoutError:
+            pass
+
     async def _monitor_channel(self, composite_key: str) -> None:
-        """단일 채널의 라이브 상태를 주기적으로 확인한다."""
+        """단일 채널의 라이브 상태를 주기적으로 확인한다.
+
+        한 번 도는 동안 하는 일은 네 가지다 — 상태 조회, 채널에 반영,
+        상태 변화에 따른 처리, 다음 차례까지 대기. 각 처리는 아래 메서드로 나눠 두었고
+        여기서는 어떤 조건에 무엇이 일어나는지만 읽히게 한다.
+        """
         settings = get_settings()
         task = self._channels.get(composite_key)
-
-        # X Spaces는 레이트 리밋 방어를 위해 5분 폴링 간격 사용
-        if task and task.platform == Platform.X_SPACES:
-            interval = self._X_SPACES_POLL_INTERVAL
-        else:
-            interval = settings.monitor_interval
+        interval = self._poll_interval_for(task)
         retry_count = 0
         max_retries = settings.max_record_retries
 
@@ -603,113 +788,23 @@ class Conductor:
                 status = await engine.check_live_status(task.channel_id)
 
                 was_live = task.is_live
-                task.is_live = status["is_live"]
-                task.last_error = None
-                task.channel_name = status.get("channel_name")
-                task.title = status.get("title")
-                task.category = status.get("category")
-                task.viewer_count = status.get("viewer_count", 0)
-                task.thumbnail_url = status.get("thumbnail_url")
-                task.profile_image_url = status.get("profile_image_url")
+                self._apply_status(task, status)
 
-                # X Spaces: space_id, m3u8_url, master_url 업데이트
                 if task.platform == Platform.X_SPACES:
-                    task._current_space_id = status.get("space_id")
-                    new_master = status.get("master_url")
-                    new_m3u8 = status.get("m3u8_url")
-                    # master URL이 새로 캡처되면 저장 (Space마다 1회)
-                    if new_master and not task.master_url:
-                        now_iso = datetime.now().isoformat()
-                        task.master_url = new_master
-                        task.master_url_captured_at = now_iso
-                        task.captured_m3u8_url = new_m3u8
-                        task.captured_m3u8_at = now_iso
-                        # master URL을 파일로 저장 (녹화 실패 시 백업)
-                        task.master_url_file = self._spaces.save_master_url_file(
-                            task, new_master, task._current_space_id
-                        )
-                        logger.info(
-                            f"[{composite_key}] 🎙️ Space master URL 캡처 완료 "
-                            f"(space_id={task._current_space_id})"
-                        )
-                        self._save_capture_state(composite_key)
-                        self._broadcast_status()
-                        # 알림: master URL 캡처 + 자동 녹화 상태 안내
-                        # (Master URL은 1024자를 넘을 수 있어 알림 계층에서 분할 전송한다)
-                        rec_status = (
-                            "🔴 자동 녹화 시작됨 (실시간 저장 중)"
-                            if task.auto_record
-                            else "⏸️ 자동 녹화 OFF — 아래 URL로 수동 다운로드 가능"
-                        )
-                        self._notify(
-                            NotificationKind.SPACE_DETECTED,
-                            title="🎙️ X Spaces 감지",
-                            description=(
-                                f"**@{task.channel_name or task.channel_id}** — "
-                                f"{task.title or 'X Spaces'}\n{rec_status}"
-                            ),
-                            color="blue",
-                            fields={
-                                "Master URL": new_master,
-                                "URL 파일": (
-                                    f"`{task.master_url_file}`"
-                                    if task.master_url_file
-                                    else "저장 실패"
-                                ),
-                            },
-                        )
+                    self._capture_space_master_url(composite_key, task, status)
 
-                # ── 라이브 감지 날짜 기록 (하루 1회, 날짜 경계 자동 처리) ──
-                # 저장소에 남기므로 재시작해도 통계가 초기화되지 않는다.
                 if status["is_live"]:
-                    try:
-                        self._history_repo.record_detection(composite_key)
-                    except Exception as e:
-                        logger.error(f"[{composite_key}] 라이브 감지 기록 실패: {e}")
+                    self._record_live_detection(composite_key)
 
                 # ── 방송 시작 감지 ──
                 if status["is_live"] and not was_live:
-                    logger.info(
-                        f"[{composite_key}] 🔴 방송 시작 감지! "
-                        f"스트리머: {task.channel_name}, 제목: {task.title}"
+                    retry_count = await self._handle_live_started(
+                        composite_key, task, retry_count
                     )
-                    # 감지 즉시 알림 — 녹화 준비(CDN 대기 5초 + yt-dlp 기동)를
-                    # 기다리지 않는다. 녹화 결과는 별도 알림으로 이어진다.
-                    # X Spaces는 위쪽 master URL 캡처 알림이 이 역할을 대신한다.
-                    if task.platform != Platform.X_SPACES:
-                        self._notify(
-                            NotificationKind.LIVE_DETECTED,
-                            title="🔴 방송 시작",
-                            description=(
-                                f"**{task.channel_name or task.channel_id}**\n"
-                                f"{task.title or '제목 없음'}"
-                            ),
-                            color="green",
-                            fields={
-                                "플랫폼": task.platform.value,
-                                "카테고리": task.category or "N/A",
-                                "자동 녹화": "ON" if task.auto_record else "OFF",
-                            },
-                        )
-
-                    if task.auto_record:
-                        await self._start_recording(
-                            composite_key,
-                            channel_name=task.channel_name,
-                            title=task.title,
-                        )
-                        retry_count = 0
 
                 # ── 방송 종료 감지 ──
                 elif not status["is_live"] and was_live:
-                    logger.info(f"[{composite_key}] ⚫ 방송 종료 감지.")
-                    # X Spaces: 다음 Space를 위해 master_url 초기화
-                    if task.platform == Platform.X_SPACES:
-                        task.clear_space_capture()
-                        self._save_capture_state(composite_key)
-                        self._broadcast_status()
-                        logger.info(f"[{composite_key}] 🎙️ Space 종료 — master URL 초기화 완료.")
-                    await self._stop_recording(composite_key)
+                    await self._handle_live_ended(composite_key, task)
                     retry_count = 0
 
                 # ── 채팅 아카이빙 동적 시작 (녹화 도중 설정을 켠 경우) ──
@@ -723,30 +818,11 @@ class Conductor:
 
                 # ── 녹화 오류 시 자동 재시작 (Chzzk/TwitCasting 전용) ──
                 elif status["is_live"] and task.auto_record and task.platform != Platform.X_SPACES:
-                    pipe = task.pipeline
-                    if pipe is not None and pipe.state in (RecordingState.ERROR, RecordingState.COMPLETED):
-                        if retry_count < max_retries:
-                            retry_count += 1
-                            logger.warning(
-                                f"[{composite_key}] 녹화 중단 감지. "
-                                f"자동 재녹화 시도 ({retry_count}/{max_retries})..."
-                            )
-                            await asyncio.sleep(5)
-                            if not self._running:
-                                break
-                            await self._start_recording(
-                                composite_key,
-                                channel_name=task.channel_name,
-                                title=task.title,
-                                is_retry=True,
-                            )
-                        elif retry_count == max_retries:
-                            retry_count += 1
-                            task.last_error = "최대 재시도 횟수 초과로 녹화 중단됨"
-                            logger.error(
-                                f"[{composite_key}] 최대 재시도 횟수 초과. "
-                                f"녹화 시작 버튼으로 수동 재시작하세요."
-                            )
+                    retry_count = await self._retry_stalled_recording(
+                        composite_key, task, retry_count, max_retries
+                    )
+                    if not self._running:
+                        break
 
             except asyncio.CancelledError:
                 break
@@ -754,16 +830,7 @@ class Conductor:
                 task.last_error = f"감시 오류: {str(e)}"
                 logger.error(f"[{composite_key}] 감시 오류: {e}", exc_info=e)
 
-            # 폴링 대기 — 즉시 스캔 요청(trigger_scan_now) 시 event로 깨어남
-            scan_event = self._scan_events.get(composite_key)
-            if scan_event is not None:
-                scan_event.clear()
-                try:
-                    await asyncio.wait_for(scan_event.wait(), timeout=float(interval))
-                except asyncio.TimeoutError:
-                    pass
-            else:
-                await asyncio.sleep(interval)
+            await self._wait_for_next_scan(composite_key, interval)
 
     async def _start_chat_archiver(
         self,
