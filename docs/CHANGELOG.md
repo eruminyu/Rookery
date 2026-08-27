@@ -10,6 +10,48 @@
 
 ---
 
+## [2.0.1] - 2026-08-27
+
+### Fixed
+- **알림 팝오버가 대시보드 콘텐츠에 가려지던 문제**
+  - 사이드바의 `backdrop-blur`가 스택 컨텍스트를 만들어, 헤더의 `z-50`이 바깥 본문과
+    겨루지 못했다. 사이드바 자체를 본문 위 층(`z-30`)으로 올린다
+  - 본문 래퍼 `.page-content`의 `z-10`을 제거했다. 이것이 본문을 스택 컨텍스트로 만들어
+    설정 화면의 폴더 선택창과 업데이트 안내 모달까지 함께 가둬 두고 있었다
+  - `UpdateModal`만 `z-50`이라 다른 모달(`z-9998`)과 층이 어긋나 있었다
+  - 층 순서와 그 이유를 `index.css`에 주석으로 남겼다
+- **토스트가 뜰 때마다 화면이 데이터를 다시 불러오던 문제**
+  - `useToast()`가 매 렌더마다 새 객체를 반환해, 이 값을 의존성에 넣은 설정·채팅 로그
+    화면이 토스트 하나마다 데이터를 통째로 다시 불렀다. 조회 실패로 error 토스트를 띄우면
+    실패 → 토스트 → 재조회로 요청이 무한 반복됐다
+  - 동작(`ToastActions`)과 내역(`ToastHistoryValue`)을 다른 컨텍스트로 분리했다.
+    `useToast()`의 반환값은 이제 마운트 이후 바뀌지 않는다
+- **uvicorn의 INFO 로그가 ERROR로 기록되던 문제**
+  - stderr로 오는 줄을 전부 `logger.error()`로 찍고 있었다. uvicorn은 INFO를 stderr로
+    내보내므로 "Application startup complete."까지 ERROR로 둔갑해, 로그가 온통 ERROR라
+    진짜 에러를 골라낼 수 없었다
+  - uvicorn 로그를 애플리케이션 핸들러로 직접 라우팅한다. 접근 로그는 프론트 폴링 때문에
+    하루 수만 줄이 되므로 종전처럼 콘솔에만 남긴다
+  - stderr 줄은 `WARNING:` 같은 접두어로 레벨을 판별한다 (yt-dlp가 이 형식을 쓴다)
+- **커맨드 팔레트에 System Logs가 빠져 있던 문제**
+  - 사이드바와 팔레트가 화면 목록을 각자 복사해 갖고 있어 어긋나 있었다. 이름과 아이콘도
+    서로 달랐다. 목록을 한곳으로 합쳤다
+
+### Changed
+- **채팅 로그 조회 성능** — 파일마다 인덱스(메시지 수 + 1000개마다의 바이트 위치)를 DB에
+  캐시해, 목록과 페이지 조회가 파일 전체를 다시 읽지 않는다. 104MB 아카이브 기준
+  목록 재방문 251ms → 5ms, 페이지 조회 233ms → 0.5ms. 파일이 커지면 늘어난 부분만
+  이어서 세므로 녹화 중에도 전체를 다시 읽지 않는다
+- 채팅 로그 파일 I/O를 워커 스레드로 옮겼다. 조회하는 동안 SSE 상태 스트림과 다른 API가
+  멈추지 않는다
+- 네이티브 `alert()` 두 곳을 앱 토스트로 교체했다
+
+### Added
+- **DB 스키마 v2** — `chat_file_index` 테이블. 채팅 로그의 메시지 수와 바이트 오프셋을
+  담는 파생 데이터이며, 지워져도 다음 조회에서 다시 만들어진다
+
+---
+
 ## [2.0.0] - 2026-08-26
 
 ### Added
@@ -154,7 +196,8 @@
 
 ---
 
-[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/eruminyu/Rookery/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/eruminyu/Rookery/compare/v1.1.7...v2.0.0
 [1.1.0]: https://github.com/eruminyu/Rookery/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/eruminyu/Rookery/releases/tag/v1.0.0
