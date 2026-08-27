@@ -375,6 +375,17 @@ Settings → 인증에서 `NID_AUT`, `NID_SES`를 새 값으로 저장한 뒤 �
 
 [MIT License](LICENSE)로 배포됩니다. Copyright (c) 2026 Serian (github.com/eruminyu).
 
+### 제휴 관계 없음
+
+Rookery는 **개인이 만든 비공식 도구**입니다. 네이버·치지직, Google·YouTube,
+Moi Labs·TwitCasting, X Corp를 비롯한 어떤 플랫폼 사업자와도
+**제휴·후원·승인·공식 연계 관계가 없습니다.**
+
+각 플랫폼의 이름과 로고는 해당 소유자의 상표이며, 이 문서에서는 지원 대상을
+가리키기 위한 지시적 용도로만 사용합니다.
+
+### 그 밖의 고지
+
 Rookery는 FFmpeg를 직접 번들하지 않습니다. FFmpeg에는 빌드 구성에 따라 LGPL 또는 GPL이 적용될 수 있으므로 [FFmpeg License](https://ffmpeg.org/legal.html)를 확인하세요.
 
 - 다운로드한 콘텐츠를 무단 재배포하거나 상업적으로 이용하지 마세요.
