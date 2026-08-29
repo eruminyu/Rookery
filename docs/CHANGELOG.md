@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+---
+
+## [2.0.5] - 2026-08-29
+
 ### Added
 - **API 표면 고정 테스트** (`backend/tests/test_api_surface.py`) — 등록된 라우트 74개를
   목록으로 못박는다. 라우트는 데코레이터로 등록돼서 파일을 옮기다 빠뜨려도 파싱과
@@ -15,6 +19,8 @@
   손으로 대조해서야 알았다. 이제 그 사고는 테스트가 먼저 잡는다.
 
 ### Changed
+- **비공식·비제휴 관계 고지** — README에 Rookery가 각 플랫폼 사업자의 공식 도구가
+  아니며, 플랫폼 이름과 로고는 지원 대상을 가리키는 용도로만 사용한다는 점을 명시했다.
 - **큰 모듈을 패키지로 나눴다.** 코드는 옮기기만 했고 동작은 그대로다. 각 패키지의
   `__init__.py`가 예전 이름을 그대로 내주므로 호출부는 한 줄도 바뀌지 않았다.
   - `engine/pipeline/` — `state`·`ffmpeg`·`ytdlp` (815줄 → 4파일)
@@ -24,6 +30,11 @@
     여기가 뚫리면 봇을 초대한 서버의 아무나 남의 녹화를 제어할 수 있다.
   - `api/settings/` — `general`·`media`·`auth`·`notifications` (639줄 → 6파일).
     경로는 한 글자도 바뀌지 않았다.
+
+### Fixed
+- **릴리즈 메타데이터 불일치** — 백엔드는 `2.0.4`였지만 프런트 패키지와 lockfile은
+  초기값 `0.1.0`에 머물러 있었다. 모두 `2.0.5`로 맞추고, 백엔드·npm·CHANGELOG·
+  PyInstaller 버전 리소스가 같은 값을 가리키는지 검사하는 테스트를 추가했다.
 
 ### 하지 않은 것
 측정해 보고 접었다. 기록해 두지 않으면 다음에 같은 분석을 반복하게 된다.
@@ -302,7 +313,8 @@
 
 ---
 
-[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.4...HEAD
+[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.5...HEAD
+[2.0.5]: https://github.com/eruminyu/Rookery/compare/v2.0.4...v2.0.5
 [2.0.4]: https://github.com/eruminyu/Rookery/compare/v2.0.3...v2.0.4
 [2.0.3]: https://github.com/eruminyu/Rookery/compare/v2.0.2...v2.0.3
 [2.0.2]: https://github.com/eruminyu/Rookery/compare/v2.0.1...v2.0.2
