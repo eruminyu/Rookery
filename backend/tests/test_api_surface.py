@@ -7,16 +7,24 @@ test_api_surface.py
 실제로 설정 라우터를 도메인별로 나누다 라우트 15개를 통째로 잃은 적이 있고,
 그때는 이 목록을 손으로 대조해서야 알았다.
 
-경로가 바뀌면 이 테스트가 먼저 깨진다. 의도한 변경이라면 아래 EXPECTED_ROUTES를
-함께 고치면 되고, 그 diff가 곧 "API를 바꿨다"는 기록이 된다.
+경로가 바뀌면 이 테스트가 먼저 깨진다. 의도한 변경이라면 아래
+EXPECTED_API_ROUTES를 함께 고치면 되고, 그 diff가 곧 "API를 바꿨다"는 기록이 된다.
+
+FastAPI 0.137부터 include_router()는 하위 라우트를 app.routes에 복사하지 않고
+중첩 라우터로 보존한다. 따라서 app.routes를 평면 목록으로 순회하지 않는다.
+공개 API는 공식 OpenAPI 스키마로 검사하고, 스키마가 합치는 후행 슬래시 별칭과
+문서·SPA 경로는 실제 요청과 앱 설정으로 따로 검사한다.
 """
 
-from app.main import app
+import re
+
+from fastapi.testclient import TestClient
+
+from app.main import STATIC_DIR, app
 
 #: (HTTP 메서드, 경로). 메서드는 쉼표로 이어 붙이고 HEAD는 뺀다
 #: (FastAPI가 GET에 자동으로 붙여주는 것이라 계약이 아니다).
-EXPECTED_ROUTES = {
-    ("GET", "/"),
+EXPECTED_API_ROUTES = {
     ("POST", "/api/archive/download"),
     ("GET", "/api/archive/spaces/captured"),
     ("DELETE", "/api/archive/spaces/captured/{composite_key:path}"),
@@ -82,34 +90,41 @@ EXPECTED_ROUTES = {
     ("POST", "/api/vod/{task_id}/pause"),
     ("POST", "/api/vod/{task_id}/resume"),
     ("POST", "/api/vod/{task_id}/retry"),
-    ("GET", "/docs"),
-    ("GET", "/docs/oauth2-redirect"),
     ("GET", "/health"),
     ("GET", "/health/detail"),
-    ("GET", "/openapi.json"),
-    ("GET", "/redoc"),
-    ("GET", "/{full_path:path}"),
 }
 
+TRAILING_SLASH_ALIASES = {
+    ("GET", "/api/settings/"),
+    ("GET", "/api/stats/"),
+}
 
-def _current_routes() -> set[tuple[str, str]]:
-    found = set()
-    for route in app.routes:
-        methods = getattr(route, "methods", None)
-        if not methods:
-            # StaticFiles 마운트 등 메서드가 없는 것은 계약 대상이 아니다.
-            continue
-        listed = ",".join(sorted(m for m in methods if m != "HEAD"))
-        found.add((listed, getattr(route, "path", "")))
-    return found
+HTTP_METHODS = {"delete", "get", "head", "options", "patch", "post", "put", "trace"}
+PATH_CONVERTER = re.compile(r"{([^}:]+):[^}]+}")
 
 
-def test_public_api_surface_is_unchanged():
-    """등록된 라우트가 기대 목록과 정확히 같아야 한다."""
-    current = _current_routes()
+def _schema_routes() -> set[tuple[str, str]]:
+    schema = app.openapi()
+    return {
+        (method.upper(), path)
+        for path, path_item in schema["paths"].items()
+        for method in path_item
+        if method in HTTP_METHODS and method != "head"
+    }
 
-    removed = sorted(EXPECTED_ROUTES - current)
-    added = sorted(current - EXPECTED_ROUTES)
+
+def _expected_schema_routes() -> set[tuple[str, str]]:
+    return {
+        (method, PATH_CONVERTER.sub(r"{\1}", path))
+        for method, path in EXPECTED_API_ROUTES - TRAILING_SLASH_ALIASES
+    }
+
+
+def _assert_same_routes(
+    expected: set[tuple[str, str]], current: set[tuple[str, str]]
+) -> None:
+    removed = sorted(expected - current)
+    added = sorted(current - expected)
 
     message = []
     if removed:
@@ -119,8 +134,42 @@ def test_public_api_surface_is_unchanged():
         )
     if added:
         message.append(
-            "새로 생긴 라우트 (의도한 것이라면 EXPECTED_ROUTES에 추가한다):\n  "
+            "새로 생긴 라우트 (의도한 것이라면 EXPECTED_API_ROUTES에 추가한다):\n  "
             + "\n  ".join(f"{m} {p}" for m, p in added)
         )
 
     assert not message, "\n\n".join(message)
+
+
+def test_public_api_surface_is_unchanged():
+    """OpenAPI에 등록된 공개 API가 기대 목록과 정확히 같아야 한다."""
+    _assert_same_routes(_expected_schema_routes(), _schema_routes())
+
+
+def test_trailing_slash_aliases_are_explicit_routes():
+    """자동 307 리다이렉트가 아니라 기존 별칭 자체가 응답해야 한다."""
+    client = TestClient(app, follow_redirects=False)
+
+    for _, path in sorted(TRAILING_SLASH_ALIASES):
+        response = client.get(path)
+        assert response.status_code == 200, f"GET {path}: {response.status_code}"
+
+
+def test_documentation_routes_are_unchanged():
+    assert app.docs_url == "/docs"
+    assert app.swagger_ui_oauth2_redirect_url == "/docs/oauth2-redirect"
+    assert app.openapi_url == "/openapi.json"
+    assert app.redoc_url == "/redoc"
+
+
+def test_spa_routes_follow_static_build_availability():
+    """클린 백엔드와 프런트가 포함된 배포 환경의 동작을 모두 고정한다."""
+    client = TestClient(app, follow_redirects=False)
+    has_static_build = (STATIC_DIR / "index.html").exists()
+    expected_status = 200 if has_static_build else 404
+
+    for path in ("/", "/settings"):
+        response = client.get(path)
+        assert response.status_code == expected_status
+        if has_static_build:
+            assert '<div id="root"></div>' in response.text
