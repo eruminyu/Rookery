@@ -40,7 +40,8 @@ export function PageHeader({
     actions?: ReactNode;
 }) {
     return (
-        <header className="page-hero relative overflow-hidden border border-line rounded-[calc(var(--radius-card)+4px)] p-5 sm:p-6">
+        <header className="page-hero relative border border-line rounded-[calc(var(--radius-card)+4px)] p-5 sm:p-6">
+            <div aria-hidden="true" className="page-hero-decoration pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]" />
             <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-5">
                 <div className="flex items-start gap-4 min-w-0">
                     <span className="page-hero-icon grid place-items-center w-11 h-11 rounded-[var(--radius-card)] shrink-0">

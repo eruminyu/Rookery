@@ -10,6 +10,17 @@
 
 ---
 
+## [2.0.6] - 2026-09-05
+
+### Fixed
+- **신규 채널 플랫폼 메뉴 잘림** — 대시보드 제목 카드가 펼침 메뉴까지 함께
+  잘라 치지직 아래의 플랫폼을 선택할 수 없었다. 장식 배경만 카드 경계에서 자르고
+  플랫폼 메뉴는 카드 밖으로 표시하도록 분리했다.
+- **좁고 낮은 화면의 플랫폼 선택** — 모바일에서는 메뉴가 화면 왼쪽 밖으로 밀리지
+  않도록 기준점을 맞췄다. 화면 높이가 부족하면 메뉴 안에서 세로로 스크롤할 수 있다.
+
+---
+
 ## [2.0.5] - 2026-08-29
 
 ### Added
@@ -317,7 +328,8 @@
 
 ---
 
-[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.5...HEAD
+[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.6...HEAD
+[2.0.6]: https://github.com/eruminyu/Rookery/compare/v2.0.5...v2.0.6
 [2.0.5]: https://github.com/eruminyu/Rookery/compare/v2.0.4...v2.0.5
 [2.0.4]: https://github.com/eruminyu/Rookery/compare/v2.0.3...v2.0.4
 [2.0.3]: https://github.com/eruminyu/Rookery/compare/v2.0.2...v2.0.3

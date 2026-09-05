@@ -73,7 +73,7 @@ export function AddChannelForm({ platformStatus, onAdded }: Props) {
                 </button>
 
                 {dropdownOpen && (
-                    <div className="absolute top-full mt-1 right-0 sm:left-0 z-20 bg-surface-2 border border-line-strong rounded-[var(--radius-control)] shadow-xl min-w-[180px] overflow-hidden" role="listbox">
+                    <div className="absolute top-full mt-1 left-0 z-20 bg-surface-2 border border-line-strong rounded-[var(--radius-control)] shadow-xl min-w-[180px] max-h-[50dvh] overflow-y-auto" role="listbox">
                         {(Object.keys(PLATFORM_LABELS) as Platform[]).map((platform) => {
                             const enabled = isPlatformEnabled(platform);
                             return (

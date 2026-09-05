@@ -236,7 +236,7 @@ code,
   box-shadow: var(--shadow-raise), inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
-.page-hero::after {
+.page-hero-decoration::after {
   content: "";
   position: absolute;
   width: 18rem;
