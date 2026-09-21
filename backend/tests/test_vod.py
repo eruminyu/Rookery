@@ -3,10 +3,95 @@ test_vod.py
 VodDownloadTask 상태 전이, 취소/일시정지/재개 플래그, reorder_tasks(), clear_completed_tasks() 테스트
 """
 
+import asyncio
+from pathlib import Path
+
 import pytest
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 from app.engine.vod import VodDownloadState, VodDownloadTask, VodEngine
+
+
+class TestVodDownloadIdentity:
+    @pytest.fixture(autouse=True)
+    def mock_ffmpeg_location(self):
+        # 단일 파일 복사 검증에는 FFmpeg 실행이 필요하지 않다.
+        with patch("app.core.config.Settings.resolve_ffmpeg_path", return_value="ffmpeg"):
+            yield
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("concurrent", [False, True])
+    async def test_same_title_downloads_distinct_videos(self, tmp_path, monkeypatch, concurrent):
+        """같은 제목의 기존 파일이 있어도 각 영상의 실제 바이트를 따로 저장해야 한다."""
+        import yt_dlp
+
+        engine = VodEngine()
+        output_dir = tmp_path / "downloads"
+        output_dir.mkdir()
+        legacy_file = output_dir / "[Channel] Same title.mp4"
+        legacy_file.write_bytes(b"previous download")
+        tasks = []
+        metadata = {}
+        payloads = [b"first video content", b"second video content"]
+        for video_id, payload in zip(("100", "200"), payloads):
+            source = tmp_path / f"source-{video_id}.mp4"
+            source.write_bytes(payload)
+            task = VodDownloadTask(
+                url=f"https://chzzk.naver.com/video/{video_id}",
+                output_dir=str(output_dir),
+            )
+            tasks.append(task)
+            engine._tasks[task.task_id] = task
+            metadata[task.url] = {
+                "id": video_id,
+                "title": "Same title",
+                "uploader": "Channel",
+                "extractor": "chzzk:video",
+                "extractor_key": "CHZZKVideo",
+                "ext": "mp4",
+                "url": source.as_uri(),
+                "webpage_url": task.url,
+            }
+
+        # 사이트 메타데이터만 대체하고 실제 yt-dlp의 파일 존재 판정과 다운로드를 실행한다.
+        def extract_info(ydl, url, download=True):
+            info = metadata[url].copy()
+            return ydl.process_ie_result(info, download=True) if download else info
+
+        build_options = engine._build_ytdlp_options
+
+        def local_options(*args, **kwargs):
+            return {**build_options(*args, **kwargs), "enable_file_urls": True}
+
+        monkeypatch.setattr(yt_dlp.YoutubeDL, "extract_info", extract_info)
+        monkeypatch.setattr(engine, "_build_ytdlp_options", local_options)
+        if concurrent:
+            await asyncio.gather(*(engine._download_external(t.task_id, t) for t in tasks))
+        else:
+            for task in tasks:
+                await engine._download_external(task.task_id, task)
+
+        assert tasks[0].output_path != tasks[1].output_path
+        for task, payload in zip(tasks, payloads):
+            assert task.state == VodDownloadState.COMPLETED
+            assert Path(task.output_path).read_bytes() == payload
+            assert task.expected_part_file == task.output_path + ".part"
+        assert legacy_file.read_bytes() == b"previous download"
+
+    def test_filename_identity_is_stable_and_scoped_to_extractor(self, tmp_path):
+        """같은 영상은 재개 경로를 유지하고, 사이트가 다르면 같은 ID도 구분한다."""
+        import yt_dlp
+
+        engine = VodEngine()
+        task = VodDownloadTask(output_dir=str(tmp_path))
+        info = {
+            "id": "12345", "title": "Same title", "uploader": "Channel",
+            "extractor_key": "CHZZKVideo", "ext": "mp4",
+        }
+        with yt_dlp.YoutubeDL(engine._build_ytdlp_options(task)) as ydl:
+            filename = ydl.prepare_filename(info)
+            assert ydl.prepare_filename(info.copy()) == filename
+            assert ydl.prepare_filename({**info, "extractor_key": "Youtube"}) != filename
 
 
 class TestVodDownloadState:

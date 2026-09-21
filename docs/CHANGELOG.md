@@ -10,6 +10,15 @@
 
 ---
 
+## [2.0.7] - 2026-09-21
+
+### Fixed
+- **같은 제목의 VOD가 다운로드 없이 완료되는 문제** — 저장 파일명에 사이트 구분과
+  영상 ID를 추가해 같은 채널·제목의 다른 영상도 별도 파일로 저장한다.
+  기존 파일이 있어도 순차·동시 다운로드에서 각 영상의 내용이 저장되는지 검증했다.
+
+---
+
 ## [2.0.6] - 2026-09-05
 
 ### Fixed
@@ -328,7 +337,8 @@
 
 ---
 
-[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.6...HEAD
+[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.7...HEAD
+[2.0.7]: https://github.com/eruminyu/Rookery/compare/v2.0.6...v2.0.7
 [2.0.6]: https://github.com/eruminyu/Rookery/compare/v2.0.5...v2.0.6
 [2.0.5]: https://github.com/eruminyu/Rookery/compare/v2.0.4...v2.0.5
 [2.0.4]: https://github.com/eruminyu/Rookery/compare/v2.0.3...v2.0.4

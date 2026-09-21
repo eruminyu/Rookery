@@ -185,7 +185,11 @@ class VodEngine:
 
         opts: dict[str, Any] = {
             "format": task.quality,
-            "outtmpl": str(Path(task.output_dir) / "[%(uploader,channel)s] %(title)s.%(ext)s"),
+            # 제목이 같아도 다른 영상이면 기존 파일로 오인해 건너뛰지 않도록 구분한다.
+            "outtmpl": str(
+                Path(task.output_dir)
+                / "[%(uploader,channel)s] %(title)s [%(extractor_key)s-%(id)s].%(ext)s"
+            ),
             "merge_output_format": settings.vod_format,
             "ffmpeg_location": ffmpeg_dir,
             "no_warnings": True,
