@@ -389,6 +389,7 @@ class TestTwitcastingDownloads:
 
     URL = "https://twitcasting.tv/c:s2s2rete/movie/841067169"
     M3U8_ERROR = "ERROR: [TwitCasting] 841067169: Failed to get m3u8 playlist; please report this issue"
+    TIMEOUT_ERROR = "ERROR: Unable to download webpage: timed out"
     COOKIES = (
         "# Netscape HTTP Cookie File\n"
         ".twitcasting.tv\tTRUE\t/\tTRUE\t1790000000\ttc_ss\tsession-value\n"
@@ -443,20 +444,60 @@ class TestTwitcastingDownloads:
 
     @pytest.mark.asyncio
     async def test_other_failures_still_retry(self, tmp_path, monkeypatch, retry_sleep):
-        from app.core.config import get_settings
-
-        # 재시도가 세마포어를 쥔 채 재귀하므로, 로컬 .env의 동시 개수가 작으면 테스트가 멈춘다.
-        get_settings().vod_max_concurrent = 3
         engine = VodEngine()
         task = self._add_task(engine, tmp_path)
-        seen = self._fail_extraction(monkeypatch, "ERROR: Unable to download webpage: timed out")
+        seen = self._fail_extraction(monkeypatch, self.TIMEOUT_ERROR)
         monkeypatch.setattr("app.engine.vod.explain_unplayable", AsyncMock(return_value=None))
 
-        await engine._run_download(task.task_id)
+        # 동시 개수는 로컬 .env를 따른다. 재시도가 다시 슬롯을 붙잡으면 멈추지 말고 실패해야 한다.
+        await asyncio.wait_for(engine._run_download(task.task_id), timeout=5)
 
         assert task.state == VodDownloadState.ERROR
         assert len(seen) == task.max_retries
         assert retry_sleep.await_count == task.max_retries - 1
+
+    @pytest.mark.asyncio
+    async def test_retry_with_single_slot_finishes(self, tmp_path, monkeypatch, retry_sleep):
+        from app.core.config import get_settings
+
+        # asyncio.Semaphore는 재진입되지 않는다. 슬롯이 하나뿐일 때 재시도가 쥔 슬롯을
+        # 놓지 않고 다시 얻으려 하면 자기 자신을 기다리며 DOWNLOADING에 영원히 머문다.
+        get_settings().vod_max_concurrent = 1
+        engine = VodEngine()
+        task = self._add_task(engine, tmp_path)
+        seen = self._fail_extraction(monkeypatch, self.TIMEOUT_ERROR)
+        monkeypatch.setattr("app.engine.vod.explain_unplayable", AsyncMock(return_value=None))
+        slot_held_during_backoff = []
+        retry_sleep.side_effect = lambda _delay: slot_held_during_backoff.append(engine._semaphore.locked())
+
+        await asyncio.wait_for(engine._run_download(task.task_id), timeout=5)
+
+        assert task.state == VodDownloadState.ERROR
+        assert task.error_message == f"재시도 {task.max_retries}회 실패: {self.TIMEOUT_ERROR}"
+        assert len(seen) == task.max_retries
+        # 백오프 간격은 그대로 두되, 기다리는 동안에는 대기 중인 다른 다운로드가 슬롯을 쓸 수 있어야 한다.
+        assert [c.args[0] for c in retry_sleep.await_args_list] == [3, 6]
+        assert slot_held_during_backoff == [False, False]
+        assert not engine._semaphore.locked()
+
+    @pytest.mark.asyncio
+    async def test_simultaneous_failures_do_not_deadlock(self, tmp_path, monkeypatch, retry_sleep):
+        from app.core.config import get_settings
+
+        # 슬롯을 다 채운 작업이 한꺼번에 실패하면, 각자 슬롯을 쥔 채 남은 슬롯을 기다리며 교착될 수 있다.
+        get_settings().vod_max_concurrent = 3
+        engine = VodEngine()
+        tasks = [self._add_task(engine, tmp_path) for _ in range(3)]
+        seen = self._fail_extraction(monkeypatch, self.TIMEOUT_ERROR)
+        monkeypatch.setattr("app.engine.vod.explain_unplayable", AsyncMock(return_value=None))
+
+        await asyncio.wait_for(
+            asyncio.gather(*(engine._run_download(t.task_id) for t in tasks)), timeout=5
+        )
+
+        assert all(t.state == VodDownloadState.ERROR for t in tasks)
+        assert all(t.retry_count == t.max_retries for t in tasks)
+        assert len(seen) == len(tasks) * tasks[0].max_retries
 
     @pytest.mark.asyncio
     async def test_cookie_copy_is_lent_to_twitcasting(self, tmp_path, monkeypatch):

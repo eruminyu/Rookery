@@ -389,91 +389,106 @@ class VodEngine:
         return task.task_id
 
     async def _run_download(self, task_id: str) -> None:
-        """실제 다운로드 실행 (세마포어로 동시 실행 제어)."""
-        async with self._semaphore:  # 동시 다운로드 제한
-            task = self._tasks.get(task_id)
-            if not task:
-                logger.error(f"[{task_id}] 작업을 찾을 수 없습니다.")
+        """실제 다운로드 실행 (세마포어로 동시 실행 제어).
+
+        슬롯은 한 번의 시도 동안만 쥐고, 재시도는 슬롯을 반납한 뒤에 다시 줄을 선다.
+        asyncio.Semaphore는 재진입되지 않아서 슬롯을 쥔 채 또 얻으려 하면, 동시 개수가
+        1일 때는 첫 재시도가 자기 자신을 기다리며 멈추고, 여러 작업이 한꺼번에 실패하면
+        서로의 슬롯을 기다리며 교착된다.
+        """
+        while True:
+            async with self._semaphore:  # 동시 다운로드 제한
+                should_retry = await self._attempt_download(task_id)
+            if not should_retry:
                 return
 
-            task.state = VodDownloadState.DOWNLOADING
-            task.started_at = datetime.now()
-            logger.info(f"[{task_id}] 다운로드 시작: {task.url}")
+            task = self._tasks[task_id]
+            # 일시적 오류일 가능성이 있으므로 잠시 대기 후 재시도.
+            # 슬롯은 이미 반납했으니 기다리는 동안 대기 중인 다른 다운로드가 쓸 수 있다.
+            await asyncio.sleep(3 * task.retry_count)  # 백오프: 3초, 6초, 9초...
 
-            try:
-                if self._is_chzzk_url(task.url) and "/clips/" in task.url:
-                    await self._download_clip(task_id, task)
-                elif self._is_x_spaces_url(task.url):
-                    await self._download_x_spaces_replay(task_id, task)
-                else:
-                    await self._download_external(task_id, task)
+            # 진행률 초기화 후 재시도
+            task.progress = 0.0
+            task.download_speed = 0.0
+            task.downloaded_bytes = 0
 
-            except DownloadCancelledError:
+    async def _attempt_download(self, task_id: str) -> bool:
+        """슬롯을 쥔 상태에서 한 번 시도한다. 다시 시도해야 하면 True를 돌려준다."""
+        task = self._tasks.get(task_id)
+        if not task:
+            logger.error(f"[{task_id}] 작업을 찾을 수 없습니다.")
+            return False
+
+        task.state = VodDownloadState.DOWNLOADING
+        task.started_at = datetime.now()
+        logger.info(f"[{task_id}] 다운로드 시작: {task.url}")
+
+        try:
+            if self._is_chzzk_url(task.url) and "/clips/" in task.url:
+                await self._download_clip(task_id, task)
+            elif self._is_x_spaces_url(task.url):
+                await self._download_x_spaces_replay(task_id, task)
+            else:
+                await self._download_external(task_id, task)
+
+        except DownloadCancelledError:
+            task.state = VodDownloadState.IDLE
+            task.progress = 0.0
+            logger.info(f"[{task_id}] 다운로드 취소됨: {task.url}")
+
+        except asyncio.CancelledError:
+            # 서버 종료(Ctrl+C) 등으로 태스크가 취소됨 → 재시도하지 않음
+            task.state = VodDownloadState.IDLE
+            task.progress = 0.0
+            logger.info(f"[{task_id}] 다운로드 태스크 취소됨 (서버 종료): {task.url}")
+            raise  # CancelledError는 반드시 재전파
+
+        except Exception as e:
+            # FFmpeg 프로세스 실패 시 처리
+            if task.cancel_flag:
                 task.state = VodDownloadState.IDLE
                 task.progress = 0.0
-                logger.info(f"[{task_id}] 다운로드 취소됨: {task.url}")
+                logger.info(f"[{task_id}] 다운로드 취소됨 (예외 처리): {task.url}")
+            else:
+                import traceback
+                tb_str = traceback.format_exc()
+                error_msg = str(e)
 
-            except asyncio.CancelledError:
-                # 서버 종료(Ctrl+C) 등으로 태스크가 취소됨 → 재시도하지 않음
-                task.state = VodDownloadState.IDLE
-                task.progress = 0.0
-                logger.info(f"[{task_id}] 다운로드 태스크 취소됨 (서버 종료): {task.url}")
-                raise  # CancelledError는 반드시 재전파
+                # 이벤트 루프가 종료 중이면 재시도하지 않음
+                loop = asyncio.get_event_loop()
+                if not loop.is_running():
+                    logger.info(f"[{task_id}] 이벤트 루프 종료 중, 재시도 중단")
+                    task.state = VodDownloadState.ERROR
+                    task.error_message = error_msg
+                    return False
 
-            except Exception as e:
-                # FFmpeg 프로세스 실패 시 처리
-                if task.cancel_flag:
-                    task.state = VodDownloadState.IDLE
-                    task.progress = 0.0
-                    logger.info(f"[{task_id}] 다운로드 취소됨 (예외 처리): {task.url}")
+                if isinstance(e, NonRetryableDownloadError):
+                    logger.error(f"[{task_id}] 다운로드 불가: {e}")
+                    task.error_message = error_msg
+                    task.state = VodDownloadState.ERROR
+                    self._save_history()
+                    return False
+
+                task.retry_count += 1
+
+                # 재시도 가능 여부 확인
+                if task.retry_count < task.max_retries:
+                    logger.warning(
+                        f"[{task_id}] 다운로드 실패 (재시도 {task.retry_count}/{task.max_retries}): {e}"
+                    )
+                    task.error_message = f"재시도 중... ({task.retry_count}/{task.max_retries}): {str(e)}"
+                    return True
                 else:
-                    import traceback
-                    tb_str = traceback.format_exc()
-                    error_msg = str(e)
+                    # 최대 재시도 횟수 초과
+                    logger.error(f"[{task_id}] 최대 재시도 횟수 초과: {e}")
+                    logger.error(f"[{task_id}] 상세 트레이스:\n{traceback.format_exc()}")
 
-                    # 이벤트 루프가 종료 중이면 재시도하지 않음
-                    loop = asyncio.get_event_loop()
-                    if not loop.is_running():
-                        logger.info(f"[{task_id}] 이벤트 루프 종료 중, 재시도 중단")
-                        task.state = VodDownloadState.ERROR
-                        task.error_message = error_msg
-                        return
+                    task.error_message = f"재시도 {task.max_retries}회 실패: {str(e)}"
+                    task.state = VodDownloadState.ERROR
+                    # 에러 발생 시 이력 저장
+                    self._save_history()
 
-                    if isinstance(e, NonRetryableDownloadError):
-                        logger.error(f"[{task_id}] 다운로드 불가: {e}")
-                        task.error_message = error_msg
-                        task.state = VodDownloadState.ERROR
-                        self._save_history()
-                        return
-
-                    task.retry_count += 1
-
-                    # 재시도 가능 여부 확인
-                    if task.retry_count < task.max_retries:
-                        logger.warning(
-                            f"[{task_id}] 다운로드 실패 (재시도 {task.retry_count}/{task.max_retries}): {e}"
-                        )
-                        task.error_message = f"재시도 중... ({task.retry_count}/{task.max_retries}): {str(e)}"
-
-                        # 일시적 오류일 가능성이 있으므로 잠시 대기 후 재시도
-                        await asyncio.sleep(3 * task.retry_count)  # 백오프: 3초, 6초, 9초...
-
-                        # 진행률 초기화 후 재시도
-                        task.progress = 0.0
-                        task.download_speed = 0.0
-                        task.downloaded_bytes = 0
-
-                        # 재귀적으로 재시도
-                        return await self._run_download(task_id)
-                    else:
-                        # 최대 재시도 횟수 초과
-                        logger.error(f"[{task_id}] 최대 재시도 횟수 초과: {e}")
-                        logger.error(f"[{task_id}] 상세 트레이스:\n{traceback.format_exc()}")
-
-                        task.error_message = f"재시도 {task.max_retries}회 실패: {str(e)}"
-                        task.state = VodDownloadState.ERROR
-                        # 에러 발생 시 이력 저장
-                        self._save_history()
+        return False
 
     async def _download_clip(self, task_id: str, task: VodDownloadTask) -> None:
         """치지직 클립 전용 다운로드.
