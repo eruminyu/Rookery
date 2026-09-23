@@ -24,7 +24,7 @@ cd frontend && npx tsc --noEmit -p tsconfig.json
 cd frontend && npm run build
 ```
 
-**기준선은 `236 passed, 29 skipped`입니다.** 통과 수가 줄었다면 무언가 깨진 것이니
+**기준선은 `272 passed, 29 skipped`입니다.** 통과 수가 줄었다면 무언가 깨진 것이니
 그대로 올리지 마세요.
 
 ## 규칙

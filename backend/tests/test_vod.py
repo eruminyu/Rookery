@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from app.engine.vod import VodDownloadState, VodDownloadTask, VodEngine
 
 
@@ -382,3 +382,122 @@ class TestVodEngine:
         # 첫 번째 작업의 상태 반환
         assert status["state"] == "downloading"
         assert status["progress"] >= 0.0
+
+
+class TestTwitcastingDownloads:
+    """로그인 전용 TwitCasting 아카이브는 재시도 없이 이유를 알려야 한다."""
+
+    URL = "https://twitcasting.tv/c:s2s2rete/movie/841067169"
+    M3U8_ERROR = "ERROR: [TwitCasting] 841067169: Failed to get m3u8 playlist; please report this issue"
+    COOKIES = (
+        "# Netscape HTTP Cookie File\n"
+        ".twitcasting.tv\tTRUE\t/\tTRUE\t1790000000\ttc_ss\tsession-value\n"
+    )
+
+    @pytest.fixture(autouse=True)
+    def mock_ffmpeg_location(self):
+        with patch("app.core.config.Settings.resolve_ffmpeg_path", return_value="ffmpeg"):
+            yield
+
+    @pytest.fixture
+    def retry_sleep(self, monkeypatch):
+        # 재시도 백오프(3초, 6초)를 기다리지 않고 몇 번 쉬었는지만 센다.
+        sleep = AsyncMock()
+        monkeypatch.setattr("app.engine.vod.asyncio.sleep", sleep)
+        return sleep
+
+    def _add_task(self, engine, tmp_path, url=None):
+        task = VodDownloadTask(url=url or self.URL, output_dir=str(tmp_path))
+        engine._tasks[task.task_id] = task
+        return task
+
+    def _fail_extraction(self, monkeypatch, message):
+        import yt_dlp
+
+        seen = []
+
+        def extract_info(ydl, url, download=True):
+            cookie_file = ydl.params.get("cookiefile")
+            seen.append((cookie_file, Path(cookie_file).read_text(encoding="utf-8") if cookie_file else None))
+            raise yt_dlp.utils.DownloadError(message)
+
+        monkeypatch.setattr(yt_dlp.YoutubeDL, "extract_info", extract_info)
+        return seen
+
+    @pytest.mark.asyncio
+    async def test_login_only_archive_fails_once_with_reason(self, tmp_path, monkeypatch, retry_sleep):
+        engine = VodEngine()
+        task = self._add_task(engine, tmp_path)
+        seen = self._fail_extraction(monkeypatch, self.M3U8_ERROR)
+        reason = "로그인한 사용자만 볼 수 있는 TwitCasting 영상이라 받을 수 없습니다."
+        explain = AsyncMock(return_value=reason)
+        monkeypatch.setattr("app.engine.vod.explain_unplayable", explain)
+
+        await engine._run_download(task.task_id)
+
+        assert task.state == VodDownloadState.ERROR
+        assert task.error_message == reason
+        assert len(seen) == 1
+        retry_sleep.assert_not_awaited()
+        explain.assert_awaited_once_with(self.URL, self.M3U8_ERROR, has_cookies=False)
+
+    @pytest.mark.asyncio
+    async def test_other_failures_still_retry(self, tmp_path, monkeypatch, retry_sleep):
+        from app.core.config import get_settings
+
+        # 재시도가 세마포어를 쥔 채 재귀하므로, 로컬 .env의 동시 개수가 작으면 테스트가 멈춘다.
+        get_settings().vod_max_concurrent = 3
+        engine = VodEngine()
+        task = self._add_task(engine, tmp_path)
+        seen = self._fail_extraction(monkeypatch, "ERROR: Unable to download webpage: timed out")
+        monkeypatch.setattr("app.engine.vod.explain_unplayable", AsyncMock(return_value=None))
+
+        await engine._run_download(task.task_id)
+
+        assert task.state == VodDownloadState.ERROR
+        assert len(seen) == task.max_retries
+        assert retry_sleep.await_count == task.max_retries - 1
+
+    @pytest.mark.asyncio
+    async def test_cookie_copy_is_lent_to_twitcasting(self, tmp_path, monkeypatch):
+        import yt_dlp
+        from app.core.config import get_settings
+
+        original = tmp_path / "twitcasting_cookies.txt"
+        original.write_text(self.COOKIES, encoding="utf-8")
+        get_settings().twitcasting_cookie_file = str(original)
+        engine = VodEngine()
+        task = self._add_task(engine, tmp_path)
+        seen = self._fail_extraction(monkeypatch, "ERROR: boom")
+        explain = AsyncMock(return_value=None)
+        monkeypatch.setattr("app.engine.vod.explain_unplayable", explain)
+
+        with pytest.raises(yt_dlp.utils.DownloadError):
+            await engine._download_external(task.task_id, task)
+
+        lent, content = seen[0]
+        assert lent is not None and lent != str(original)
+        assert content == self.COOKIES
+        assert not Path(lent).exists()
+        assert original.read_text(encoding="utf-8") == self.COOKIES
+        explain.assert_awaited_once_with(self.URL, "ERROR: boom", has_cookies=True)
+
+    @pytest.mark.asyncio
+    async def test_other_sites_get_no_twitcasting_cookie(self, tmp_path, monkeypatch):
+        import yt_dlp
+        from app.core.config import get_settings
+
+        original = tmp_path / "twitcasting_cookies.txt"
+        original.write_text(self.COOKIES, encoding="utf-8")
+        get_settings().twitcasting_cookie_file = str(original)
+        engine = VodEngine()
+        task = self._add_task(engine, tmp_path, url="https://www.youtube.com/watch?v=abc")
+        seen = self._fail_extraction(monkeypatch, "ERROR: boom")
+        explain = AsyncMock(return_value=None)
+        monkeypatch.setattr("app.engine.vod.explain_unplayable", explain)
+
+        with pytest.raises(yt_dlp.utils.DownloadError):
+            await engine._download_external(task.task_id, task)
+
+        assert seen[0] == (None, None)
+        explain.assert_not_awaited()

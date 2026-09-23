@@ -90,6 +90,7 @@ class YtdlpLivePipeline:
         title: Optional[str] = None,
         quality: str = "best",
         cookie_str: Optional[str] = None,
+        fallback_cookie_file: Optional[str] = None,
     ) -> str:
         """yt-dlp로 HLS URL을 추출한 뒤 ffmpeg으로 직접 녹화한다.
 
@@ -101,6 +102,8 @@ class YtdlpLivePipeline:
             title: 파일명 자동 생성 시 사용할 방송 제목.
             quality: 화질 ("best", "1080p", "720p", "480p").
             cookie_str: Chzzk 쿠키 문자열 (NID_AUT=...; NID_SES=...).
+            fallback_cookie_file: 쿠키 없이 URL 추출에 실패했을 때만 쓰는 로그인 쿠키
+                파일(TwitCasting). 빌려받은 사본이며 지우는 건 빌려준 쪽 몫이다.
 
         Returns:
             출력 파일 경로.
@@ -126,13 +129,28 @@ class YtdlpLivePipeline:
         self._output_path = str(output_file)
 
         # ── Phase 1: yt-dlp로 HLS URL + HTTP 헤더 추출 ──
+        # 로그인 쿠키는 실패했을 때만 쓴다. 지금 되는 녹화는 그대로 두고,
+        # 로그인 전용 라이브만 한 번 더 시도한다. yt-dlp가 로그인 요구를 여러 문구로
+        # 알려서 문구로 가려내지 않고 추출 실패면 모두 다시 시도한다.
+        stream_cookies: Optional[str] = None
         try:
-            hls_url, http_headers = await self._extract_hls_url(
+            hls_url, http_headers, _ = await self._extract_hls_url(
                 page_url, quality, cookie_str
             )
-        except Exception:
-            self._state = RecordingState.ERROR
-            raise
+        except Exception as e:
+            if not fallback_cookie_file:
+                self._state = RecordingState.ERROR
+                raise
+            logger.warning(
+                f"[{self._channel_id}] 쿠키 없이 URL 추출 실패, 로그인 쿠키로 다시 시도: {e}"
+            )
+            try:
+                hls_url, http_headers, stream_cookies = await self._extract_hls_url(
+                    page_url, quality, None, cookie_file=fallback_cookie_file
+                )
+            except Exception:
+                self._state = RecordingState.ERROR
+                raise
 
         # ── Phase 2: ffmpeg으로 직접 녹화 ──
         ffmpeg_path = settings.resolve_ffmpeg_path()
@@ -153,6 +171,13 @@ class YtdlpLivePipeline:
             header_str = "".join(f"{k}: {v}\r\n" for k, v in http_headers.items())
             cmd += ["-headers", header_str]
             logger.debug(f"[{self._channel_id}] ffmpeg HTTP 헤더 주입: {list(http_headers.keys())}")
+        # 로그인 쿠키로 추출한 스트림은 받을 때도 로그인이 필요할 수 있다.
+        # yt-dlp가 스트림 주소에 맞춰 골라 준 쿠키만 넘긴다 (yt-dlp FFmpegFD와 같은 방식).
+        if stream_cookies:
+            cookie_lines = self._ffmpeg_cookies(stream_cookies)
+            if cookie_lines:
+                cmd += ["-cookies", cookie_lines]
+                logger.debug(f"[{self._channel_id}] ffmpeg 로그인 쿠키 주입")
         cmd += ["-i", hls_url, "-c", "copy"]
 
         # 라이브 HLS → MPEG-TS 출력 강제 (yt-dlp FFmpegFD와 동일)
@@ -191,11 +216,15 @@ class YtdlpLivePipeline:
         page_url: str,
         quality: str,
         cookie_str: Optional[str],
-    ) -> tuple[str, dict[str, str]]:
+        cookie_file: Optional[str] = None,
+    ) -> tuple[str, dict[str, str], Optional[str]]:
         """yt-dlp로 라이브 HLS URL과 HTTP 헤더를 추출한다.
 
+        cookie_file을 주면 cookie_str 대신 그 파일을 쓴다. 빌려받은 사본이라 지우지 않는다.
+
         Returns:
-            (hls_url, http_headers) 튜플.
+            (hls_url, http_headers, 스트림 주소에 해당하는 쿠키) 튜플.
+            쿠키는 yt-dlp `-j` 출력의 `cookies` 필드이며 없으면 None.
         """
         import json as _json
 
@@ -205,7 +234,9 @@ class YtdlpLivePipeline:
         cmd = [ytdlp_path, page_url, "--format", fmt, "-j", "--no-warnings"]
 
         cookie_file_path: Optional[str] = None
-        if cookie_str:
+        if cookie_file:
+            cmd += ["--cookies", cookie_file]
+        elif cookie_str:
             cookie_file_path = self._write_cookie_file(cookie_str)
             cmd += ["--cookies", cookie_file_path]
 
@@ -233,6 +264,7 @@ class YtdlpLivePipeline:
 
         hls_url: Optional[str] = info.get("url")
         http_headers: dict[str, str] = info.get("http_headers", {})
+        cookies: Optional[str] = info.get("cookies")
 
         if not hls_url:
             # audio/video 분리 포맷인 경우 첫 번째 URL 사용
@@ -240,12 +272,34 @@ class YtdlpLivePipeline:
             if formats:
                 hls_url = formats[0].get("url")
                 http_headers = formats[0].get("http_headers", {})
+                cookies = formats[0].get("cookies")
 
         if not hls_url:
             raise RuntimeError("yt-dlp URL 추출 실패: HLS URL을 찾을 수 없음")
 
         logger.debug(f"[{self._channel_id}] HLS URL 추출 완료: {hls_url[:100]}...")
-        return hls_url, http_headers
+        return hls_url, http_headers, cookies
+
+    @staticmethod
+    def _ffmpeg_cookies(cookies: str) -> str:
+        """yt-dlp `cookies` 필드를 ffmpeg `-cookies` 형식(쿠키마다 한 줄)으로 바꾼다.
+
+        yt-dlp는 `-j` 출력의 http_headers에서 Cookie를 빼고 도메인 정보가 붙은
+        `cookies` 필드로 따로 준다. ffmpeg도 도메인을 보고 보내도록 그대로 옮긴다.
+        """
+        from http.cookies import CookieError, SimpleCookie
+
+        jar = SimpleCookie()
+        try:
+            jar.load(cookies)
+        except CookieError as e:
+            # 쿠키를 못 옮겨도 녹화 시도 자체는 막지 않는다.
+            logger.warning(f"스트림 쿠키 해석 실패, 쿠키 없이 녹화합니다: {e}")
+            return ""
+        return "".join(
+            f"{m.key}={m.value}; path={m['path'] or '/'}; domain={m['domain']};\r\n"
+            for m in jar.values()
+        )
 
     async def stop_recording(self) -> None:
         """ffmpeg 프로세스를 정상 종료한다."""

@@ -165,3 +165,151 @@ class TestFFmpegPipeline:
 
         assert status["state"] == "recording"
         assert status["is_recording"] is True
+
+
+class TestYtdlpLiveCookieFallback:
+    """TwitCasting 로그인 쿠키는 쿠키 없이 URL 추출에 실패했을 때만 쓴다.
+
+    지금 잘 되는 녹화 경로를 그대로 두면서, 로그인 전용 라이브만 한 번 더 시도한다.
+    """
+
+    LIVE_URL = "https://twitcasting.tv/someone"
+    LENT = "/tmp/tc_cookie_lent.txt"
+
+    @pytest.fixture
+    def pipeline(self, monkeypatch):
+        from unittest.mock import AsyncMock
+        from app.engine.pipeline import YtdlpLivePipeline
+        from app.engine.pipeline import ytdlp as ytdlp_module
+
+        monkeypatch.setattr("app.core.config.Settings.resolve_ffmpeg_path", lambda self: "ffmpeg")
+        monkeypatch.setattr(ytdlp_module, "ffmpeg_supports_extension_picky", lambda path: False)
+        pipeline = YtdlpLivePipeline(channel_id="someone")
+        monkeypatch.setattr(pipeline, "_watch_process", AsyncMock())
+        monkeypatch.setattr(pipeline, "_update_statistics_loop", AsyncMock())
+        return pipeline
+
+    @pytest.fixture
+    def ffmpeg_cmds(self, monkeypatch):
+        from unittest.mock import MagicMock
+
+        cmds = []
+
+        async def fake_exec(*cmd, **kwargs):
+            cmds.append(list(cmd))
+            return MagicMock()
+
+        monkeypatch.setattr("app.engine.pipeline.ytdlp.asyncio.create_subprocess_exec", fake_exec)
+        return cmds
+
+    async def _start(self, pipeline, tmp_path, fallback_cookie_file):
+        return await pipeline.start_recording(
+            stream_obj=self.LIVE_URL,
+            output_dir=str(tmp_path),
+            filename="live.ts",
+            fallback_cookie_file=fallback_cookie_file,
+        )
+
+    @pytest.mark.asyncio
+    async def test_success_never_uses_the_cookie(self, pipeline, ffmpeg_cmds, tmp_path, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        extract = AsyncMock(return_value=("https://hls.example/live.m3u8", {}, None))
+        monkeypatch.setattr(pipeline, "_extract_hls_url", extract)
+
+        await self._start(pipeline, tmp_path, self.LENT)
+
+        extract.assert_awaited_once()
+        assert extract.await_args.kwargs.get("cookie_file") is None
+        assert "-cookies" not in ffmpeg_cmds[0]
+
+    @pytest.mark.asyncio
+    async def test_failure_retries_once_with_the_cookie(self, pipeline, ffmpeg_cmds, tmp_path, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        extract = AsyncMock(side_effect=[
+            RuntimeError("yt-dlp URL 추출 실패 (code=1): ERROR: This video is only available for registered users"),
+            (
+                "https://hls.twitcasting.tv/live.m3u8",
+                {"Origin": "https://twitcasting.tv"},
+                "tc_ss=abc; Domain=.twitcasting.tv; Path=/; Secure; Expires=1790000000",
+            ),
+        ])
+        monkeypatch.setattr(pipeline, "_extract_hls_url", extract)
+
+        await self._start(pipeline, tmp_path, self.LENT)
+
+        assert extract.await_count == 2
+        assert extract.await_args_list[1].kwargs["cookie_file"] == self.LENT
+        cmd = ffmpeg_cmds[0]
+        # yt-dlp의 FFmpegFD처럼 스트림 주소에 맞는 쿠키만 ffmpeg에 넘긴다.
+        assert cmd[cmd.index("-cookies") + 1] == "tc_ss=abc; path=/; domain=.twitcasting.tv;\r\n"
+        assert cmd.index("-cookies") < cmd.index("-i")
+
+    @pytest.mark.asyncio
+    async def test_failure_without_cookie_is_raised(self, pipeline, ffmpeg_cmds, tmp_path, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        extract = AsyncMock(side_effect=RuntimeError("yt-dlp URL 추출 실패"))
+        monkeypatch.setattr(pipeline, "_extract_hls_url", extract)
+
+        with pytest.raises(RuntimeError):
+            await self._start(pipeline, tmp_path, None)
+
+        extract.assert_awaited_once()
+        assert pipeline.state == RecordingState.ERROR
+        assert ffmpeg_cmds == []
+
+    @pytest.mark.asyncio
+    async def test_cookie_retry_failure_is_raised(self, pipeline, ffmpeg_cmds, tmp_path, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        extract = AsyncMock(side_effect=[RuntimeError("first"), RuntimeError("second")])
+        monkeypatch.setattr(pipeline, "_extract_hls_url", extract)
+
+        with pytest.raises(RuntimeError, match="second"):
+            await self._start(pipeline, tmp_path, self.LENT)
+
+        assert pipeline.state == RecordingState.ERROR
+        assert ffmpeg_cmds == []
+
+    @pytest.mark.asyncio
+    async def test_extract_uses_the_lent_file_and_leaves_it(self, pipeline, tmp_path, monkeypatch):
+        """빌려받은 사본은 빌려준 쪽이 지운다. 여기서 지우면 재시도 때 쿠키가 사라진다."""
+        import json
+
+        lent = tmp_path / "lent.txt"
+        lent.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+        monkeypatch.setattr(
+            "app.core.config.Settings.resolve_ytdlp_path", lambda self, auto_download=False: "yt-dlp"
+        )
+        cmds = []
+        payload = {
+            "url": "https://hls.twitcasting.tv/live.m3u8",
+            "http_headers": {"Origin": "https://twitcasting.tv"},
+            "cookies": "tc_ss=abc; Domain=.twitcasting.tv; Path=/",
+        }
+
+        class FakeProc:
+            returncode = 0
+
+            async def communicate(self):
+                return json.dumps(payload).encode(), b""
+
+        async def fake_exec(*cmd, **kwargs):
+            cmds.append(list(cmd))
+            return FakeProc()
+
+        monkeypatch.setattr("app.engine.pipeline.ytdlp.asyncio.create_subprocess_exec", fake_exec)
+
+        url, headers, cookies = await pipeline._extract_hls_url(
+            self.LIVE_URL, "best", "NID_AUT=a; NID_SES=b", cookie_file=str(lent)
+        )
+
+        cmd = cmds[0]
+        assert cmd[cmd.index("--cookies") + 1] == str(lent)
+        assert cmd.count("--cookies") == 1
+        assert lent.exists()
+        assert url == payload["url"]
+        assert headers == payload["http_headers"]
+        assert cookies == payload["cookies"]

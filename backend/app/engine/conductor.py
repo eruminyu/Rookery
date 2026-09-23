@@ -21,6 +21,7 @@ from app.engine.downloader import ChzzkLiveEngine
 from app.engine.events import EventBus
 from app.engine.pipeline import YtdlpLivePipeline, RecordingState
 from app.engine.spaces_recorder import SpacesRecorder
+from app.engine.twitcasting import borrow_cookie_file
 from app.services.notifications import NotificationKind
 from app.store.repositories import ChannelRepository, LiveHistoryRepository
 
@@ -960,13 +961,16 @@ class Conductor:
             pipeline = YtdlpLivePipeline(channel_id=task.channel_id)
             task.pipeline = pipeline
 
-            await pipeline.start_recording(
-                stream_obj=live_url,
-                streamer_name=channel_name or task.channel_name,
-                title=title or task.title,
-                quality=quality,
-                cookie_str=cookie_str,
-            )
+            # URL 추출이 끝나면 사본은 필요 없다. 녹화 중인 ffmpeg는 쿠키 파일을 읽지 않는다.
+            with borrow_cookie_file(live_url) as fallback_cookie_file:
+                await pipeline.start_recording(
+                    stream_obj=live_url,
+                    streamer_name=channel_name or task.channel_name,
+                    title=title or task.title,
+                    quality=quality,
+                    cookie_str=cookie_str,
+                    fallback_cookie_file=fallback_cookie_file,
+                )
             logger.info(f"[{composite_key}] 자동 라이브 녹화 시작 (quality={quality}).")
 
             # ── 알림: 녹화 시작 (재시도 시엔 생략) ──

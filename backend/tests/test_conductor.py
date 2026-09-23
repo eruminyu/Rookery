@@ -322,3 +322,71 @@ class TestGlobalTagDeletion:
         assert conductor._channels[key_a].tags == ["게임", "저녁방송"]
         assert conductor._channels[key_b].tags == ["게임"]
 
+
+class TestTwitcastingRecordingCookie:
+    """녹화를 시작할 때 TwitCasting 채널에만 로그인 쿠키 사본을 빌려준다."""
+
+    COOKIES = (
+        "# Netscape HTTP Cookie File\n"
+        ".twitcasting.tv\tTRUE\t/\tTRUE\t1790000000\ttc_ss\tsession-value\n"
+    )
+
+    @pytest.fixture
+    def lent_cookies(self, tmp_path, monkeypatch):
+        """파이프라인이 받은 대체 쿠키 파일과 그 순간의 내용을 기록한다."""
+        from pathlib import Path
+        from app.core.config import get_settings
+
+        original = tmp_path / "twitcasting_cookies.txt"
+        original.write_text(self.COOKIES, encoding="utf-8")
+        get_settings().twitcasting_cookie_file = str(original)
+        seen = []
+
+        class FakePipeline:
+            def __init__(self, channel_id):
+                self.channel_id = channel_id
+
+            async def start_recording(self, **kwargs):
+                lent = kwargs.get("fallback_cookie_file")
+                seen.append((lent, Path(lent).read_text(encoding="utf-8") if lent else None))
+                return "live.ts"
+
+            def get_status(self):
+                # 상태 방송(_broadcast_status)이 부른다.
+                return {"is_recording": True, "state": "recording"}
+
+        monkeypatch.setattr("app.engine.conductor.YtdlpLivePipeline", FakePipeline)
+        return original, seen
+
+    async def _start(self, monkeypatch, platform, channel_id):
+        from unittest.mock import AsyncMock
+
+        conductor = Conductor()
+        monkeypatch.setattr(conductor, "_start_chat_archiver", AsyncMock())
+        conductor.add_channel(channel_id=channel_id, platform=platform)
+        key = Conductor.make_composite_key(platform, channel_id)
+        await conductor._start_recording(key, is_retry=True)
+        return conductor._channels[key]
+
+    @pytest.mark.asyncio
+    async def test_twitcasting_gets_a_lent_copy(self, lent_cookies, monkeypatch):
+        from pathlib import Path
+
+        original, seen = lent_cookies
+
+        task = await self._start(monkeypatch, Platform.TWITCASTING, "someone")
+
+        assert task.last_error is None
+        lent, content = seen[0]
+        assert lent is not None and lent != str(original)
+        assert content == self.COOKIES
+        assert not Path(lent).exists()
+
+    @pytest.mark.asyncio
+    async def test_chzzk_gets_nothing(self, lent_cookies, monkeypatch):
+        _, seen = lent_cookies
+
+        task = await self._start(monkeypatch, Platform.CHZZK, "abcdef0123456789abcdef0123456789")
+
+        assert task.last_error is None
+        assert seen == [(None, None)]

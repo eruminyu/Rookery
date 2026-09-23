@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 from app.core.config import get_settings
 from app.core.logger import logger
 from app.engine.auth import AuthManager
+from app.engine.twitcasting import borrow_cookie_file, explain_unplayable, is_twitcasting_url
 
 # ── yt-dlp DASH MPD 파서 멍키패치 ──────────────────────────────
 # 치지직 VOD(ABR_HLS 방식) 다운로드 시 Initialization의 sourceURL 및 SegmentURL의 media 속성이
@@ -51,6 +52,14 @@ if TYPE_CHECKING:
 
 class DownloadCancelledError(Exception):
     """다운로드 취소 예외."""
+
+
+class NonRetryableDownloadError(Exception):
+    """다시 시도해도 결과가 같은 실패. 메시지는 그대로 사용자에게 보여준다.
+
+    로그인 전용 영상처럼 권한 때문에 막힌 경우 재시도는 시간만 쓰고,
+    yt-dlp의 엉뚱한 오류 문구만 세 번 남긴다.
+    """
 
 
 class VodDownloadState(str, Enum):
@@ -177,8 +186,12 @@ class VodEngine:
         self,
         task: VodDownloadTask,
         progress_callback: Optional[Callable[[dict], None]] = None,
+        cookie_file: Optional[str] = None,
     ) -> dict[str, Any]:
-        """yt-dlp 옵션 딕셔너리를 구성한다."""
+        """yt-dlp 옵션 딕셔너리를 구성한다.
+
+        cookie_file은 빌려받은 임시 사본이어야 한다. yt-dlp가 끝날 때 이 파일을 다시 쓴다.
+        """
         settings = get_settings()
         ffmpeg_path = settings.resolve_ffmpeg_path()
         ffmpeg_dir = str(Path(ffmpeg_path).parent)
@@ -210,6 +223,9 @@ class VodEngine:
                         "Chrome/131.0.0.0 Safari/537.36"
                     ),
                 }
+
+        if cookie_file:
+            opts["cookiefile"] = cookie_file
 
         # X Spaces / Periscope CDN URL인 경우 오디오 전용 포맷 강제
         # pscp.tv는 오디오 전용 HLS — "best"로 요청하면 video+audio 조합 포맷을 찾다가
@@ -294,7 +310,10 @@ class VodEngine:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 return ydl.extract_info(url, download=False)
 
-        info: dict[str, Any] | None = await asyncio.to_thread(lambda: _extract())  # type: ignore[arg-type]
+        with borrow_cookie_file(url) as cookie_file:
+            if cookie_file:
+                opts["cookiefile"] = cookie_file
+            info: dict[str, Any] | None = await asyncio.to_thread(lambda: _extract())  # type: ignore[arg-type]
 
         if not info:
             raise ValueError(f"영상 정보를 가져올 수 없습니다: {url}")
@@ -418,6 +437,13 @@ class VodEngine:
                         logger.info(f"[{task_id}] 이벤트 루프 종료 중, 재시도 중단")
                         task.state = VodDownloadState.ERROR
                         task.error_message = error_msg
+                        return
+
+                    if isinstance(e, NonRetryableDownloadError):
+                        logger.error(f"[{task_id}] 다운로드 불가: {e}")
+                        task.error_message = error_msg
+                        task.state = VodDownloadState.ERROR
+                        self._save_history()
                         return
 
                     task.retry_count += 1
@@ -676,16 +702,32 @@ class VodEngine:
 
     async def _download_external(self, task_id: str, task: VodDownloadTask) -> None:
         """yt-dlp를 사용한 외부 URL(유튜브 등) 다운로드."""
+        # 메타데이터 추출부터 실제 다운로드까지 같은 쿠키 사본을 쓰고, 끝나면 지운다.
+        with borrow_cookie_file(task.url) as cookie_file:
+            await self._download_with_ytdlp(task_id, task, cookie_file)
+
+    async def _download_with_ytdlp(
+        self, task_id: str, task: VodDownloadTask, cookie_file: Optional[str]
+    ) -> None:
         import yt_dlp
 
         # 1. 메타데이터 추출
-        opts_info = self._build_ytdlp_options(task, progress_callback=None)
+        opts_info = self._build_ytdlp_options(task, progress_callback=None, cookie_file=cookie_file)
 
         def _extract_info() -> dict[str, Any] | None:
             with yt_dlp.YoutubeDL(opts_info) as ydl:
                 return ydl.extract_info(task.url, download=False)
 
-        info: dict[str, Any] | None = await asyncio.to_thread(lambda: _extract_info())  # type: ignore[arg-type]
+        try:
+            info: dict[str, Any] | None = await asyncio.to_thread(lambda: _extract_info())  # type: ignore[arg-type]
+        except Exception as e:
+            if is_twitcasting_url(task.url):
+                reason = await explain_unplayable(
+                    task.url, str(e), has_cookies=cookie_file is not None
+                )
+                if reason:
+                    raise NonRetryableDownloadError(reason) from e
+            raise
 
         if not info:
             raise RuntimeError("영상 정보를 가져올 수 없습니다.")
@@ -704,6 +746,7 @@ class VodEngine:
         opts = self._build_ytdlp_options(
             task,
             progress_callback=self._make_progress_callback(task),
+            cookie_file=cookie_file,
         )
 
         def _download() -> str | None:
