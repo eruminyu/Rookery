@@ -1,5 +1,23 @@
 # 작업 체크리스트
 
+## v2.0.8 로그인 전용 TwitCasting 아카이브 처리·릴리즈 준비 (2026-09-24)
+
+- [x] 로그인 전용 아카이브 페이지에 영상 주소 대신 `Login required to watch` 안내만 있는 것 확인
+- [x] yt-dlp가 `Failed to get m3u8 playlist`로 끝날 때만 페이지를 받아 차단 이유 판별
+- [x] 로그인 전용·비밀번호 영상은 재시도 없이 한국어 이유를 남기고 실패 처리
+- [x] 네트워크 오류 등 다른 실패는 기존처럼 재시도하는지 테스트로 확인
+- [x] 실제 로그인 전용 아카이브로 확인: 1회 시도·약 1.6초 만에 이유 표시 (이전: 3회 재시도 후 yt-dlp 버그 제보 문구)
+- [x] 백엔드·npm 패키지·lockfile·CHANGELOG·README 버전을 `2.0.8`로 통일
+- [x] 백엔드 전체 테스트 통과 (`272 passed, 29 skipped`)
+- [x] 프런트엔드 TypeScript 검사와 프로덕션 빌드 통과
+- [x] PyInstaller Windows one-file 실행 파일 빌드 통과
+- [x] 빈 폴더에서 실행 파일의 헬스 API·최초 설정 상태·내장 SPA·정적 파일 확인
+- [x] 실행 파일의 `FileVersion`·`ProductVersion`이 `2.0.8`인지 확인
+
+빌드 산출물: `dist/Rookery.exe` (37,922,532 bytes)
+
+SHA-256: `562308081299F0800AC397EB97B358F19C43F2917D9FDF3E37FF004C38AB3399`
+
 ## v2.0.6 대시보드 플랫폼 메뉴 수정·릴리즈 준비 (2026-09-05)
 
 - [x] `PageHeader`의 `overflow-hidden`이 플랫폼 목록을 자르는 원인 확인

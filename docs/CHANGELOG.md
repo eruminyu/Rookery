@@ -10,6 +10,18 @@
 
 ---
 
+## [2.0.8] - 2026-09-24
+
+### Fixed
+- **로그인 전용 TwitCasting 아카이브의 엉뚱한 오류와 헛된 재시도** — 로그인한 사용자만
+  볼 수 있는 아카이브는 yt-dlp가 "m3u8 재생 목록을 가져오지 못했다, 버그를 제보하라"는
+  오류로 끝나, 원인을 알 수 없는 채 세 번 재시도했다. 이제 영상 페이지의 안내 문구로
+  원인을 확인해 "로그인한 사용자만 볼 수 있는 TwitCasting 영상이라 받을 수 없습니다"로
+  알리고 바로 멈춘다. 비밀번호가 걸린 영상도 재시도 없이 알린다.
+  네트워크 오류처럼 다시 시도하면 풀릴 수 있는 실패는 지금처럼 재시도한다.
+
+---
+
 ## [2.0.7] - 2026-09-21
 
 ### Fixed
@@ -337,7 +349,8 @@
 
 ---
 
-[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.7...HEAD
+[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.8...HEAD
+[2.0.8]: https://github.com/eruminyu/Rookery/compare/v2.0.7...v2.0.8
 [2.0.7]: https://github.com/eruminyu/Rookery/compare/v2.0.6...v2.0.7
 [2.0.6]: https://github.com/eruminyu/Rookery/compare/v2.0.5...v2.0.6
 [2.0.5]: https://github.com/eruminyu/Rookery/compare/v2.0.4...v2.0.5
