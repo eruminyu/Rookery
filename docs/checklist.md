@@ -1,6 +1,6 @@
 # 작업 체크리스트
 
-## VOD 재시도 슬롯 교착 수정 (2026-09-24)
+## v2.0.9 VOD 재시도 슬롯 교착 수정·릴리즈 준비 (2026-09-26)
 
 - [x] 재시도가 세마포어 슬롯을 쥔 채 재귀하며 슬롯을 하나 더 얻으려는 원인 확인 (`asyncio.Semaphore`는 재진입 불가)
 - [x] 실패 테스트 먼저 작성: 동시 개수 1에서 혼자 실패, 기본값 3에서 세 작업이 한꺼번에 실패 (수정 전 둘 다 5초 타임아웃)
@@ -9,6 +9,14 @@
 - [x] `test_other_failures_still_retry`에서 동시 개수를 3으로 올려 두던 우회 코드 제거
 - [x] 백엔드 전체 테스트 통과 (`274 passed, 29 skipped`, 기준선 대비 새 테스트 2개)
 - [x] 프런트엔드 TypeScript 검사와 프로덕션 빌드 통과
+- [x] 백엔드·npm 패키지·lockfile·CHANGELOG·README 버전을 `2.0.9`로 통일, 테스트 기준선을 `274 passed`로 갱신
+- [x] PyInstaller Windows one-file 실행 파일 빌드 통과
+- [x] 빈 폴더에서 실행 파일의 헬스 API(`version 2.0.9`)·최초 설정 상태·내장 SPA·정적 파일·SPA 폴백 확인, 첫 실행에서 `bin/yt-dlp.exe` 자동 설치 확인
+- [x] 실행 파일의 `FileVersion`·`ProductVersion`이 `2.0.9`인지 확인
+
+빌드 산출물: `dist/Rookery.exe` (37,924,356 bytes)
+
+SHA-256: `FE9EF4CB10F5EC1552D3B44DC3A0EACA13D8BB3C55D09F25442F0009B5F73F65`
 
 ## v2.0.8 로그인 전용 TwitCasting 아카이브 처리·릴리즈 준비 (2026-09-24)
 
