@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+---
+
+## [2.0.10] - 2026-10-26
+
 ### Added
 - **VOD 다운로드 오류 원인 진단 팝업 및 실시간 알림** — 다운로드가 실패하면 서버 로그를 열지 않아도 화면에서 바로 원인을 확인할 수 있는 진단 팝업 모달(`VodErrorModal`)이 자동으로 열리고 토스트·알림 센터에 기록된다. 인증/권한 필요, 비공개/삭제, 스트림/포맷 오류, 네트워크 지연, FFmpeg/저장소 오류를 자동 분류해 해결 방법과 원본 오류 복사·즉시 재시도·인증 설정 이동 버튼을 제공한다.
 - **VOD 다운로드 화면 화질 선택기** — URL 입력창 옆에서 화질(`best`, `1080p`, `720p`, `480p`)을 바로 고를 수 있고, 설정의 기본 화질(`vod_default_quality`)이 초기값으로 반영된다.
@@ -369,7 +373,8 @@
 
 ---
 
-[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.9...HEAD
+[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.10...HEAD
+[2.0.10]: https://github.com/eruminyu/Rookery/compare/v2.0.9...v2.0.10
 [2.0.9]: https://github.com/eruminyu/Rookery/compare/v2.0.8...v2.0.9
 [2.0.8]: https://github.com/eruminyu/Rookery/compare/v2.0.7...v2.0.8
 [2.0.7]: https://github.com/eruminyu/Rookery/compare/v2.0.6...v2.0.7
