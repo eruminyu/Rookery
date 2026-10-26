@@ -37,6 +37,37 @@ class TestChzzkCookies:
         with pytest.raises(AttributeError):
             cookies.nid_aut = "modified"  # type: ignore[misc]
 
+    def test_to_netscape_string_and_reusable_cookie_stream(self):
+        """yt-dlp cookiefile용 Netscape 포맷 및 다중 컨텍스트 재사용 검증"""
+        import yt_dlp
+
+        cookies = ChzzkCookies(nid_aut="test_aut", nid_ses="test_ses")
+        netscape = cookies.to_netscape_string()
+        assert netscape.startswith("# Netscape HTTP Cookie File\n")
+        assert ".naver.com\tTRUE\t/\tTRUE\t0\tNID_AUT\ttest_aut" in netscape
+        assert ".naver.com\tTRUE\t/\tTRUE\t0\tNID_SES\ttest_ses" in netscape
+
+        stream = cookies.to_cookie_stream()
+        opts = {"quiet": True, "no_warnings": True, "cookiefile": stream}
+        # 메타데이터 조회와 파일명 준비 등 여러 YoutubeDL 컨텍스트에서 재사용해도 쿠키가 유지되어야 한다.
+        for _ in range(2):
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                header = ydl.cookiejar.get_cookie_header("https://api.chzzk.naver.com/service/v3/videos/1")
+                assert "NID_AUT=test_aut" in header
+                assert "NID_SES=test_ses" in header
+
+
+def test_classify_stderr_deprecated_feature_as_warning():
+    """yt-dlp의 Deprecated Feature 메시지는 ERROR가 아닌 WARNING으로 분류되어야 한다."""
+    import logging
+    from app.core.logger import _classify_stderr_line
+
+    level, body = _classify_stderr_line(
+        "Deprecated Feature: Passing cookies as a header is a potential security risk"
+    )
+    assert level == logging.WARNING
+    assert "Passing cookies as a header" in body
+
 
 class TestAuthManager:
     """AuthManager 클래스 테스트"""

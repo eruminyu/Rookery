@@ -8,6 +8,15 @@
 
 ## [Unreleased]
 
+### Added
+- **VOD 다운로드 오류 원인 진단 팝업 및 실시간 알림** — 다운로드가 실패하면 서버 로그를 열지 않아도 화면에서 바로 원인을 확인할 수 있는 진단 팝업 모달(`VodErrorModal`)이 자동으로 열리고 토스트·알림 센터에 기록된다. 인증/권한 필요, 비공개/삭제, 스트림/포맷 오류, 네트워크 지연, FFmpeg/저장소 오류를 자동 분류해 해결 방법과 원본 오류 복사·즉시 재시도·인증 설정 이동 버튼을 제공한다.
+- **VOD 다운로드 화면 화질 선택기** — URL 입력창 옆에서 화질(`best`, `1080p`, `720p`, `480p`)을 바로 고를 수 있고, 설정의 기본 화질(`vod_default_quality`)이 초기값으로 반영된다.
+
+### Fixed
+- **인코딩 전 치지직 VOD(`liveRewindPlaybackJson`) HLS 다운로드 실패 수정** — 첫 세그먼트 앞의 `#EXT-X-MAP` 뒤에 `#EXT-X-DISCONTINUITY`와 동일한 초기화 헤더를 가리키는 중복 `#EXT-X-MAP`이 다시 나올 때 `yt-dlp` 내장 HLS 다운로더가 `Initialization fragment found after media fragments, unable to download` 오류로 중단하던 문제를 수정했다.
+- **치지직 VOD 쿠키 헤더 보안 경고(`Deprecated Feature`) 제거** — `http_headers["Cookie"]` 대신 재사용 가능한 Netscape 쿠키 스트림(`cookiefile`)으로 `.naver.com` 쿠키를 전달해 경고 로그가 `ERROR`로 찍히던 문제와 네온플레이어 도메인 쿠키 누락을 함께 해결했다.
+- **치지직 성인 인증·삭제·비공개 영상의 헛된 재시도 방지 및 클립 재시도 URL 복원** — 성인 인증이나 권한이 필요한 치지직 VOD·클립은 3회 재시도 없이 한국어 사유를 바로 알리고, 클립 다운로드 실패 후 재시도할 때 만료된 임시 재생 URL 대신 원래 클립 주소로 다시 요청하도록 고쳤다.
+
 ---
 
 ## [2.0.9] - 2026-09-26

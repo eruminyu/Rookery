@@ -12,10 +12,11 @@ from pathlib import Path
 
 
 # stderr에 찍히는 줄에서 레벨을 읽어내기 위한 접두어.
-# yt-dlp가 "WARNING: ...", "ERROR: ..." 꼴로 쓰고 여러 라이브러리가 같은 관습을 따른다.
+# yt-dlp가 "WARNING: ...", "ERROR: ...", "Deprecated Feature: ..." 꼴로 쓰고 여러 라이브러리가 같은 관습을 따른다.
 _LEVEL_PREFIXES: tuple[tuple[str, int], ...] = (
     ("CRITICAL:", logging.CRITICAL),
     ("WARNING:", logging.WARNING),
+    ("DEPRECATED FEATURE:", logging.WARNING),
     ("ERROR:", logging.ERROR),
     ("DEBUG:", logging.DEBUG),
     ("INFO:", logging.INFO),

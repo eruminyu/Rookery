@@ -5,12 +5,29 @@ Rookery: 인증 관리 모듈 (Auth Manager)
 
 from __future__ import annotations
 
+import io
 from dataclasses import dataclass
 from typing import Optional
 
 from app.core.config import get_settings
 from app.core.http import USER_AGENT
 from app.core.logger import logger
+
+
+class _ReusableCookieStream(io.StringIO):
+    """여러 YoutubeDL 컨텍스트에서 재사용해도 항상 처음부터 읽히는 쿠키 스트림.
+
+    yt-dlp는 컨텍스트가 끝날 때 save()로 cookiefile에 truncate(0)만 호출하고
+    커서를 0으로 되돌리지 않으므로, 재사용 시 처음부터 읽고 쓰도록 보정한다.
+    """
+
+    def truncate(self, size: int | None = None) -> int:
+        self.seek(0)
+        return super().truncate(size)
+
+    def __iter__(self):
+        self.seek(0)
+        return super().__iter__()
 
 
 @dataclass(frozen=True)
@@ -27,6 +44,22 @@ class ChzzkCookies:
     def to_dict(self) -> dict[str, str]:
         """딕셔너리 형태로 반환."""
         return {"NID_AUT": self.nid_aut, "NID_SES": self.nid_ses}
+
+    def to_netscape_string(self) -> str:
+        """yt-dlp cookiefile(StringIO)용 Netscape HTTP Cookie File 문자열 반환.
+
+        HTTP 헤더로 Cookie를 넘기면 yt-dlp가 보안 경고를 내고 다운로드 URL 도메인으로만
+        범위를 좁히므로, 치지직 API·네온플레이어가 함께 쓰는 .naver.com 도메인으로 전달한다.
+        """
+        return (
+            "# Netscape HTTP Cookie File\n"
+            f".naver.com\tTRUE\t/\tTRUE\t0\tNID_AUT\t{self.nid_aut}\n"
+            f".naver.com\tTRUE\t/\tTRUE\t0\tNID_SES\t{self.nid_ses}\n"
+        )
+
+    def to_cookie_stream(self) -> io.StringIO:
+        """yt-dlp cookiefile 옵션에 바로 넘길 수 있는 메모리 쿠키 스트림 반환."""
+        return _ReusableCookieStream(self.to_netscape_string())
 
 
 class AuthManager:

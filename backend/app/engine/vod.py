@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import threading
 import uuid
 from dataclasses import dataclass, field
@@ -16,7 +17,10 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+import httpx
+
 from app.core.config import get_settings
+from app.core.http import USER_AGENT, get_http_client
 from app.core.logger import logger
 from app.engine.auth import AuthManager
 from app.engine.twitcasting import borrow_cookie_file, explain_unplayable, is_twitcasting_url
@@ -43,6 +47,121 @@ try:
 except Exception as e:
     logger.error(f"❌ yt-dlp DASH MPD 파서 멍키패치 적용 실패: {e}")
 
+
+# ── yt-dlp HLS 다운로더(HlsFD) #EXT-X-MAP 중복 선언 방어 패치 ──
+# 인코딩 전 치지직 다시보기(liveRewindPlaybackJson 기반 fMP4 HLS)는 첫 세그먼트 앞에
+# #EXT-X-MAP을 선언한 뒤, #EXT-X-DISCONTINUITY 직후 동일한 초기화 헤더를 가리키는
+# #EXT-X-MAP을 한 번 더 내보낸다. yt-dlp 기본 HlsFD는 미디어 세그먼트 뒤에 #EXT-X-MAP이
+# 나오면 무조건 "Initialization fragment found after media fragments" 오류로 중단하므로,
+# 초기 #EXT-X-MAP이 이미 존재하는 스트림에서는 뒤따르는 중복 선언을 제거해 네이티브
+# 다운로더(진행률·일시정지·취소 훅 유지)가 끊기지 않고 받도록 보정한다.
+def _dedupe_hls_init_maps(manifest: str) -> str:
+    """초기 #EXT-X-MAP이 이미 선언된 HLS 매니페스트에서 이후 중복 #EXT-X-MAP 줄을 제거한다."""
+    seen_init_map = False
+    seen_media_frag = False
+    out_lines: list[str] = []
+    for line in manifest.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#EXT-X-MAP"):
+            if not seen_init_map and not seen_media_frag:
+                seen_init_map = True
+                out_lines.append(line)
+            elif seen_init_map:
+                # 이미 첫 세그먼트 전에 초기화 프래그먼트가 선언되었으므로 중복 태그를 건너뛴다.
+                continue
+            else:
+                out_lines.append(line)
+        else:
+            if stripped and not stripped.startswith("#"):
+                seen_media_frag = True
+            out_lines.append(line)
+    return "\n".join(out_lines)
+
+
+def _has_late_only_hls_init_map(manifest: str) -> bool:
+    """초기 #EXT-X-MAP 없이 미디어 세그먼트 뒤에만 #EXT-X-MAP이 등장하는지 판별한다."""
+    seen_init_map = False
+    seen_media_frag = False
+    for line in manifest.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#EXT-X-MAP"):
+            if not seen_media_frag:
+                seen_init_map = True
+            elif not seen_init_map:
+                return True
+        elif not stripped.startswith("#"):
+            seen_media_frag = True
+    return False
+
+
+try:
+    import yt_dlp.downloader.hls as _ytdlp_hls
+
+    _original_hls_can_download = _ytdlp_hls.HlsFD.can_download
+    _original_hls_real_download = _ytdlp_hls.HlsFD.real_download
+
+    @classmethod  # type: ignore[misc]
+    def _patched_hls_can_download(cls, manifest, info_dict, allow_unplayable_formats=False):
+        if isinstance(manifest, str) and _has_late_only_hls_init_map(manifest):
+            # 초기 헤더 없이 중간부터 초기화 세그먼트가 바뀌는 스트림은 FFmpegFD로 위임한다.
+            return False
+        cleaned = _dedupe_hls_init_maps(manifest) if isinstance(manifest, str) else manifest
+        return _original_hls_can_download(cleaned, info_dict, allow_unplayable_formats)
+
+    class _DedupedManifestUrlh:
+        """HlsFD가 매니페스트를 읽을 때 중복 #EXT-X-MAP 줄을 정리하는 응답 래퍼."""
+
+        def __init__(self, urlh: Any) -> None:
+            self._urlh = urlh
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._urlh, name)
+
+        def read(self, *args: Any, **kwargs: Any) -> Any:
+            data = self._urlh.read(*args, **kwargs)
+            if (
+                isinstance(data, bytes)
+                and data.lstrip().startswith(b"#EXTM3U")
+                and b"#EXT-X-MAP" in data
+            ):
+                text = data.decode("utf-8", "ignore")
+                if not _has_late_only_hls_init_map(text):
+                    return _dedupe_hls_init_maps(text).encode("utf-8")
+            return data
+
+    def _patched_hls_real_download(self, filename, info_dict):
+        if (
+            isinstance(info_dict, dict)
+            and isinstance(info_dict.get("hls_media_playlist_data"), str)
+            and "#EXT-X-MAP" in info_dict["hls_media_playlist_data"]
+            and not _has_late_only_hls_init_map(info_dict["hls_media_playlist_data"])
+        ):
+            info_dict = {
+                **info_dict,
+                "hls_media_playlist_data": _dedupe_hls_init_maps(
+                    info_dict["hls_media_playlist_data"]
+                ),
+            }
+
+        orig_urlopen = self.ydl.urlopen
+
+        def _wrapped_urlopen(req):
+            return _DedupedManifestUrlh(orig_urlopen(req))
+
+        self.ydl.urlopen = _wrapped_urlopen
+        try:
+            return _original_hls_real_download(self, filename, info_dict)
+        finally:
+            self.ydl.urlopen = orig_urlopen
+
+    _ytdlp_hls.HlsFD.can_download = _patched_hls_can_download
+    _ytdlp_hls.HlsFD.real_download = _patched_hls_real_download
+    logger.info("✅ yt-dlp HLS #EXT-X-MAP 중복 방어 패치 적용 완료")
+except Exception as e:
+    logger.error(f"❌ yt-dlp HLS #EXT-X-MAP 중복 방어 패치 적용 실패: {e}")
+
 from app.services.notifications import NotificationKind
 from app.store.repositories import VodRepository
 
@@ -60,6 +179,101 @@ class NonRetryableDownloadError(Exception):
     로그인 전용 영상처럼 권한 때문에 막힌 경우 재시도는 시간만 쓰고,
     yt-dlp의 엉뚱한 오류 문구만 세 번 남긴다.
     """
+
+
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
+_CHZZK_VIDEO_RE = re.compile(r"chzzk\.naver\.com/video/(\d+)")
+
+
+def _strip_ansi(text: str) -> str:
+    """yt-dlp 예외 메시지에 섞여 들어올 수 있는 ANSI 색상 이스케이프 코드를 제거한다."""
+    return _ANSI_ESCAPE_RE.sub("", text).strip()
+
+
+async def explain_chzzk_unplayable(
+    url: str,
+    error: str,
+    headers: dict[str, str],
+    has_cookies: bool,
+) -> Optional[str]:
+    """치지직 VOD가 성인 인증·삭제·비공개 등으로 영구 재생 불가일 때 한국어 사유를 반환한다.
+
+    일시적 네트워크 오류는 재시도로 복구될 수 있으므로 None을 돌려준다.
+    """
+    clean_err = _strip_ansi(error)
+    lower_err = clean_err.lower()
+
+    if "adult video is only available" in lower_err or (
+        "adult" in lower_err and "only available" in lower_err
+    ):
+        if has_cookies:
+            return (
+                "성인 인증(연령 제한)이 필요한 치지직 VOD입니다. "
+                "등록된 쿠키가 만료되었거나 성인 인증이 안 된 계정일 수 있으니 "
+                "[설정 → 인증]에서 치지직 쿠키(NID_AUT, NID_SES)를 갱신해 주세요."
+            )
+        return (
+            "성인 인증(로그인)이 필요한 치지직 VOD입니다. "
+            "[설정 → 인증]에서 치지직 쿠키(NID_AUT, NID_SES)를 등록해 주세요."
+        )
+
+    if "http error 404" in lower_err:
+        return "삭제되었거나 존재하지 않는 치지직 VOD입니다."
+
+    if "http error 403" in lower_err or "http error 401" in lower_err:
+        return "비공개이거나 접근 권한(구독자 전용 등)이 필요한 치지직 VOD라 다운로드할 수 없습니다."
+
+    match = _CHZZK_VIDEO_RE.search(url)
+    if not match:
+        return None
+
+    # 타임아웃·연결 끊김 등 일시적 네트워크 실패는 재시도하도록 그대로 둔다.
+    if any(k in lower_err for k in ("timed out", "timeout", "connection reset", "temporary failure")):
+        return None
+
+    video_no = match.group(1)
+    api_url = f"https://api.chzzk.naver.com/service/v3/videos/{video_no}"
+    try:
+        resp = await get_http_client().get(api_url, headers=headers)
+    except httpx.HTTPError:
+        return None
+
+    if resp.status_code == 404:
+        return "삭제되었거나 존재하지 않는 치지직 VOD입니다."
+    if resp.status_code in (401, 403):
+        return "비공개이거나 접근 권한(구독자 전용 등)이 필요한 치지직 VOD라 다운로드할 수 없습니다."
+    if resp.status_code != 200:
+        return None
+
+    try:
+        data = resp.json()
+    except Exception:
+        return None
+
+    content = data.get("content")
+    if not content:
+        return "삭제되었거나 존재하지 않는 치지직 VOD입니다."
+
+    has_stream = bool(content.get("inKey") or content.get("liveRewindPlaybackJson"))
+    if content.get("adult") and not has_stream:
+        if has_cookies:
+            return (
+                "성인 인증(연령 제한)이 필요한 치지직 VOD입니다. "
+                "등록된 쿠키가 만료되었거나 성인 인증이 안 된 계정일 수 있으니 "
+                "[설정 → 인증]에서 치지직 쿠키(NID_AUT, NID_SES)를 갱신해 주세요."
+            )
+        return (
+            "성인 인증(로그인)이 필요한 치지직 VOD입니다. "
+            "[설정 → 인증]에서 치지직 쿠키(NID_AUT, NID_SES)를 등록해 주세요."
+        )
+
+    if content.get("blindType") and not has_stream:
+        return "블라인드(비공개) 처리된 치지직 VOD라 다운로드할 수 없습니다."
+
+    if content.get("vodStatus") == "NONE" and not has_stream:
+        return "치지직 서버에서 아직 다시보기 스트림을 준비 중인 영상입니다. 잠시 후 다시 시도해 주세요."
+
+    return None
 
 
 class VodDownloadState(str, Enum):
@@ -174,9 +388,18 @@ class VodEngine:
         first_task = next(iter(self._tasks.values()))
         return first_task.progress
 
+    # 프론트엔드 화질 프리셋(best, 1080p, 720p, 480p)을 yt-dlp 포맷 셀렉터로 변환한다.
+    # 사용자가 직접 format_id를 지정한 경우에는 그대로 통과시킨다.
+    _QUALITY_MAP: dict[str, str] = {
+        "best": "best",
+        "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
+        "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
+        "480p": "bestvideo[height<=480]+bestaudio/best[height<=480]/best",
+    }
+
     def _is_chzzk_url(self, url: str) -> bool:
-        """치지직 URL인지 확인."""
-        return "chzzk.naver.com" in url
+        """치지직 URL(또는 클립 재생용 네이버 네온플레이어 URL)인지 확인."""
+        return "chzzk.naver.com" in url or "apis.naver.com/neonplayer/" in url
 
     def _is_x_spaces_url(self, url: str) -> bool:
         """X Spaces / Periscope CDN URL인지 확인."""
@@ -197,7 +420,7 @@ class VodEngine:
         ffmpeg_dir = str(Path(ffmpeg_path).parent)
 
         opts: dict[str, Any] = {
-            "format": task.quality,
+            "format": self._QUALITY_MAP.get(task.quality, task.quality),
             # 제목이 같아도 다른 영상이면 기존 파일로 오인해 건너뛰지 않도록 구분한다.
             "outtmpl": str(
                 Path(task.output_dir)
@@ -205,24 +428,24 @@ class VodEngine:
             ),
             "merge_output_format": settings.vod_format,
             "ffmpeg_location": ffmpeg_dir,
+            # 장시간 다시보기에서 개별 HLS/DASH 세그먼트가 일시 지연되어도 작업 전체가
+            # 바로 깨지지 않도록 세그먼트 단위 재시도와 소켓 타임아웃을 지정한다.
+            "retries": 5,
+            "fragment_retries": 5,
+            "socket_timeout": 30,
             "no_warnings": True,
             "quiet": True,
             "no_color": True,
         }
 
-        # 치지직 URL인 경우에만 인증 쿠키 주입
+        # 치지직 URL인 경우에만 User-Agent 및 인증 쿠키 주입
         if self._is_chzzk_url(task.url):
+            opts["http_headers"] = {"User-Agent": USER_AGENT}
             cookies = self._auth.get_cookies()
-            if cookies:
-                # yt-dlp에 쿠키를 전달하는 방법: http_headers를 통한 Cookie 헤더
-                opts["http_headers"] = {
-                    "Cookie": cookies.to_cookie_string(),
-                    "User-Agent": (
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/131.0.0.0 Safari/537.36"
-                    ),
-                }
+            if cookies and not cookie_file:
+                # HTTP 헤더로 Cookie를 넘기면 yt-dlp가 보안 경고를 내고 다운로드 URL
+                # 도메인으로만 쿠키 범위를 좁히므로, Netscape 쿠키 스트림으로 전달한다.
+                opts["cookiefile"] = cookies.to_cookie_stream()
 
         if cookie_file:
             opts["cookiefile"] = cookie_file
@@ -299,11 +522,12 @@ class VodEngine:
             "extract_flat": False,
         }
 
-        # 치지직 URL인 경우에만 쿠키 주입
+        # 치지직 URL인 경우에만 User-Agent 및 인증 쿠키 주입
         if self._is_chzzk_url(url):
+            opts["http_headers"] = {"User-Agent": USER_AGENT}
             cookies = self._auth.get_cookies()
             if cookies:
-                opts["http_headers"] = {"Cookie": cookies.to_cookie_string()}
+                opts["cookiefile"] = cookies.to_cookie_stream()
 
         def _extract() -> dict[str, Any] | None:
             import yt_dlp
@@ -434,6 +658,7 @@ class VodEngine:
         except DownloadCancelledError:
             task.state = VodDownloadState.IDLE
             task.progress = 0.0
+            self._cleanup_part_file(task)
             logger.info(f"[{task_id}] 다운로드 취소됨: {task.url}")
 
         except asyncio.CancelledError:
@@ -448,11 +673,11 @@ class VodEngine:
             if task.cancel_flag:
                 task.state = VodDownloadState.IDLE
                 task.progress = 0.0
+                self._cleanup_part_file(task)
                 logger.info(f"[{task_id}] 다운로드 취소됨 (예외 처리): {task.url}")
             else:
                 import traceback
-                tb_str = traceback.format_exc()
-                error_msg = str(e)
+                error_msg = _strip_ansi(str(e))
 
                 # 이벤트 루프가 종료 중이면 재시도하지 않음
                 loop = asyncio.get_event_loop()
@@ -463,10 +688,17 @@ class VodEngine:
                     return False
 
                 if isinstance(e, NonRetryableDownloadError):
-                    logger.error(f"[{task_id}] 다운로드 불가: {e}")
+                    logger.error(f"[{task_id}] 다운로드 불가: {error_msg}")
                     task.error_message = error_msg
                     task.state = VodDownloadState.ERROR
                     self._save_history()
+                    self._notify(
+                        NotificationKind.VOD_FAILED,
+                        title="❌ VOD 다운로드 실패",
+                        description=f"제목: **{task.title if task.title != 'Unknown' else task.url}**",
+                        color="red",
+                        fields={"오류": task.error_message},
+                    )
                     return False
 
                 task.retry_count += 1
@@ -474,21 +706,37 @@ class VodEngine:
                 # 재시도 가능 여부 확인
                 if task.retry_count < task.max_retries:
                     logger.warning(
-                        f"[{task_id}] 다운로드 실패 (재시도 {task.retry_count}/{task.max_retries}): {e}"
+                        f"[{task_id}] 다운로드 실패 (재시도 {task.retry_count}/{task.max_retries}): {error_msg}"
                     )
-                    task.error_message = f"재시도 중... ({task.retry_count}/{task.max_retries}): {str(e)}"
+                    task.error_message = f"재시도 중... ({task.retry_count}/{task.max_retries}): {error_msg}"
                     return True
                 else:
                     # 최대 재시도 횟수 초과
-                    logger.error(f"[{task_id}] 최대 재시도 횟수 초과: {e}")
+                    logger.error(f"[{task_id}] 최대 재시도 횟수 초과: {error_msg}")
                     logger.error(f"[{task_id}] 상세 트레이스:\n{traceback.format_exc()}")
 
-                    task.error_message = f"재시도 {task.max_retries}회 실패: {str(e)}"
+                    task.error_message = f"재시도 {task.max_retries}회 실패: {error_msg}"
                     task.state = VodDownloadState.ERROR
-                    # 에러 발생 시 이력 저장
+                    # 에러 발생 시 이력 저장 및 실패 알림 발송
                     self._save_history()
+                    self._notify(
+                        NotificationKind.VOD_FAILED,
+                        title="❌ VOD 다운로드 실패",
+                        description=f"제목: **{task.title if task.title != 'Unknown' else task.url}**",
+                        color="red",
+                        fields={"오류": task.error_message},
+                    )
 
         return False
+
+    def _cleanup_part_file(self, task: VodDownloadTask) -> None:
+        """취소 시 keep_download_parts 설정이 꺼져 있으면 미완료 .part 파일을 정리한다."""
+        if get_settings().keep_download_parts or not task.expected_part_file:
+            return
+        try:
+            Path(task.expected_part_file).unlink(missing_ok=True)
+        except OSError:
+            pass
 
     async def _download_clip(self, task_id: str, task: VodDownloadTask) -> None:
         """치지직 클립 전용 다운로드.
@@ -500,13 +748,12 @@ class VodEngine:
         1. ABR_HLS: videoId(해시) + inKey → MPD URL → yt-dlp
         2. HLS: liveRewindPlaybackJson → HLS path → yt-dlp
         """
-        import re
         import json as _json
-        import httpx
 
-        match = re.search(r"/clips/([^/?#]+)", task.url)
+        original_url = task.url
+        match = re.search(r"/clips/([^/?#]+)", original_url)
         if not match:
-            raise RuntimeError(f"클립 URL 파싱 실패: {task.url}")
+            raise RuntimeError(f"클립 URL 파싱 실패: {original_url}")
 
         clip_id = match.group(1)
         api_url = f"https://api.chzzk.naver.com/service/v1/play-info/clip/{clip_id}"
@@ -514,10 +761,22 @@ class VodEngine:
 
         async with httpx.AsyncClient() as client:
             resp = await client.get(api_url, headers=headers, timeout=10.0)
+            if resp.status_code == 404:
+                raise NonRetryableDownloadError("삭제되었거나 존재하지 않는 치지직 클립입니다.")
+            if resp.status_code in (401, 403):
+                raise NonRetryableDownloadError(
+                    "성인 인증 또는 접근 권한이 필요한 치지직 클립입니다. [설정 → 인증]에서 치지직 쿠키를 확인해 주세요."
+                )
             resp.raise_for_status()
             data = resp.json()
 
         content = data.get("content") or {}
+        if content.get("adult") and not (
+            content.get("inKey") or content.get("liveRewindPlaybackJson") or content.get("playbackJson")
+        ):
+            raise NonRetryableDownloadError(
+                "성인 인증(로그인)이 필요한 치지직 클립입니다. [설정 → 인증]에서 치지직 쿠키(NID_AUT, NID_SES)를 등록해 주세요."
+            )
 
         # 클립 제목 · 채널명 추출
         clip_title = content.get("contentTitle") or "Unknown Clip"
@@ -533,38 +792,42 @@ class VodEngine:
         task.title = f"[{safe_channel}] {safe_title}"
         logger.info(f"[{task_id}] 클립 메타: channel={channel_name!r}, title={clip_title!r}")
 
-        # 방법 1: ABR_HLS (videoId 해시 + inKey → MPD URL)
-        video_id = content.get("videoId")
-        in_key = content.get("inKey")
-        if video_id and in_key:
-            playback_url = (
-                f"https://apis.naver.com/neonplayer/vodplay/v1/playback/{video_id}"
-                f"?key={in_key}&env=real&lc=en_US&cpl=en_US"
-            )
-            logger.info(f"[{task_id}] 클립 ABR_HLS 재생 URL 사용: {playback_url[:80]}...")
-            task.url = playback_url
-            await self._download_external(task_id, task)
-            # _download_external이 task.title을 yt-dlp 메타로 덮어쓰므로 복원
-            self._rename_clip_output(task_id, task, safe_channel, safe_title)
-            return
+        # 재시도 시 만료된 임시 재생 URL이 아닌 원래 클립 URL로 다시 시도하도록 복원한다.
+        try:
+            # 방법 1: ABR_HLS (videoId 해시 + inKey → MPD URL)
+            video_id = content.get("videoId")
+            in_key = content.get("inKey")
+            if video_id and in_key:
+                playback_url = (
+                    f"https://apis.naver.com/neonplayer/vodplay/v1/playback/{video_id}"
+                    f"?key={in_key}&env=real&lc=en_US&cpl=en_US"
+                )
+                logger.info(f"[{task_id}] 클립 ABR_HLS 재생 URL 사용: {playback_url[:80]}...")
+                task.url = playback_url
+                await self._download_external(task_id, task)
+                # _download_external이 task.title을 yt-dlp 메타로 덮어쓰므로 복원
+                self._rename_clip_output(task_id, task, safe_channel, safe_title)
+                return
 
-        # 방법 2: HLS (liveRewindPlaybackJson 또는 playbackJson)
-        for json_key in ("liveRewindPlaybackJson", "playbackJson"):
-            raw = content.get(json_key)
-            if not raw:
-                continue
-            try:
-                playback = _json.loads(raw) if isinstance(raw, str) else raw
-            except Exception:
-                continue
-            for media in (playback.get("media") or []):
-                hls_path = media.get("path") or ""
-                if hls_path.startswith("http"):
-                    logger.info(f"[{task_id}] 클립 HLS URL 사용 ({json_key}): {hls_path[:80]}...")
-                    task.url = hls_path
-                    await self._download_external(task_id, task)
-                    self._rename_clip_output(task_id, task, safe_channel, safe_title)
-                    return
+            # 방법 2: HLS (liveRewindPlaybackJson 또는 playbackJson)
+            for json_key in ("liveRewindPlaybackJson", "playbackJson"):
+                raw = content.get(json_key)
+                if not raw:
+                    continue
+                try:
+                    playback = _json.loads(raw) if isinstance(raw, str) else raw
+                except Exception:
+                    continue
+                for media in (playback.get("media") or []):
+                    hls_path = media.get("path") or ""
+                    if hls_path.startswith("http"):
+                        logger.info(f"[{task_id}] 클립 HLS URL 사용 ({json_key}): {hls_path[:80]}...")
+                        task.url = hls_path
+                        await self._download_external(task_id, task)
+                        self._rename_clip_output(task_id, task, safe_channel, safe_title)
+                        return
+        finally:
+            task.url = original_url
 
         raise RuntimeError(
             f"클립 재생 URL을 추출할 수 없습니다. "
@@ -739,6 +1002,15 @@ class VodEngine:
             if is_twitcasting_url(task.url):
                 reason = await explain_unplayable(
                     task.url, str(e), has_cookies=cookie_file is not None
+                )
+                if reason:
+                    raise NonRetryableDownloadError(reason) from e
+            elif self._is_chzzk_url(task.url):
+                reason = await explain_chzzk_unplayable(
+                    task.url,
+                    str(e),
+                    headers=self._auth.get_http_headers(),
+                    has_cookies=self._auth.is_authenticated,
                 )
                 if reason:
                     raise NonRetryableDownloadError(reason) from e

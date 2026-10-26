@@ -542,3 +542,224 @@ class TestTwitcastingDownloads:
 
         assert seen[0] == (None, None)
         explain.assert_not_awaited()
+
+
+class TestChzzkHlsInitMapPatch:
+    """치지직 liveRewindPlaybackJson 기반 HLS의 중복 #EXT-X-MAP 처리 테스트."""
+
+    @pytest.fixture(autouse=True)
+    def mock_ffmpeg_location(self):
+        with patch("app.core.config.Settings.resolve_ffmpeg_path", return_value="ffmpeg"):
+            yield
+
+    @pytest.mark.asyncio
+    async def test_hls_duplicate_init_map_after_discontinuity_downloads_cleanly(
+        self, tmp_path, monkeypatch
+    ):
+        """첫 세그먼트 뒤에 #EXT-X-DISCONTINUITY와 중복 #EXT-X-MAP이 나와도 HlsFD가 중단 없이 받아야 한다."""
+        import yt_dlp
+
+        init0 = tmp_path / "1080p_0_0_0.m4s"
+        init1 = tmp_path / "1080p_0_0_1.m4s"
+        seg0 = tmp_path / "1080p_0_0_000000.m4v"
+        seg1 = tmp_path / "1080p_0_0_000001.m4v"
+        init0.write_bytes(b"INIT_HEADER;")
+        init1.write_bytes(b"INIT_HEADER;")
+        seg0.write_bytes(b"SEG_ZERO;")
+        seg1.write_bytes(b"SEG_ONE;")
+
+        playlist = tmp_path / "vod.m3u8"
+        playlist.write_text(
+            "#EXTM3U\n"
+            "#EXT-X-VERSION:7\n"
+            "#EXT-X-TARGETDURATION:4\n"
+            "#EXT-X-MEDIA-SEQUENCE:0\n"
+            "#EXT-X-PLAYLIST-TYPE:VOD\n"
+            f'#EXT-X-MAP:URI="{init0.as_uri()}"\n'
+            "#EXTINF:3.0,\n"
+            f"{seg0.as_uri()}\n"
+            "#EXT-X-DISCONTINUITY\n"
+            f'#EXT-X-MAP:URI="{init1.as_uri()}"\n'
+            "#EXTINF:4.0,\n"
+            f"{seg1.as_uri()}\n"
+            "#EXT-X-ENDLIST\n",
+            encoding="utf-8",
+        )
+
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+        engine = VodEngine()
+        task = VodDownloadTask(
+            url="https://chzzk.naver.com/video/15865579",
+            output_dir=str(output_dir),
+        )
+        engine._tasks[task.task_id] = task
+
+        info_template = {
+            "id": "15865579",
+            "title": "날개가 달렸다.",
+            "uploader": "백나모",
+            "extractor": "chzzk:video",
+            "extractor_key": "CHZZKVideo",
+            "ext": "mp4",
+            "protocol": "m3u8_native",
+            "url": playlist.as_uri(),
+            "webpage_url": task.url,
+        }
+
+        def extract_info(ydl, url, download=True):
+            info = info_template.copy()
+            return ydl.process_ie_result(info, download=True) if download else info
+
+        build_options = engine._build_ytdlp_options
+
+        def local_options(*args, **kwargs):
+            return {
+                **build_options(*args, **kwargs),
+                "enable_file_urls": True,
+                # 테스트 환경에 ffmpeg 바이너리가 없어도 HlsFD 결합 동작을 검증할 수 있도록 후처리를 끈다.
+                "fixup": "never",
+            }
+
+        monkeypatch.setattr(yt_dlp.YoutubeDL, "extract_info", extract_info)
+        monkeypatch.setattr(engine, "_build_ytdlp_options", local_options)
+
+        await engine._download_external(task.task_id, task)
+
+        assert task.state == VodDownloadState.COMPLETED
+        assert task.output_path is not None
+        assert Path(task.output_path).read_bytes() == b"INIT_HEADER;SEG_ZERO;SEG_ONE;"
+
+    def test_hls_late_only_init_map_returns_false_from_can_download(self):
+        """초기 #EXT-X-MAP 없이 미디어 세그먼트 뒤에만 #EXT-X-MAP이 나오면 FFmpegFD로 위임해야 한다."""
+        import yt_dlp.downloader.hls as ytdlp_hls
+
+        late_only_manifest = (
+            "#EXTM3U\n"
+            "#EXT-X-VERSION:7\n"
+            "#EXTINF:3.0,\n"
+            "seg0.m4v\n"
+            '#EXT-X-MAP:URI="late_init.m4s"\n'
+            "#EXTINF:3.0,\n"
+            "seg1.m4v\n"
+            "#EXT-X-ENDLIST\n"
+        )
+        assert ytdlp_hls.HlsFD.can_download(late_only_manifest, {"is_live": False}) is False
+
+
+class TestChzzkCookiesAndQualityOptions:
+    """치지직 VOD 쿠키 스트림 전달 및 화질 프리셋 매핑 테스트."""
+
+    @pytest.fixture(autouse=True)
+    def mock_ffmpeg_location(self):
+        with patch("app.core.config.Settings.resolve_ffmpeg_path", return_value="ffmpeg"):
+            yield
+
+    def test_chzzk_url_uses_cookie_stream_without_cookie_header(self, tmp_path):
+        """Cookie 헤더 대신 cookiefile 스트림을 사용해 보안 경고 없이 .naver.com 쿠키를 적재한다."""
+        import yt_dlp
+        from app.engine.auth import AuthManager
+
+        auth = AuthManager(nid_aut="aut_val", nid_ses="ses_val")
+        engine = VodEngine(auth=auth)
+        for url in (
+            "https://chzzk.naver.com/video/15865579",
+            "https://apis.naver.com/neonplayer/vodplay/v1/playback/abc?key=123",
+        ):
+            task = VodDownloadTask(url=url, output_dir=str(tmp_path))
+            opts = engine._build_ytdlp_options(task)
+
+            assert "Cookie" not in opts.get("http_headers", {})
+            assert "User-Agent" in opts.get("http_headers", {})
+            assert opts.get("cookiefile") is not None
+
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                for target in (
+                    "https://api.chzzk.naver.com/service/v3/videos/15865579",
+                    "https://apis.naver.com/neonplayer/vodplay/v1/playback/abc",
+                ):
+                    cookie_header = ydl.cookiejar.get_cookie_header(target)
+                    assert "NID_AUT=aut_val" in cookie_header
+                    assert "NID_SES=ses_val" in cookie_header
+
+    def test_quality_presets_map_to_ytdlp_selectors(self, tmp_path):
+        """프론트엔드 화질 프리셋(1080p/720p/480p)이 유효한 yt-dlp 포맷 셀렉터로 변환되어야 한다."""
+        engine = VodEngine()
+        for preset, height in (("1080p", "1080"), ("720p", "720"), ("480p", "480")):
+            task = VodDownloadTask(
+                url="https://chzzk.naver.com/video/15865579",
+                quality=preset,
+                output_dir=str(tmp_path),
+            )
+            opts = engine._build_ytdlp_options(task)
+            assert f"height<={height}" in opts["format"]
+
+        custom_task = VodDownloadTask(
+            url="https://chzzk.naver.com/video/15865579",
+            quality="1080p_0",
+            output_dir=str(tmp_path),
+        )
+        assert engine._build_ytdlp_options(custom_task)["format"] == "1080p_0"
+
+    @pytest.mark.asyncio
+    async def test_chzzk_adult_vod_fails_immediately_with_korean_reason_and_notifies(
+        self, tmp_path, monkeypatch
+    ):
+        """성인 인증이 필요한 치지직 VOD는 불필요한 3회 재시도 없이 한국어 안내와 함께 실패해야 한다."""
+        import yt_dlp
+
+        notifier = MagicMock()
+        engine = VodEngine(notifier=notifier)
+        task = VodDownloadTask(
+            url="https://chzzk.naver.com/video/99999999",
+            output_dir=str(tmp_path),
+        )
+        engine._tasks[task.task_id] = task
+        sleep = AsyncMock()
+        monkeypatch.setattr("app.engine.vod.asyncio.sleep", sleep)
+
+        def fail_adult(ydl, url, download=True):
+            raise yt_dlp.utils.DownloadError(
+                "\x1b[0;31mERROR:\x1b[0m [chzzk:video] 99999999: Adult video is only available to logged-in users"
+            )
+
+        monkeypatch.setattr(yt_dlp.YoutubeDL, "extract_info", fail_adult)
+
+        await engine._run_download(task.task_id)
+
+        assert task.state == VodDownloadState.ERROR
+        assert task.error_message is not None
+        assert "성인 인증" in task.error_message
+        assert "\x1b[" not in task.error_message
+        sleep.assert_not_awaited()
+        notifier.notify.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_clip_download_restores_original_url_after_failure(self, tmp_path, monkeypatch):
+        """클립 다운로드가 도중에 실패해도 task.url이 임시 재생 URL이 아닌 원래 클립 URL로 유지되어야 한다."""
+        clip_url = "https://chzzk.naver.com/clips/testclip123"
+        engine = VodEngine()
+        task = VodDownloadTask(url=clip_url, output_dir=str(tmp_path))
+        engine._tasks[task.task_id] = task
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {
+            "content": {
+                "contentTitle": "테스트 클립",
+                "ownerChannel": {"channelName": "스트리머"},
+                "videoId": "hash123",
+                "inKey": "key456",
+            }
+        }
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value.get.return_value = mock_resp
+        monkeypatch.setattr("app.engine.vod.httpx.AsyncClient", lambda *a, **kw: mock_client)
+        monkeypatch.setattr(engine, "_download_external", AsyncMock(side_effect=RuntimeError("boom")))
+
+        with pytest.raises(RuntimeError, match="boom"):
+            await engine._download_clip(task.task_id, task)
+
+        assert task.url == clip_url

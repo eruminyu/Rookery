@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
     Download,
     Play,
@@ -13,24 +13,45 @@ import {
     GripVertical,
     FolderOpen,
     Trash2,
+    Info,
 } from "lucide-react";
 import { useVod } from "../contexts/VodContext";
 import { api, VodTask } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useConfirm } from "../components/ui/ConfirmModal";
-import { Badge, Button, EmptyState, Field, Input, PageHeader } from "../components/ui/primitives";
+import { Badge, Button, EmptyState, Field, Input, PageHeader, Select } from "../components/ui/primitives";
 import { clsx } from "clsx";
 import { formatDuration } from "../utils/format";
 import { getErrorMessage } from "../utils/error";
+import { diagnoseVodError } from "../utils/vodError";
 
 export default function VodDownload() {
-    const { tasks, activeCount, addTask, cancelTask, pauseTask, resumeTask, retryTask, clearCompleted, openFileLocation } = useVod();
+    const {
+        tasks,
+        activeCount,
+        defaultQuality,
+        addTask,
+        cancelTask,
+        pauseTask,
+        resumeTask,
+        retryTask,
+        clearCompleted,
+        openFileLocation,
+        inspectTaskError,
+    } = useVod();
     const [url, setUrl] = useState("");
+    const [quality, setQuality] = useState(defaultQuality || "best");
     const [loading, setLoading] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
     const toast = useToast();
     const confirm = useConfirm();
+
+    useEffect(() => {
+        if (defaultQuality) {
+            setQuality(defaultQuality);
+        }
+    }, [defaultQuality]);
 
     useEffect(() => {
         const timer = setTimeout(() => setIsInitialLoad(false), 500);
@@ -44,9 +65,9 @@ export default function VodDownload() {
         setLoading(true);
 
         try {
-            await addTask(url);
+            await addTask(url, quality);
             setUrl("");
-            toast.success("다운로드가 시작되었습니다.");
+            toast.success("다운로드 대기열에 추가되었습니다.");
         } catch (err: unknown) {
             toast.error(getErrorMessage(err, "다운로드 시작에 실패했습니다."));
         } finally {
@@ -143,6 +164,17 @@ export default function VodDownload() {
                             onChange={(event) => setUrl(event.target.value)}
                             autoComplete="off"
                         />
+                        <Select
+                            value={quality}
+                            onChange={(event) => setQuality(event.target.value)}
+                            className="sm:w-44"
+                            options={[
+                                { value: "best", label: "최고 화질 (Best)" },
+                                { value: "1080p", label: "1080p" },
+                                { value: "720p", label: "720p" },
+                                { value: "480p", label: "480p" },
+                            ]}
+                        />
                         <Button type="submit" icon={Download} loading={loading} disabled={!url} variant="primary" className="sm:px-5">
                             다운로드 시작
                         </Button>
@@ -205,6 +237,7 @@ export default function VodDownload() {
                                     onResume={() => resumeTask(task.task_id)}
                                     onRetry={() => handleRetry(task.task_id, task.title)}
                                     onOpenLocation={() => openFileLocation(task.task_id)}
+                                    onInspectError={() => inspectTaskError(task)}
                                 />
                             </div>
                         ))}
@@ -224,9 +257,11 @@ interface TaskCardProps {
     onResume: () => void;
     onRetry: () => void;
     onOpenLocation: () => void;
+    onInspectError: () => void;
 }
 
-function TaskCard({ task, onCancel, onPause, onResume, onRetry, onOpenLocation }: TaskCardProps) {
+function TaskCard({ task, onCancel, onPause, onResume, onRetry, onOpenLocation, onInspectError }: TaskCardProps) {
+    const diagnosis = task.state === "error" || task.error_message ? diagnoseVodError(task) : null;
     const statusBadgeClass =
         task.state === "completed"
             ? "bg-ok/10 text-ok border-ok/20"
@@ -294,10 +329,20 @@ function TaskCard({ task, onCancel, onPause, onResume, onRetry, onOpenLocation }
                     </span>
                 </div>
 
-                <div className="text-xs text-ink-faint font-mono flex flex-wrap gap-x-4">
+                <div className="text-xs text-ink-faint font-mono flex flex-wrap items-center gap-x-4 gap-y-1">
                     <span>화질: {task.quality}</span>
-                    {task.error_message && (
-                        <span className="text-danger">오류: {task.error_message}</span>
+                    {task.state === "downloading" && task.error_message && (
+                        <span className="text-warn">{task.error_message}</span>
+                    )}
+                    {task.state === "error" && diagnosis && (
+                        <button
+                            type="button"
+                            onClick={onInspectError}
+                            className="text-danger hover:underline text-left truncate max-w-full"
+                            title="클릭하여 오류 원인 상세 팝업 열기"
+                        >
+                            원인 ({diagnosis.category}): {diagnosis.summary}
+                        </button>
                     )}
                 </div>
 
@@ -359,9 +404,20 @@ function TaskCard({ task, onCancel, onPause, onResume, onRetry, onOpenLocation }
                     </div>
                 )}
 
-                {/* 재다운로드 버튼 (완료/에러 상태일 때만 표시) */}
+                {/* 재다운로드 및 오류 원인 보기 버튼 (완료/에러 상태일 때만 표시) */}
                 {(task.state === "completed" || task.state === "error") && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                        {task.state === "error" && (
+                            <button
+                                type="button"
+                                onClick={onInspectError}
+                                className="p-1.5 bg-danger/10 hover:bg-danger/20 text-danger border border-danger/25 rounded-[var(--radius-control)] transition-colors flex items-center gap-1 text-xs font-medium"
+                                title="오류 원인 팝업으로 보기"
+                            >
+                                <Info className="w-3 h-3" />
+                                <span>오류 원인 보기</span>
+                            </button>
+                        )}
                         <button
                             onClick={onRetry}
                             className="p-1.5 bg-surface-3 hover:bg-surface-4 text-info border border-line rounded-[var(--radius-control)] transition-colors flex items-center gap-1 text-xs"

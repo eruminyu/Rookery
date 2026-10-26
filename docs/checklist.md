@@ -1,5 +1,15 @@
 # 작업 체크리스트
 
+## 치지직 VOD HLS 다운로드 오류 수정 및 오류 원인 팝업 도입 (2026-10-26)
+
+- [x] 인코딩 전 치지직 다시보기(`liveRewindPlaybackJson` 기반 fMP4 HLS)에서 `#EXT-X-DISCONTINUITY` 뒤 중복 `#EXT-X-MAP`으로 `HlsFD`가 중단되는 원인 확인 및 방어 패치 적용
+- [x] `http_headers["Cookie"]` 대신 재사용 가능한 Netscape 쿠키 스트림(`cookiefile`) 전달로 `Deprecated Feature` 경고 제거 및 `.naver.com` 쿠키 범위 보정
+- [x] `_classify_stderr_line`에서 `Deprecated Feature:` 접두어를 `WARNING` 레벨로 분류
+- [x] 치지직 성인 인증·삭제·비공개 영상 즉시 판별(`explain_chzzk_unplayable`), 클립 실패 시 원본 URL 복원, 화질 프리셋(`1080p`/`720p`/`480p`) 셀렉터 매핑 추가
+- [x] VOD 다운로드 실패 시 자동 팝업 모달(`VodErrorModal`) + 토스트 알림 및 카드별 '오류 원인 보기' 버튼 추가
+- [x] 백엔드 전체 테스트 통과 (`282 passed, 29 skipped`, 기준선 대비 새 테스트 8개)
+- [x] 프런트엔드 TypeScript 검사와 프로덕션 빌드 통과
+
 ## v2.0.9 VOD 재시도 슬롯 교착 수정·릴리즈 준비 (2026-09-26)
 
 - [x] 재시도가 세마포어 슬롯을 쥔 채 재귀하며 슬롯을 하나 더 얻으려는 원인 확인 (`asyncio.Semaphore`는 재진입 불가)

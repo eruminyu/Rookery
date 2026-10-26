@@ -1,11 +1,14 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
 import { api, VodTask } from "../api/client";
 import { useToast } from "../components/ui/Toast";
+import { VodErrorModal } from "../components/ui/VodErrorModal";
 import { getErrorMessage } from "../utils/error";
+import { diagnoseVodError } from "../utils/vodError";
 
 export interface VodContextType {
     tasks: VodTask[];
     activeCount: number;
+    defaultQuality: string;
     addTask: (url: string, quality?: string) => Promise<string>;
     cancelTask: (taskId: string) => Promise<void>;
     pauseTask: (taskId: string) => Promise<void>;
@@ -13,6 +16,7 @@ export interface VodContextType {
     retryTask: (taskId: string) => Promise<string>;
     clearCompleted: () => Promise<void>;
     openFileLocation: (taskId: string) => Promise<void>;
+    inspectTaskError: (task: VodTask) => void;
     refreshTasks: () => Promise<void>;
 }
 
@@ -22,11 +26,55 @@ export function VodProvider({ children }: { children: ReactNode }) {
     const toast = useToast();
     const [tasks, setTasks] = useState<VodTask[]>([]);
     const [activeCount, setActiveCount] = useState(0);
+    const [defaultQuality, setDefaultQuality] = useState("best");
+    const [errorModalTask, setErrorModalTask] = useState<VodTask | null>(null);
+
+    // 이전 폴링 주기의 작업별 상태를 기억해 진행 중이던 작업이 완료/오류로 바뀔 때만 알림·팝업을 띄운다.
+    const prevStatesRef = useRef<Map<string, VodTask["state"]> | null>(null);
+
+    useEffect(() => {
+        api.getSettings()
+            .then((s) => {
+                if (s.vod_default_quality) {
+                    setDefaultQuality(s.vod_default_quality);
+                }
+            })
+            .catch(() => {});
+    }, []);
 
     const applyStatus = useCallback((data: { tasks: VodTask[]; active_count: number; queued_count: number; total_count: number }) => {
+        const prevMap = prevStatesRef.current;
+        const nextMap = new Map<string, VodTask["state"]>();
+
+        for (const task of data.tasks) {
+            nextMap.set(task.task_id, task.state);
+            if (!prevMap) continue;
+
+            const prevState = prevMap.get(task.task_id);
+            const wasActive =
+                prevState === undefined ||
+                prevState === "idle" ||
+                prevState === "downloading" ||
+                prevState === "paused";
+
+            if (wasActive && task.state === "error") {
+                const diagnosis = diagnoseVodError(task);
+                const label = task.title && task.title !== "Unknown" ? task.title : task.url;
+                toast.error(`VOD 다운로드 실패 (${diagnosis.category}): ${label}`);
+                setErrorModalTask(task);
+            } else if (
+                prevState !== undefined &&
+                prevState !== "completed" &&
+                task.state === "completed"
+            ) {
+                toast.success(`VOD 다운로드 완료: ${task.title}`);
+            }
+        }
+
+        prevStatesRef.current = nextMap;
         setTasks(data.tasks);
         setActiveCount(data.active_count);
-    }, []);
+    }, [toast]);
 
     const refreshTasks = useCallback(async () => {
         try {
@@ -44,8 +92,8 @@ export function VodProvider({ children }: { children: ReactNode }) {
         return () => clearInterval(interval);
     }, [refreshTasks]);
 
-    const addTask = async (url: string, quality = "best") => {
-        const { task_id } = await api.downloadVod(url, quality);
+    const addTask = async (url: string, quality?: string) => {
+        const { task_id } = await api.downloadVod(url, quality || defaultQuality || "best");
         await refreshTasks();
         return task_id;
     };
@@ -84,11 +132,16 @@ export function VodProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const inspectTaskError = useCallback((task: VodTask) => {
+        setErrorModalTask(task);
+    }, []);
+
     return (
         <VodContext.Provider
             value={{
                 tasks,
                 activeCount,
+                defaultQuality,
                 addTask,
                 cancelTask,
                 pauseTask,
@@ -96,10 +149,20 @@ export function VodProvider({ children }: { children: ReactNode }) {
                 retryTask,
                 clearCompleted,
                 openFileLocation,
+                inspectTaskError,
                 refreshTasks,
             }}
         >
             {children}
+            {errorModalTask && (
+                <VodErrorModal
+                    task={errorModalTask}
+                    onClose={() => setErrorModalTask(null)}
+                    onRetry={async (taskId) => {
+                        await retryTask(taskId);
+                    }}
+                />
+            )}
         </VodContext.Provider>
     );
 }
