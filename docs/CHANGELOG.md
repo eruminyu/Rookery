@@ -10,6 +10,13 @@
 
 ---
 
+## [2.0.12] - 2026-11-01
+
+### Fixed
+- **유튜브 VOD 다운로드 `Requested format is not available` 포맷 누락 오류 수정** — `v2.0.11`에서 `tv_samsung`·`android_vr` 플레이어 클라이언트를 제외(`-tv_samsung`, `-android_vr`)하면서 `visionos` 단일 클라이언트에 의존하게 되어, 포맷 추출이 스토리보드(`sb0~sb3`)만 있는 `web`으로 폴백되거나 구버전 `yt-dlp` 환경에서 재생 가능한 포맷이 모두 사라지던 문제를 해결했다. 유튜브 `tv_samsung` 스트림의 초기 403 응답은 5초 스킵 가능 광고 타이머(`available_at`) 때문이며 실제 다운로드 시 `yt-dlp`가 5초 대기 후 정상 수신하므로 기본 플레이어 클라이언트 체인(`tv_samsung`, `visionos`, `web`)을 복원하고 `requirements.txt`의 `yt-dlp[default]>=2026.10.26` 최소 버전을 고정했다.
+
+---
+
 ## [2.0.11] - 2026-11-01
 
 ### Fixed
@@ -380,7 +387,9 @@
 
 ---
 
-[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.10...HEAD
+[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.12...HEAD
+[2.0.12]: https://github.com/eruminyu/Rookery/compare/v2.0.11...v2.0.12
+[2.0.11]: https://github.com/eruminyu/Rookery/compare/v2.0.10...v2.0.11
 [2.0.10]: https://github.com/eruminyu/Rookery/compare/v2.0.9...v2.0.10
 [2.0.9]: https://github.com/eruminyu/Rookery/compare/v2.0.8...v2.0.9
 [2.0.8]: https://github.com/eruminyu/Rookery/compare/v2.0.7...v2.0.8

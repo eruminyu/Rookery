@@ -1,5 +1,18 @@
 # 작업 체크리스트
 
+## v2.0.12 유튜브 VOD 다운로드 Requested format is not available 오류 수정 및 릴리즈 준비 (2026-11-01)
+
+- [x] 유튜브 `tv_samsung` 스트림의 초기 403 응답 원인이 5초 스킵 가능 광고 타이머(`available_at`)이며, `-tv_samsung`·`-android_vr` 제외 시 `visionos` 단일 클라이언트 실패 및 구버전 `yt-dlp` 환경에서 `Requested format is not available` 오류가 발생하는 근본 원인 규명
+- [x] `VodEngine._build_ytdlp_options` 및 `get_video_info`에서 `extractor_args` 플레이어 클라이언트 강제 제외(`-tv_samsung`, `-android_vr`) 제거, 기본 클라이언트 체인(`tv_samsung`, `visionos`, `web`) 복원
+- [x] `backend/requirements.txt`에 `yt-dlp[default]>=2026.10.26` 최소 버전 고정
+- [x] 백엔드 전체 테스트 통과 (`282 passed, 29 skipped`) 및 프런트엔드 TypeScript 검사·프로덕션 빌드 통과
+- [x] 백엔드·npm 패키지·lockfile·CHANGELOG·README 버전을 `2.0.12`로 통일
+- [x] PyInstaller Windows one-file 실행 파일 빌드 통과 (`FileVersion`·`ProductVersion` `2.0.12`)
+
+빌드 산출물: `dist/Rookery.exe` (40,019,771 bytes)
+
+SHA-256: `BC780CE37149B4E2D0D448B562D75F40EAD2454FB4FCA20AC3EE7CB23C8A3734`
+
 ## v2.0.11 유튜브 VOD 다운로드 403 Forbidden 오류 수정 및 릴리즈 준비 (2026-11-01)
 
 - [x] 유튜브 CDN(`googlevideo.com`)이 `tv_samsung`·`android_vr` 클라이언트의 스트림 URL을 403 Forbidden으로 차단하며 `visionos` 포맷을 덮어쓰는 원인 확인
