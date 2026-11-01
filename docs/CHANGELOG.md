@@ -10,6 +10,17 @@
 
 ---
 
+## [2.0.13] - 2026-11-01
+
+### Added
+- **YouTube 연령 제한·멤버십 대응 인증 기능 (브라우저 자동 로그인 / cURL·쿠키 붙여넣기 / 파일 업로드)** — `[설정 → 인증 → YouTube]` 카드에서 세 가지 방식으로 유튜브 로그인 세션을 저장할 수 있다.
+  1. **브라우저 로그인 창 열기 (Windows 로컬 실행)**: 버튼 클릭 시 로컬 Chrome/Edge/Brave를 전용 프로필로 띄워 구글 로그인을 완료하면 CDP(`Storage.getCookies`)로 `.youtube.com` 쿠키를 자동 추출해 로컬(`data/youtube_cookies.txt`)에 저장한다.
+  2. **cURL / 쿠키 문자열 붙여넣기 (Windows·Linux 서버 공용)**: 별도 확장 프로그램 없이 개발자 도구(`F12 → Network`)의 `Copy as cURL (bash/cmd)`, `Cookie:` 헤더, 또는 Netscape 텍스트를 붙여넣으면 필수 세션 쿠키(`LOGIN_INFO`, `SAPISID`)를 검증하고 Netscape 포맷으로 자동 변환해 저장한다.
+  3. **`cookies.txt` 파일 업로드**: 기존 Netscape 쿠키 파일 선택 업로드를 지원한다.
+- **YouTube 쿠키 임시 사본 대여 및 연령 제한 즉시 판별** — VOD 다운로드·메타데이터 조회·라이브 녹화 시 원본 쿠키 파일이 덮어써지지 않도록 임시 사본(`borrow_cookie_file`)을 전달하며, 비로그인 연령 확인(`Sign in to confirm your age`) 및 멤버십 전용 오류 발생 시 불필요한 3회 재시도 없이 한국어 원인을 즉시 안내한다.
+
+---
+
 ## [2.0.12] - 2026-11-01
 
 ### Fixed
@@ -387,7 +398,8 @@
 
 ---
 
-[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.12...HEAD
+[Unreleased]: https://github.com/eruminyu/Rookery/compare/v2.0.13...HEAD
+[2.0.13]: https://github.com/eruminyu/Rookery/compare/v2.0.12...v2.0.13
 [2.0.12]: https://github.com/eruminyu/Rookery/compare/v2.0.11...v2.0.12
 [2.0.11]: https://github.com/eruminyu/Rookery/compare/v2.0.10...v2.0.11
 [2.0.10]: https://github.com/eruminyu/Rookery/compare/v2.0.9...v2.0.10

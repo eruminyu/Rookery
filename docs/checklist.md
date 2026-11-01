@@ -1,5 +1,19 @@
 # 작업 체크리스트
 
+## v2.0.13 유튜브 연령 제한·멤버십 대응 인증(브라우저 로그인·cURL/쿠키 붙여넣기·파일 업로드) 추가 및 릴리즈 준비 (2026-11-01)
+
+- [x] TDD 테스트(`backend/tests/test_youtube_cookies.py`) 먼저 작성 (cURL bash/cmd 변환, Cookie 헤더 변환, Netscape 통과, 필수 세션 쿠키 검증, 임시 사본 대여, 엔드포인트 테스트)
+- [x] `backend/app/engine/youtube_cookies.py` 구현: 로컬 Chrome/Edge/Brave 로그인 창 실행 후 CDP(`Storage.getCookies`)로 자동 추출·저장(`login_youtube_via_browser`), `Copy as cURL`·`Cookie:` 헤더·Netscape 변환(`convert_to_netscape_cookies`), 연령 제한·멤버십 전용 즉시 판별(`explain_youtube_unplayable`)
+- [x] `borrow_cookie_file`(`twitcasting.py`) 및 `VodEngine`(`vod.py`)에 유튜브 쿠키 임시 사본 대여 및 연령 제한/멤버십 전용 헛된 재시도 방지 연동
+- [x] `/api/platforms/youtube/browser-login`, `/api/platforms/youtube/cookie-text`, `/api/platforms/youtube/cookie`, `DELETE /api/platforms/youtube/cookie` API 및 프런트엔드 `[설정 → 인증 → YouTube]` UI(`AuthTab.tsx`) 구현
+- [x] 백엔드 전체 테스트 통과 (`292 passed, 29 skipped`, 신규 테스트 10개) 및 프런트엔드 TypeScript 검사·프로덕션 빌드 통과
+- [x] 백엔드·npm 패키지·lockfile·CHANGELOG·README 버전을 `2.0.13`으로 통일, 테스트 기준선을 `292 passed`로 갱신
+- [x] PyInstaller Windows one-file 실행 파일 빌드 통과 (`FileVersion`·`ProductVersion` `2.0.13`)
+
+빌드 산출물: `dist/Rookery.exe` (40,033,810 bytes)
+
+SHA-256: `7BEBA6F98A98A306E2DF1E79C9B7148DAABA30554DE5F6C92F75A9323631E139`
+
 ## v2.0.12 유튜브 VOD 다운로드 Requested format is not available 오류 수정 및 릴리즈 준비 (2026-11-01)
 
 - [x] 유튜브 `tv_samsung` 스트림의 초기 403 응답 원인이 5초 스킵 가능 광고 타이머(`available_at`)이며, `-tv_samsung`·`-android_vr` 제외 시 `visionos` 단일 클라이언트 실패 및 구버전 `yt-dlp` 환경에서 `Requested format is not available` 오류가 발생하는 근본 원인 규명
