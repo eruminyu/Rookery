@@ -433,13 +433,6 @@ class VodEngine:
             "retries": 5,
             "fragment_retries": 5,
             "socket_timeout": 30,
-            # 유튜브 tv_samsung/android_vr 클라이언트가 반환하는 스트림 URL이 403 Forbidden으로
-            # 차단되며 정상 동작하는 visionos 포맷을 덮어쓰는 문제를 막는다.
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["default", "-tv_samsung", "-android_vr"],
-                },
-            },
             # yt-dlp-ejs 서명/n-챌린지 풀이에 시스템의 Deno 또는 Node.js 런타임을 허용한다.
             "js_runtimes": {"deno": {}, "node": {}},
             "no_warnings": True,
@@ -529,11 +522,6 @@ class VodEngine:
             "quiet": True,
             "no_warnings": True,
             "extract_flat": False,
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["default", "-tv_samsung", "-android_vr"],
-                },
-            },
             "js_runtimes": {"deno": {}, "node": {}},
         }
 
