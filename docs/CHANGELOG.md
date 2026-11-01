@@ -10,6 +10,13 @@
 
 ---
 
+## [2.0.11] - 2026-11-01
+
+### Fixed
+- **유튜브 VOD 다운로드 `HTTP Error 403: Forbidden` 차단 및 비공개 오진 수정** — 유튜브 CDN(`googlevideo.com`)이 `tv_samsung`·`android_vr` 플레이어 클라이언트의 스트림 URL을 403으로 차단하면서 정상 동작하는 `visionos` 포맷까지 덮어쓰던 문제를 해결했다(`player_client: ["default", "-tv_samsung", "-android_vr"]` 및 `yt-dlp[default]`·JS 런타임 연동). 또한 `best` 화질 프리셋이 단일 파일(360p) 대신 최고 화질 비디오+오디오 병합(`bestvideo*+bestaudio/best`)을 선택하도록 고치고, 스트림 다운로드 단계의 403 오류를 삭제/비공개 영상으로 잘못 안내하지 않도록 오류 진단을 분리했다.
+
+---
+
 ## [2.0.10] - 2026-10-26
 
 ### Added

@@ -1,5 +1,20 @@
 # 작업 체크리스트
 
+## v2.0.11 유튜브 VOD 다운로드 403 Forbidden 오류 수정 및 릴리즈 준비 (2026-11-01)
+
+- [x] 유튜브 CDN(`googlevideo.com`)이 `tv_samsung`·`android_vr` 클라이언트의 스트림 URL을 403 Forbidden으로 차단하며 `visionos` 포맷을 덮어쓰는 원인 확인
+- [x] `VodEngine._build_ytdlp_options` 및 `get_video_info`에 `extractor_args: {"youtube": {"player_client": ["default", "-tv_samsung", "-android_vr"]}}` 및 `js_runtimes: {"deno": {}, "node": {}}` 적용
+- [x] `VodEngine._QUALITY_MAP`의 `best` 프리셋을 `"bestvideo*+bestaudio/best"`로 변경해 유튜브 단일 파일(360p) 대신 최고 화질 비디오+오디오 병합(1080p60 등) 선택
+- [x] `requirements.txt`, `scripts/manage.sh`, `scripts/manage.bat`에 `yt-dlp[default]` 최신 버전 유지 반영 및 `rookery.spec`에 `yt_dlp_ejs` 서브모듈·번들 JS 데이터 포함
+- [x] `frontend/src/utils/vodError.ts`에서 스트림 데이터 다운로드 단계의 `HTTP Error 403`(`unable to download video data`)을 삭제/비공개 영상과 분리해 `스트림 접근 거부 (403)`으로 진단
+- [x] 백엔드 전체 테스트 통과 (`282 passed, 29 skipped`) 및 프런트엔드 TypeScript 검사·프로덕션 빌드 통과
+- [x] 백엔드·npm 패키지·lockfile·CHANGELOG·README 버전을 `2.0.11`로 통일
+- [x] PyInstaller Windows one-file 실행 파일 빌드 통과 (`FileVersion`·`ProductVersion` `2.0.11`)
+
+빌드 산출물: `dist/Rookery.exe` (40,021,168 bytes)
+
+SHA-256: `2B1C485CBC5A3356E0CE9A238133DB2C010DB395638C408C55DFBE9A56A31A13`
+
 ## v2.0.10 치지직 VOD HLS 다운로드 오류 수정 및 오류 원인 팝업 도입·릴리즈 준비 (2026-10-26)
 
 - [x] 인코딩 전 치지직 다시보기(`liveRewindPlaybackJson` 기반 fMP4 HLS)에서 `#EXT-X-DISCONTINUITY` 뒤 중복 `#EXT-X-MAP`으로 `HlsFD`가 중단되는 원인 확인 및 방어 패치 적용
