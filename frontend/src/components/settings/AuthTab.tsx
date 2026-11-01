@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { AlertCircle, CheckCircle2, KeyRound, Save, Shield, Trash2, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, ClipboardPaste, Globe, KeyRound, Save, Shield, Trash2, Upload } from "lucide-react";
 import { api, type Settings as SettingsType } from "../../api/client";
 import { getErrorMessage } from "../../utils/error";
 import { useSettingsSave } from "../../hooks/useSettingsSave";
@@ -21,6 +21,7 @@ export function AuthTab({ settings, onSaved, onDirtyChange }: Props) {
     const toast = useToast();
     const confirm = useConfirm();
     const cookieFileInputRef = useRef<HTMLInputElement>(null);
+    const ytCookieFileInputRef = useRef<HTMLInputElement>(null);
     const [nidAut, setNidAut] = useState("");
     const [nidSes, setNidSes] = useState("");
     const [cookieStatus, setCookieStatus] = useState<CookieStatus>("unknown");
@@ -30,12 +31,20 @@ export function AuthTab({ settings, onSaved, onDirtyChange }: Props) {
     const { saving: twitcastingSaving, save: saveTwitcasting } = useSettingsSave(onSaved);
     const [xCookieFileSet, setXCookieFileSet] = useState(false);
     const [xCookieUploading, setXCookieUploading] = useState(false);
+    const [ytCookieFileSet, setYtCookieFileSet] = useState(false);
+    const [ytCookieUploading, setYtCookieUploading] = useState(false);
+    const [ytBrowserLoggingIn, setYtBrowserLoggingIn] = useState(false);
+    const [ytCookieText, setYtCookieText] = useState("");
+    const [ytCookieTextSaving, setYtCookieTextSaving] = useState(false);
 
     useEffect(() => {
-        if (settings) setXCookieFileSet(!!settings.x_cookie_file);
+        if (settings) {
+            setXCookieFileSet(!!settings.x_cookie_file);
+            setYtCookieFileSet(!!settings.youtube_cookie_file);
+        }
     }, [settings]);
 
-    const dirty = nidAut !== "" || nidSes !== "" || twitcastingClientId !== "" || twitcastingClientSecret !== "";
+    const dirty = nidAut !== "" || nidSes !== "" || twitcastingClientId !== "" || twitcastingClientSecret !== "" || ytCookieText !== "";
     useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
     const checkCookieStatus = async (showToast = false) => {
@@ -127,6 +136,74 @@ export function AuthTab({ settings, onSaved, onDirtyChange }: Props) {
         }
     };
 
+    const handleYoutubeBrowserLogin = async () => {
+        setYtBrowserLoggingIn(true);
+        try {
+            await api.loginYoutubeBrowser();
+            setYtCookieFileSet(true);
+            toast.success("브라우저 로그인을 통해 YouTube 쿠키가 자동 저장되었습니다!");
+            onSaved();
+        } catch (error) {
+            toast.error(getErrorMessage(error, "YouTube 브라우저 로그인에 실패했습니다."));
+        } finally {
+            setYtBrowserLoggingIn(false);
+        }
+    };
+
+    const handleUploadYoutubeCookie = async (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        setYtCookieUploading(true);
+        try {
+            await api.uploadYoutubeCookie(file);
+            setYtCookieFileSet(true);
+            toast.success("YouTube 쿠키 파일이 업로드되었습니다.");
+            onSaved();
+        } catch (error) {
+            toast.error(getErrorMessage(error, "YouTube 쿠키 파일 업로드에 실패했습니다."));
+        } finally {
+            setYtCookieUploading(false);
+            if (ytCookieFileInputRef.current) ytCookieFileInputRef.current.value = "";
+        }
+    };
+
+    const handleSaveYoutubeCookieText = async () => {
+        if (!ytCookieText.trim()) {
+            toast.error("cURL 명령어 또는 쿠키 문자열을 붙여넣어 주세요.");
+            return;
+        }
+        setYtCookieTextSaving(true);
+        try {
+            await api.saveYoutubeCookieText(ytCookieText);
+            setYtCookieFileSet(true);
+            setYtCookieText("");
+            toast.success("YouTube 쿠키가 변환되어 저장되었습니다.");
+            onSaved();
+        } catch (error) {
+            toast.error(getErrorMessage(error, "YouTube 쿠키 변환 및 저장에 실패했습니다."));
+        } finally {
+            setYtCookieTextSaving(false);
+        }
+    };
+
+    const handleDeleteYoutubeCookie = async () => {
+        const ok = await confirm({
+            title: "YouTube 쿠키 삭제",
+            message: "저장된 YouTube 인증 쿠키를 삭제하시겠습니까?",
+            confirmText: "삭제",
+            variant: "danger",
+        });
+        if (!ok) return;
+        try {
+            await api.deleteYoutubeCookie();
+            setYtCookieFileSet(false);
+            toast.success("YouTube 쿠키가 삭제되었습니다.");
+            onSaved();
+        } catch (error) {
+            toast.error(getErrorMessage(error, "YouTube 쿠키 삭제에 실패했습니다."));
+        }
+    };
+
     const cookieBadge = cookieStatus === "checking" ? (
         <Badge>확인 중...</Badge>
     ) : cookieStatus === "valid" ? (
@@ -181,6 +258,73 @@ export function AuthTab({ settings, onSaved, onDirtyChange }: Props) {
                     {xCookieFileSet && <Button variant="danger" icon={Trash2} onClick={handleDeleteXCookie}>삭제</Button>}
                 </div>
                 {xCookieFileSet && <p className="flex items-center gap-2 text-xs text-ok"><CheckCircle2 className="w-4 h-4" /> X Spaces 인증 파일이 준비되었습니다.</p>}
+            </Card>
+
+            <Card className="space-y-5">
+                <CardHeader
+                    icon={KeyRound}
+                    title="YouTube"
+                    description="연령 제한(성인 인증) 또는 멤버십 전용 영상을 받을 때 사용할 유튜브 로그인 세션을 저장합니다."
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                    <StatusDot active={ytCookieFileSet} label={ytCookieFileSet ? "인증됨" : "미설정"} />
+                    <Button
+                        variant="primary"
+                        icon={Globe}
+                        loading={ytBrowserLoggingIn}
+                        onClick={handleYoutubeBrowserLogin}
+                    >
+                        {ytBrowserLoggingIn ? "브라우저 로그인 대기 중..." : "브라우저 로그인 창 열기"}
+                    </Button>
+                    <input
+                        ref={ytCookieFileInputRef}
+                        type="file"
+                        accept=".txt"
+                        className="hidden"
+                        onChange={handleUploadYoutubeCookie}
+                    />
+                    <Button
+                        icon={Upload}
+                        loading={ytCookieUploading}
+                        onClick={() => ytCookieFileInputRef.current?.click()}
+                    >
+                        {ytCookieUploading ? "업로드 중..." : "cookies.txt 파일 선택"}
+                    </Button>
+                    {ytCookieFileSet && (
+                        <Button variant="danger" icon={Trash2} onClick={handleDeleteYoutubeCookie}>
+                            삭제
+                        </Button>
+                    )}
+                </div>
+
+                <Field
+                    label="cURL / 쿠키 문자열 직접 붙여넣기 (원격 서버·Linux 공용)"
+                    hint="유튜브 탭에서 F12 → Network 탭의 요청 우클릭 → Copy → Copy as cURL (또는 Cookie 헤더/Netscape 텍스트)을 붙여넣으면 자동 변환됩니다."
+                >
+                    <div className="space-y-2.5">
+                        <textarea
+                            rows={3}
+                            value={ytCookieText}
+                            onChange={(event) => setYtCookieText(event.target.value)}
+                            placeholder="curl 'https://www.youtube.com/...' -b 'LOGIN_INFO=...; SAPISID=...' 또는 Cookie: LOGIN_INFO=...; SAPISID=..."
+                            className="w-full rounded-[var(--radius-control)] border border-line bg-surface-1 px-3.5 py-2.5 text-[13px] text-ink placeholder:text-ink-faint focus:border-[var(--primary)] focus:outline-none font-mono"
+                        />
+                        <Button
+                            icon={ClipboardPaste}
+                            loading={ytCookieTextSaving}
+                            onClick={handleSaveYoutubeCookieText}
+                            className="w-full sm:w-auto"
+                        >
+                            {ytCookieTextSaving ? "변환 및 저장 중..." : "쿠키 변환 및 저장"}
+                        </Button>
+                    </div>
+                </Field>
+
+                {ytCookieFileSet && (
+                    <p className="flex items-center gap-2 text-xs text-ok">
+                        <CheckCircle2 className="w-4 h-4" /> YouTube 인증 쿠키가 준비되었습니다.
+                    </p>
+                )}
             </Card>
         </div>
     );

@@ -127,13 +127,16 @@ export interface Settings {
 
     // X Spaces 인증
     x_cookie_file?: string;
+
+    // YouTube 인증
+    youtube_cookie_file?: string;
 }
 
 export interface PlatformStatus {
     chzzk: { enabled: boolean; authenticated: boolean };
     twitcasting: { enabled: boolean; authenticated: boolean };
     x_spaces: { enabled: boolean; authenticated: boolean; cookie_file_set: boolean };
-    youtube: { enabled: boolean; authenticated: boolean };
+    youtube: { enabled: boolean; authenticated: boolean; cookie_file_set?: boolean };
 }
 
 export interface TwitcastingSettingsUpdate {
@@ -470,6 +473,26 @@ export const api = {
     },
     deleteXCookie: async () => {
         const res = await client.delete("/platforms/x/cookie");
+        return res.data;
+    },
+    uploadYoutubeCookie: async (file: File) => {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await client.post("/platforms/youtube/cookie", form, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+        return res.data;
+    },
+    saveYoutubeCookieText: async (text: string) => {
+        const res = await client.post("/platforms/youtube/cookie-text", { text });
+        return res.data;
+    },
+    loginYoutubeBrowser: async () => {
+        const res = await client.post("/platforms/youtube/browser-login");
+        return res.data;
+    },
+    deleteYoutubeCookie: async () => {
+        const res = await client.delete("/platforms/youtube/cookie");
         return res.data;
     },
 

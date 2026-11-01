@@ -85,6 +85,8 @@ async def get_current_settings():
         "twitcasting_client_secret": None,
         # X Spaces 인증
         "x_cookie_file": settings.x_cookie_file,
+        # YouTube 인증
+        "youtube_cookie_file": settings.youtube_cookie_file,
     }
 
 

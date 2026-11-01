@@ -23,6 +23,10 @@ from app.core.utils import (
     update_env_file as _update_env_file,
 )
 from app.engine.base import Platform
+from app.engine.youtube_cookies import (
+    convert_to_netscape_cookies,
+    login_youtube_via_browser,
+)
 
 router = APIRouter(prefix="/api/platforms", tags=["Platforms"])
 
@@ -42,6 +46,12 @@ class TwitcastingSettingsRequest(BaseModel):
 
     client_id: str = Field(..., description="TwitCasting Client ID")
     client_secret: str = Field(..., description="TwitCasting Client Secret")
+
+
+class YoutubeCookieTextRequest(BaseModel):
+    """유튜브 쿠키 텍스트(cURL / Cookie 헤더 / Netscape) 저장 요청."""
+
+    text: str = Field(..., description="Copy as cURL, Cookie 헤더 또는 Netscape 쿠키 텍스트")
 
 
 # ── 채널 관리 ────────────────────────────────────────────
@@ -157,6 +167,7 @@ async def get_platform_status():
         "youtube": {
             "enabled": True,
             "authenticated": True,
+            "cookie_file_set": bool(settings.youtube_cookie_file),
         },
     }
 
@@ -178,8 +189,10 @@ async def update_twitcasting_settings(req: TwitcastingSettingsRequest):
 import sys as _sys
 if getattr(_sys, "frozen", False):
     _COOKIE_SAVE_PATH = Path(_sys.executable).parent / "data" / "x_cookies.txt"
+    _YOUTUBE_COOKIE_SAVE_PATH = Path(_sys.executable).parent / "data" / "youtube_cookies.txt"
 else:
     _COOKIE_SAVE_PATH = Path(__file__).resolve().parents[2] / "data" / "x_cookies.txt"
+    _YOUTUBE_COOKIE_SAVE_PATH = Path(__file__).resolve().parents[2] / "data" / "youtube_cookies.txt"
 
 
 @router.post("/x/cookie", summary="X Spaces 쿠키 파일 업로드")
@@ -206,3 +219,65 @@ async def delete_x_cookie():
     _update_env_file({"X_COOKIE_FILE": ""})
     get_settings.cache_clear()
     return {"message": "쿠키 파일 삭제 완료."}
+
+
+def _save_youtube_netscape_cookies(netscape_text: str) -> str:
+    """검증된 Netscape 유튜브 쿠키를 파일로 저장하고 .env를 갱신한다."""
+    save_path = _YOUTUBE_COOKIE_SAVE_PATH
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    save_path.write_text(netscape_text, encoding="utf-8")
+    _update_env_file({"YOUTUBE_COOKIE_FILE": str(save_path)})
+    get_settings.cache_clear()
+    return str(save_path)
+
+
+@router.post("/youtube/cookie", summary="YouTube 쿠키 파일 업로드")
+async def upload_youtube_cookie(file: UploadFile = File(...)):
+    """Netscape 형식(또는 쿠키 텍스트) 파일을 업로드하여 YouTube 인증 쿠키로 저장합니다."""
+    raw_bytes = await file.read()
+    try:
+        raw_text = raw_bytes.decode("utf-8", errors="replace")
+        netscape_text = convert_to_netscape_cookies(raw_text)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    saved_path = _save_youtube_netscape_cookies(netscape_text)
+    return {"message": "YouTube 쿠키 파일 업로드 완료.", "path": saved_path}
+
+
+@router.post("/youtube/cookie-text", summary="YouTube 쿠키 텍스트(cURL/Cookie) 변환 및 저장")
+async def save_youtube_cookie_text(req: YoutubeCookieTextRequest):
+    """Copy as cURL, Cookie 헤더 또는 Netscape 쿠키 텍스트를 변환하여 저장합니다."""
+    try:
+        netscape_text = convert_to_netscape_cookies(req.text)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    saved_path = _save_youtube_netscape_cookies(netscape_text)
+    return {"message": "YouTube 쿠키가 변환되어 저장되었습니다.", "path": saved_path}
+
+
+@router.post("/youtube/browser-login", summary="로컬 브라우저 로그인 창으로 YouTube 쿠키 자동 저장")
+async def youtube_browser_login():
+    """로컬 Chrome/Edge 로그인 창을 띄워 로그인 완료 시 YouTube 쿠키를 자동 추출·저장합니다."""
+    try:
+        netscape_text = await login_youtube_via_browser()
+    except (RuntimeError, TimeoutError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"브라우저 로그인 중 오류 발생: {e}")
+
+    saved_path = _save_youtube_netscape_cookies(netscape_text)
+    return {"message": "브라우저 로그인을 통해 YouTube 쿠키가 저장되었습니다.", "path": saved_path}
+
+
+@router.delete("/youtube/cookie", summary="YouTube 쿠키 파일 삭제")
+async def delete_youtube_cookie():
+    """저장된 YouTube 쿠키 파일을 삭제하고 설정을 초기화합니다."""
+    save_path = _YOUTUBE_COOKIE_SAVE_PATH
+    if save_path.exists():
+        save_path.unlink()
+
+    _update_env_file({"YOUTUBE_COOKIE_FILE": ""})
+    get_settings.cache_clear()
+    return {"message": "YouTube 쿠키 삭제 완료."}

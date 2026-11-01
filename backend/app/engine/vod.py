@@ -24,6 +24,7 @@ from app.core.http import USER_AGENT, get_http_client
 from app.core.logger import logger
 from app.engine.auth import AuthManager
 from app.engine.twitcasting import borrow_cookie_file, explain_unplayable, is_twitcasting_url
+from app.engine.youtube_cookies import explain_youtube_unplayable, is_youtube_url
 
 # ── yt-dlp DASH MPD 파서 멍키패치 ──────────────────────────────
 # 치지직 VOD(ABR_HLS 방식) 다운로드 시 Initialization의 sourceURL 및 SegmentURL의 media 속성이
@@ -1014,6 +1015,12 @@ class VodEngine:
                     str(e),
                     headers=self._auth.get_http_headers(),
                     has_cookies=self._auth.is_authenticated,
+                )
+                if reason:
+                    raise NonRetryableDownloadError(reason) from e
+            elif is_youtube_url(task.url):
+                reason = explain_youtube_unplayable(
+                    str(e), has_cookies=cookie_file is not None
                 )
                 if reason:
                     raise NonRetryableDownloadError(reason) from e

@@ -224,12 +224,19 @@ def twitcasting_cookie_file() -> Optional[str]:
 
 @contextmanager
 def borrow_cookie_file(url: str) -> Iterator[Optional[str]]:
-    """TwitCasting URL이면 로그인 쿠키 파일의 임시 사본 경로를 빌려준다.
+    """TwitCasting 또는 YouTube URL이면 로그인 쿠키 파일의 임시 사본 경로를 빌려준다.
 
     yt-dlp는 끝날 때 쿠키 파일을 다시 쓴다. 원본을 그대로 넘기면 동시에 도는
     다운로드와 녹화가 같은 파일을 번갈아 덮어써 쿠키가 깨질 수 있다.
     """
-    source = twitcasting_cookie_file() if is_twitcasting_url(url) else None
+    from app.engine.youtube_cookies import is_youtube_url, youtube_cookie_file
+
+    if is_twitcasting_url(url):
+        source = twitcasting_cookie_file()
+    elif is_youtube_url(url):
+        source = youtube_cookie_file()
+    else:
+        source = None
     if source is None:
         yield None
         return

@@ -152,6 +152,9 @@ class Settings(BaseSettings):
     # ── X Spaces 인증 ────────────────────────────────────
     x_cookie_file: Optional[str] = None  # Netscape 형식 쿠키 파일 경로
 
+    # ── YouTube 인증 ─────────────────────────────────────
+    youtube_cookie_file: Optional[str] = None  # Netscape 형식 쿠키 파일 경로
+
     def resolve_ytdlp_path(self, auto_download: bool = False) -> str:
         """yt-dlp 실행 파일 경로를 탐색 순서에 따라 결정한다.
 
