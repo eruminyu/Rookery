@@ -62,6 +62,23 @@ export function diagnoseVodError(
         };
     }
 
+    // 1-B. 스트림 데이터 다운로드 단계 403 Forbidden (유튜브 CDN 서명/클라이언트 차단 등)
+    if (lower.includes("unable to download video data") && lower.includes("http error 403")) {
+        return {
+            category: "스트림 접근 거부 (403)",
+            headline: "미디어 스트림 서버가 다운로드를 거부했습니다 (HTTP 403)",
+            summary:
+                "영상 페이지 자체는 정상적으로 열리지만, 스트리밍 서버(유튜브 CDN 등)가 미디어 데이터 요청을 403 Forbidden으로 차단했습니다. yt-dlp 버전이 오래되었거나 일시적인 스트림 토큰 만료일 때 발생합니다.",
+            suggestions: [
+                "'다시 다운로드'를 눌러 새 스트림 주소로 재시도해 보세요.",
+                "문제가 반복되면 Rookery(또는 yt-dlp)를 최신 버전으로 업데이트하고 JS 런타임(Deno 또는 Node.js)이 설치되어 있는지 확인하세요.",
+            ],
+            needsAuthCheck: false,
+            canRetry: true,
+            rawMessage: raw,
+        };
+    }
+
     // 2. 삭제 / 비공개 / 블라인드 / 구독자 전용
     if (
         stripped.includes("삭제되었거나") ||

@@ -391,7 +391,7 @@ class VodEngine:
     # 프론트엔드 화질 프리셋(best, 1080p, 720p, 480p)을 yt-dlp 포맷 셀렉터로 변환한다.
     # 사용자가 직접 format_id를 지정한 경우에는 그대로 통과시킨다.
     _QUALITY_MAP: dict[str, str] = {
-        "best": "best",
+        "best": "bestvideo*+bestaudio/best",
         "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
         "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
         "480p": "bestvideo[height<=480]+bestaudio/best[height<=480]/best",
@@ -433,6 +433,15 @@ class VodEngine:
             "retries": 5,
             "fragment_retries": 5,
             "socket_timeout": 30,
+            # 유튜브 tv_samsung/android_vr 클라이언트가 반환하는 스트림 URL이 403 Forbidden으로
+            # 차단되며 정상 동작하는 visionos 포맷을 덮어쓰는 문제를 막는다.
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["default", "-tv_samsung", "-android_vr"],
+                },
+            },
+            # yt-dlp-ejs 서명/n-챌린지 풀이에 시스템의 Deno 또는 Node.js 런타임을 허용한다.
+            "js_runtimes": {"deno": {}, "node": {}},
             "no_warnings": True,
             "quiet": True,
             "no_color": True,
@@ -520,6 +529,12 @@ class VodEngine:
             "quiet": True,
             "no_warnings": True,
             "extract_flat": False,
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["default", "-tv_samsung", "-android_vr"],
+                },
+            },
+            "js_runtimes": {"deno": {}, "node": {}},
         }
 
         # 치지직 URL인 경우에만 User-Agent 및 인증 쿠키 주입

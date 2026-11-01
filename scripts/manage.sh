@@ -340,6 +340,7 @@ setup_python_env() {
   [ -d "$venv" ] || "$PYTHON_CMD" -m venv "$venv"
   "$venv/bin/pip" install --upgrade pip -q
   "$venv/bin/pip" install -r "$INSTALL_DIR/backend/requirements.txt" -q
+  "$venv/bin/pip" install --upgrade "yt-dlp[default]" -q
   info "의존성 설치 완료 ✓"
 }
 
@@ -581,6 +582,7 @@ cmd_update() {
 
     step "Python 의존성 갱신"
     "$(venv_pip)" install -r "$INSTALL_DIR/backend/requirements.txt" -q
+    "$(venv_pip)" install --upgrade "yt-dlp[default]" -q
     info "갱신 완료 ✓"
   fi
 

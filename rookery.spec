@@ -96,6 +96,7 @@ hidden_imports = [
     "discord.ext.commands",
     # yt-dlp
     "yt_dlp",
+    *collect_submodules("yt_dlp_ejs"),
     # dotenv
     "dotenv",
     # ssl
@@ -110,6 +111,8 @@ datas = [
     ("assets/icon.png", "assets"),
     # SSL 인증서 번들 (certifi)
     (certifi.where(), "certifi"),
+    # 유튜브 JS 챌린지(서명·n-파라미터) 풀이 번들 스크립트 (yt-dlp-ejs)
+    *collect_data_files("yt_dlp_ejs"),
 ]
 
 # ── 외부 바이너리: ffmpeg는 라이선스 문제로 번들하지 않음 ──────

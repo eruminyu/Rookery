@@ -50,6 +50,7 @@ echo.
 echo ^> Python 의존성
 "%PY%" -m pip install --upgrade pip -q
 "%PY%" -m pip install -r "%ROOT%\backend\requirements.txt" -q
+"%PY%" -m pip install --upgrade "yt-dlp[default]" -q
 if errorlevel 1 (
     echo [X] 의존성 설치 실패
     exit /b 1

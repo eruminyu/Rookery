@@ -3,7 +3,7 @@ uvicorn[standard]
 python-multipart
 httpx
 aiofiles
-yt-dlp
+yt-dlp[default]
 ffmpeg-python
 python-dotenv
 pydantic-settings
